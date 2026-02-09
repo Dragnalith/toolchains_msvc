@@ -1,0 +1,7 @@
+genrule(
+    name = "verify_module",
+    srcs = ["@msvc_toolchain//:found.txt"],
+    outs = ["verify.txt"],
+    cmd_bash = "cat $(SRCS) > $@",
+    cmd_bat = "type $(SRCS) > $@",
+)

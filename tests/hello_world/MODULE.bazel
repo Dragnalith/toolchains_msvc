@@ -1,0 +1,23 @@
+module(
+    name = "test_module",
+    version = "0.0.1",
+)
+
+bazel_dep(name = "toolchains_msvc", version = "0.1.0")
+local_path_override(
+    module_name = "toolchains_msvc",
+    path = "../../../toolchains_msvc",
+)
+
+add_toolchain = use_extension("@toolchains_msvc//:extensions.bzl", "add_toolchain")
+add_toolchain.msvc(
+    msvc_version = "14.44",
+    win_sdk_version = "26100",
+)
+add_toolchain.msvc(
+    msvc_version = "14.29",
+    win_sdk_version = "19041",
+)
+use_repo(add_toolchain, "msvc_toolchain")
+
+register_toolchains("@msvc_toolchain//:all")
