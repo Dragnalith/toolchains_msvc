@@ -2,7 +2,33 @@
 
 def _repo_impl(ctx):
     ctx.file("found.txt", ctx.attr.content)
-    ctx.file("BUILD.bazel", 'exports_files(["found.txt"])')
+
+    # 1. Download the root manifest
+    ctx.download(
+        url = "https://aka.ms/vs/17/release/channel",
+        output = "visual_studio_root_manifest.json",
+    )
+
+    # 2. Parse the root manifest to find the package manifest URL
+    root_manifest_content = ctx.read("visual_studio_root_manifest.json")
+    root_manifest = json.decode(root_manifest_content)
+
+    package_manifest_url = None
+    for item in root_manifest["channelItems"]:
+        if item["id"] == "Microsoft.VisualStudio.Manifests.VisualStudio":
+            package_manifest_url = item["payloads"][0]["url"]
+            break
+
+    if not package_manifest_url:
+        fail("Could not find Microsoft.VisualStudio.Manifests.VisualStudio in root manifest")
+
+    # 3. Download the package manifest
+    ctx.download(
+        url = package_manifest_url,
+        output = "visual_studio_package_manifest.json",
+    )
+
+    ctx.file("BUILD.bazel", 'exports_files(["found.txt", "visual_studio_root_manifest.json", "visual_studio_package_manifest.json"])')
 
 msvc_repo = repository_rule(
     implementation = _repo_impl,
