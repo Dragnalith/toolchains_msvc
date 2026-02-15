@@ -1,0 +1,1 @@
+exports_files(["vs_channel_manifest.bzl"])

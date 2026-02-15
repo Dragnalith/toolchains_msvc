@@ -1,0 +1,143 @@
+"""Module for downloading and parsing Visual Studio channel manifests."""
+
+def download_and_map(ctx):
+    """Downloads the VS manifest and returns a mapping of package IDs to package data.
+
+    Args:
+        ctx: The module_context or repository_ctx.
+
+    Returns:
+        A dictionary mapping package IDs to package data.
+    """
+
+    # 1. Download the root manifest
+    ctx.report_progress("Downloading Visual Studio root manifest...")
+    ctx.download(
+        url = "https://aka.ms/vs/17/release/channel",
+        output = "visual_studio_root_manifest.json",
+    )
+
+    # 2. Parse the root manifest to find the package manifest URL
+    root_manifest_content = ctx.read("visual_studio_root_manifest.json")
+    root_manifest = json.decode(root_manifest_content)
+
+    package_manifest_url = None
+    for item in root_manifest["channelItems"]:
+        if item["id"] == "Microsoft.VisualStudio.Manifests.VisualStudio":
+            package_manifest_url = item["payloads"][0]["url"]
+            break
+
+    if not package_manifest_url:
+        fail("Could not find Microsoft.VisualStudio.Manifests.VisualStudio in root manifest")
+
+    # 3. Download the package manifest
+    ctx.report_progress("Downloading Visual Studio package manifest...")
+    ctx.download(
+        url = package_manifest_url,
+        output = "visual_studio_package_manifest.json",
+    )
+
+    package_manifest_content = ctx.read("visual_studio_package_manifest.json")
+    package_manifest = json.decode(package_manifest_content)
+
+    packages_map = {}
+    for pkg in package_manifest.get("packages", []):
+        if "id" not in pkg:
+            continue
+
+        lang = pkg.get("language")
+        if lang and lang.lower() != "en-us":
+            continue
+
+        packages_map[pkg["id"]] = pkg
+
+    return packages_map
+
+def get_winsdk_msi_list(targets):
+    msi_list = [
+        "Windows SDK for Windows Store Apps Tools-x86_en-us.msi",
+        "Windows SDK for Windows Store Apps Headers-x86_en-us.msi",
+        "Windows SDK for Windows Store Apps Libs-x86_en-us.msi",
+        "Universal CRT Headers Libraries and Sources-x86_en-us.msi"
+    ]
+    for target in targets:
+        msi_list.append("Windows SDK Desktop Headers {target}-x86_en-us.msi".format(target = target))
+        msi_list.append("Windows SDK Desktop Libs {target}-x86_en-us.msi".format(target = target))
+    return msi_list
+
+def get_winsdk_package_id(version):
+    """Finds all dependencies for a specific Windows SDK version."""
+    return "Win11SDK_10.0.{version}".format(version = version)
+
+def get_msvc_package_ids(packages_map, version):
+    """Finds all dependencies for a specific MSVC version.
+
+    Args:
+        packages_map: The map of package IDs to package data.
+        version: The MSVC version string (e.g., "14.44.17.14").
+
+    Returns:
+        A list of package IDs sorted alphabetically.
+    """
+
+    root_id = "Microsoft.VisualStudio.Product.BuildTools"
+    filter_prefix = "Microsoft.VC.{}.".format(version).lower()
+
+    visited = {}
+    found_dependencies = {}
+
+    stack = [root_id]
+
+    max_iterations = len(packages_map) * 2
+
+    for _ in range(max_iterations):
+        if not stack:
+            break
+
+        current_id = stack.pop()
+
+        if current_id in visited:
+            continue
+        visited[current_id] = True
+
+        pkg = packages_map.get(current_id)
+        if not pkg:
+            continue
+
+        pid_lower = current_id.lower()
+
+        is_match = False
+        if current_id != root_id:
+            if (pid_lower.startswith(filter_prefix) and
+                pid_lower.endswith(".base") and
+                "spectre" not in pid_lower and
+                ".props" not in pid_lower and
+                ".servicing" not in pid_lower and
+                ".mfc" not in pid_lower and
+                ".atl" not in pid_lower and
+                ".onecore" not in pid_lower and
+                "x86" not in pid_lower and
+                "arm" not in pid_lower and
+                ".cli" not in pid_lower and
+                ".ca." not in pid_lower):
+                is_match = True
+
+        if is_match:
+            found_dependencies[current_id] = True
+
+        dependencies = pkg.get("dependencies", {})
+        for dep_id, dep_info in dependencies.items():
+            if type(dep_info) == "dict":
+                when_clause = dep_info.get("when")
+                if when_clause != None:
+                    found_root = False
+                    for w in when_clause:
+                        if w == root_id:
+                            found_root = True
+                            break
+                    if not found_root:
+                        continue
+
+            stack.append(dep_id)
+
+    return sorted(found_dependencies.keys())

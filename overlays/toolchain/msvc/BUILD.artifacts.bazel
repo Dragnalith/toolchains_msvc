@@ -1,0 +1,54 @@
+load("@rules_cc//cc/toolchains:artifacts.bzl", "cc_artifact_name_pattern")
+
+package(default_visibility = ["//visibility:public"])
+
+# Executables on Windows end with .exe
+cc_artifact_name_pattern(
+    name = "executable",
+    category = "@rules_cc//cc/toolchains/artifacts:executable",
+    extension = ".exe",
+    prefix = "",
+)
+
+# Object files on Windows end with .obj
+cc_artifact_name_pattern(
+    name = "object_file",
+    category = "@rules_cc//cc/toolchains/artifacts:object_file",
+    extension = ".obj",
+    prefix = "",
+)
+
+# Note: PIC object files are not used by MSVC on Windows.
+# Windows executables are implicitly position-independent.
+
+# Static libraries on Windows end with .lib
+cc_artifact_name_pattern(
+    name = "static_library",
+    category = "@rules_cc//cc/toolchains/artifacts:static_library",
+    extension = ".lib",
+    prefix = "",
+)
+
+# Alwayslink static libraries on Windows (Bazel requires .lo or .lo.lib extension)
+cc_artifact_name_pattern(
+    name = "alwayslink_static_library",
+    category = "@rules_cc//cc/toolchains/artifacts:alwayslink_static_library",
+    extension = ".lo.lib",
+    prefix = "",
+)
+
+# Dynamic libraries on Windows end with .dll
+cc_artifact_name_pattern(
+    name = "dynamic_library",
+    category = "@rules_cc//cc/toolchains/artifacts:dynamic_library",
+    extension = ".dll",
+    prefix = "",
+)
+
+# Interface libraries (import libraries) on Windows end with .lib
+cc_artifact_name_pattern(
+    name = "interface_library",
+    category = "@rules_cc//cc/toolchains/artifacts:interface_library",
+    extension = ".lib",
+    prefix = "",
+)

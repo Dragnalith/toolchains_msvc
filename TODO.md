@@ -1,0 +1,6 @@
+- [ ] Fix double .obj at link time
+- [ ] response file
+- [ ] Remove unecessary target platform
+- [ ] Select sdk and compiler version
+- [ ] Enforce version numbers and display available list using invalid one
+- [ ] Support WinSDK 19041

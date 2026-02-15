@@ -1,19 +1,6 @@
-genrule(
-    name = "verify_module",
-    srcs = [
-        "@msvc_toolchain//:found.txt",
-        "@msvc_toolchain//:visual_studio_root_manifest.json",
-        "@msvc_toolchain//:visual_studio_package_manifest.json",
-    ],
-    outs = [
-        "verify.txt",
-        "visual_studio_root_manifest.json",
-        "visual_studio_package_manifest.json",
-    ],
-    cmd_bash = """\r
-        cp $(location @msvc_toolchain//:found.txt) $(location verify.txt) && \\\r
-        cp $(location @msvc_toolchain//:visual_studio_root_manifest.json) $(location visual_studio_root_manifest.json) && \\\r
-        cp $(location @msvc_toolchain//:visual_studio_package_manifest.json) $(location visual_studio_package_manifest.json)\r
-    """,
-    cmd_bat = "type $(location @msvc_toolchain//:found.txt) > $(location verify.txt) && type $(location @msvc_toolchain//:visual_studio_root_manifest.json) > $(location visual_studio_root_manifest.json) && type $(location @msvc_toolchain//:visual_studio_package_manifest.json) > $(location visual_studio_package_manifest.json)",
+load("@rules_cc//cc:defs.bzl", "cc_binary")
+
+cc_binary(
+    name = "hello_world",
+    srcs = ["main.cpp"],
 )

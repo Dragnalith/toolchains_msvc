@@ -1,0 +1,7 @@
+exports_files([
+    "BUILD.features.bazel",
+    "BUILD.artifacts.bazel",
+    "BUILD.args.tpl",
+    "BUILD.toolchain.tpl",
+    "BUILD.tools.tpl",
+])

@@ -13,8 +13,8 @@ This module provides a C++ toolchain for `rules_cc` using the official MSVC comp
 The toolchain ensures that only packages belonging to the `Microsoft.VisualStudio.Product.BuildTools` product are downloaded by checking the Visual Studio channel manifest.
 
 It generates:
-*   `@msvc_<version>` for each requested MSVC version
-*   `@winsdk_<version>` for each requested Windows SDK version
+*   `@msvc_{version}` for each requested MSVC version
+*   `@winsdk_{version}` for each requested Windows SDK version
 *   `@msvc_toolchains` containing all toolchain definitions
 
 ## Usage

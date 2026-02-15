@@ -7,6 +7,8 @@ It supports:
 - listing available MSVC versions.
 - listing files within a package payload.
 - Downloading and extracting specific packages or MSI files, including handling of associated cabinet files.
+
+*This script is for research purposes only and should not be used in the module implementation.*
 """
 import json
 import sys
@@ -18,34 +20,39 @@ import zipfile
 import io
 import subprocess
 import tempfile
+import pprint
 
-def get_dependencies(root_id, packages_map, filter_lambda):
+def get_dependencies(root_id, packages_map, filter_lambda, no_duplicate=True):
     visited = set()
-    found_dependencies = set()
+    found_dependencies = dict()
 
     def visit(current_id):
-        if current_id in visited:
-            return
-        visited.add(current_id)
-
-        pkg = packages_map.get(current_id)
-        if not pkg:
+        pkgs = packages_map.get(current_id)
+        if not pkgs:
             return
 
-        if current_id != root_id:
-            if filter_lambda(current_id, pkg):
-                found_dependencies.add(current_id)
+        for pkg in pkgs:
+            visit_key = current_id
+            if visit_key in visited:
+                return
+            visited.add(visit_key)
 
-        dependencies = pkg.get('dependencies', {})
-        for dep_id, dep_info in dependencies.items():
-            # Check 'when' condition
-            if isinstance(dep_info, dict):
-                when_clause = dep_info.get('when')
-                if when_clause is not None:
-                        if root_id not in when_clause:
-                            continue
-            
-            visit(dep_id)
+            if current_id != root_id:
+                if filter_lambda(current_id, pkg):
+                    if no_duplicate:
+                        assert current_id not in found_dependencies, f"Duplicate package id '{current_id}'"
+                    found_dependencies[current_id] = pkg
+
+            dependencies = pkg.get('dependencies', {})
+            for dep_id, dep_info in dependencies.items():
+                # Check 'when' condition
+                if isinstance(dep_info, dict):
+                    when_clause = dep_info.get('when')
+                    if when_clause is not None:
+                            if root_id not in when_clause:
+                                continue
+                
+                visit(dep_id)
 
     visit(root_id)
     return found_dependencies
@@ -95,9 +102,7 @@ def main():
 
     # MSVC Package command
     package_parser = subparsers.add_parser("msvc", help="Analyze packages")
-    package_parser.add_argument("--host", help="Host architecture", default=None)
-    package_parser.add_argument("--target", help="Target architecture", default=None)
-    package_parser.add_argument("--version", help="Version", default=None)
+    package_parser.add_argument("--version", help="Compiler Version", default=None)
 
     # Version command
     version_parser = subparsers.add_parser("version", help="Show version information")
@@ -129,7 +134,10 @@ def main():
 
     data = download_manifest()
     assert 'packages' in data, "'packages' key not found in JSON."
-    packages_map = {p['id']: p for p in data['packages'] if 'id' in p}
+    packages_map = {}
+    for p in data['packages']:
+        if 'id' in p and (not 'language' in p or p['language'].lower() == 'en-us'):
+            packages_map.setdefault(p['id'], []).append(p)
     
     root_id = "Microsoft.VisualStudio.Product.BuildTools"
     assert root_id in packages_map, f"Root package '{root_id}' not found."
@@ -149,10 +157,9 @@ def main():
     
     
     if args.command == "msvc":
-        filter_prefix = f"Microsoft.VC.{args.version}.".lower()
+        filter_prefix = f"Microsoft.VC.{args.version}".lower()
 
         filter_lambda = lambda pid, pkg: (
-            (not 'language' in pkg or pkg['language'].lower() == 'en-us') and
             pid.lower().startswith(filter_prefix) and
             pid.lower().endswith(".base") and
             "spectre" not in pid.lower() and
@@ -172,10 +179,7 @@ def main():
             print(result_id)
             
     elif args.command == "version":
-        filter_lambda = lambda pid, pkg: (
-             (not 'language' in pkg or pkg['language'].lower() == 'en-us') and
-             pid.lower().startswith("microsoft.vc.")
-        )
+        filter_lambda = lambda pid, pkg: (pid.lower().startswith("microsoft.vc."))
         found = get_dependencies(root_id, packages_map, filter_lambda)
         
         versions = set()
@@ -183,7 +187,7 @@ def main():
             # Extract version using regex: Microsoft.VC.<Version>...
             # Assuming version is 4 component standard (e.g. 14.29.16.11)
             # User example: "Microsoft.VC.14.29.16.11.*****"
-            match = re.search(r'Microsoft\.VC\.(\d+\.\d+\.\d+\.\d+)\.', pid, re.IGNORECASE)
+            match = re.search(r'Microsoft\.VC\.(\d+\.\d+)\.\d+\.\d+\.', pid, re.IGNORECASE)
             if match:
                 versions.add(match.group(1))
 
@@ -195,14 +199,16 @@ def main():
              print(f"Error: Package '{args.package_id}' not found.")
              sys.exit(1)
         
-        pkg = packages_map[args.package_id]
-        payloads = pkg.get('payloads', [])
-        for payload in payloads:
-            if 'fileName' in payload:
-                print(payload['fileName'])
+        pkgs = packages_map[args.package_id]
+        for pkg in pkgs:
+            payloads = pkg.get('payloads', [])
+            for payload in payloads:
+                if 'fileName' in payload:
+                    print(payload['fileName'])
 
     elif args.command == "download":
-        pkg = packages_map.get(args.package_id)
+        assert len(packages_map[args.package_id]) == 1
+        pkg = packages_map[args.package_id][0]
         if not pkg:
             print(f"Error: Package '{args.package_id}' not found.")
             sys.exit(1)
@@ -236,8 +242,8 @@ def main():
         if args.package_id not in packages_map:
              print(f"Error: Package '{args.package_id}' not found.")
              sys.exit(1)
-        
-        pkg = packages_map[args.package_id]
+        assert len(packages_map[args.package_id]) == 1
+        pkg = packages_map[args.package_id][0]
         payloads = pkg.get('payloads', [])
         target_payload = None
         for payload in payloads:

@@ -1,0 +1,3 @@
+exports_files([
+    "List-MsiCabs.ps1",
+])

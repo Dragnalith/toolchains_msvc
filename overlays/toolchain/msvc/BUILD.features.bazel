@@ -1,0 +1,250 @@
+load("@rules_cc//cc/toolchains:args.bzl", "cc_args")
+load("@rules_cc//cc/toolchains:args_list.bzl", "cc_args_list")
+load("@rules_cc//cc/toolchains:feature.bzl", "cc_feature")
+load("@rules_cc//cc/toolchains:feature_set.bzl", "cc_feature_set")
+
+package(default_visibility = ["//visibility:public"])
+
+# Main feature set for MSVC that overrides all GCC-style legacy features
+cc_feature_set(
+    name = "msvc_features",
+    all_of = [
+        ":msvc_no_legacy_features",
+        ":msvc_parse_showincludes_feature",
+        ":msvc_no_dotd_file_feature",
+        ":msvc_compiler_output_flags_feature",
+        ":msvc_compiler_input_flags_feature",
+        ":msvc_dependency_file_feature",
+        ":msvc_random_seed_feature",
+        ":msvc_include_flags_feature",
+        ":msvc_preprocessor_defines_feature",
+        ":msvc_archiver_flags_feature",
+        ":msvc_user_compile_flags_feature",
+        ":msvc_user_link_flags_feature",
+        ":msvc_libraries_to_link_feature",
+        ":msvc_output_execpath_flags_feature",
+    ],
+)
+
+cc_feature(
+    name = "msvc_no_legacy_features",
+    feature_name = "no_legacy_features",
+)
+
+# Parse /showIncludes output for dependency tracking
+# This feature tells Bazel to parse the MSVC /showIncludes output
+cc_feature(
+    name = "msvc_parse_showincludes_feature",
+    args = [":msvc_showincludes_args"],
+    feature_name = "parse_showincludes",
+)
+
+cc_args(
+    name = "msvc_showincludes_args",
+    actions = [
+        "@rules_cc//cc/toolchains/actions:preprocess_assemble",
+        "@rules_cc//cc/toolchains/actions:c_compile",
+        "@rules_cc//cc/toolchains/actions:cpp_compile",
+        "@rules_cc//cc/toolchains/actions:cpp_header_parsing",
+    ],
+    args = ["/showIncludes"],
+    env = {"VSLANG": "1033"},  # Force English output for consistent parsing
+)
+
+# Tell Bazel that MSVC doesn't emit .d files
+cc_feature(
+    name = "msvc_no_dotd_file_feature",
+    feature_name = "no_dotd_file",
+)
+
+# MSVC compiler output flags - uses /Fo instead of -o
+cc_feature(
+    name = "msvc_compiler_output_flags_feature",
+    args = [":msvc_compiler_output_flags"],
+    overrides = "@rules_cc//cc/toolchains/features/legacy:compiler_output_flags",
+)
+
+cc_args(
+    name = "msvc_compiler_output_flags",
+    actions = ["@rules_cc//cc/toolchains/actions:compile_actions"],
+    args = ["/Fo{output_file}"],
+    format = {"output_file": "@rules_cc//cc/toolchains/variables:output_file"},
+    requires_not_none = "@rules_cc//cc/toolchains/variables:output_file",
+)
+
+# MSVC compiler input flags - uses /c and source file
+cc_feature(
+    name = "msvc_compiler_input_flags_feature",
+    args = [":msvc_compiler_input_flags"],
+    overrides = "@rules_cc//cc/toolchains/features/legacy:compiler_input_flags",
+)
+
+cc_args(
+    name = "msvc_compiler_input_flags",
+    actions = ["@rules_cc//cc/toolchains/actions:compile_actions"],
+    args = [
+        "/c",
+        "{source_file}",
+    ],
+    format = {"source_file": "@rules_cc//cc/toolchains/variables:source_file"},
+    requires_not_none = "@rules_cc//cc/toolchains/variables:source_file",
+)
+
+# MSVC dependency file - disabled, using parse_showincludes and no_dotd_file instead
+cc_feature(
+    name = "msvc_dependency_file_feature",
+    overrides = "@rules_cc//cc/toolchains/features/legacy:dependency_file",
+    # No args - parse_showincludes handles dependency tracking for MSVC
+)
+
+# MSVC random seed - disabled for MSVC (not applicable)
+cc_feature(
+    name = "msvc_random_seed_feature",
+    overrides = "@rules_cc//cc/toolchains/features/legacy:random_seed",
+    # No args - MSVC doesn't support random seed
+)
+
+# MSVC include flags - uses /I instead of -I, -iquote, -isystem
+cc_feature(
+    name = "msvc_include_flags_feature",
+    args = [
+        ":msvc_quote_include_flags",
+        ":msvc_include_flags",
+        ":msvc_system_include_flags",
+    ],
+    overrides = "@rules_cc//cc/toolchains/features/legacy:include_paths",
+)
+
+cc_args(
+    name = "msvc_quote_include_flags",
+    actions = ["@rules_cc//cc/toolchains/actions:compile_actions"],
+    args = ["/I{quote_include_paths}"],
+    format = {"quote_include_paths": "@rules_cc//cc/toolchains/variables:quote_include_paths"},
+    iterate_over = "@rules_cc//cc/toolchains/variables:quote_include_paths",
+)
+
+cc_args(
+    name = "msvc_include_flags",
+    actions = ["@rules_cc//cc/toolchains/actions:compile_actions"],
+    args = ["/I{include_paths}"],
+    format = {"include_paths": "@rules_cc//cc/toolchains/variables:include_paths"},
+    iterate_over = "@rules_cc//cc/toolchains/variables:include_paths",
+)
+
+cc_args(
+    name = "msvc_system_include_flags",
+    actions = ["@rules_cc//cc/toolchains/actions:compile_actions"],
+    args = ["/I{system_include_paths}"],
+    format = {"system_include_paths": "@rules_cc//cc/toolchains/variables:system_include_paths"},
+    iterate_over = "@rules_cc//cc/toolchains/variables:system_include_paths",
+)
+
+# MSVC preprocessor defines - uses /D instead of -D
+cc_feature(
+    name = "msvc_preprocessor_defines_feature",
+    args = [":msvc_preprocessor_defines"],
+    overrides = "@rules_cc//cc/toolchains/features/legacy:preprocessor_defines",
+)
+
+cc_args(
+    name = "msvc_preprocessor_defines",
+    actions = ["@rules_cc//cc/toolchains/actions:compile_actions"],
+    args = ["/D{preprocessor_defines}"],
+    format = {"preprocessor_defines": "@rules_cc//cc/toolchains/variables:preprocessor_defines"},
+    iterate_over = "@rules_cc//cc/toolchains/variables:preprocessor_defines",
+)
+
+# MSVC user compile flags - handles copts
+cc_feature(
+    name = "msvc_user_compile_flags_feature",
+    args = [":msvc_user_compile_flags"],
+    overrides = "@rules_cc//cc/toolchains/features/legacy:user_compile_flags",
+)
+
+cc_args(
+    name = "msvc_user_compile_flags",
+    actions = ["@rules_cc//cc/toolchains/actions:compile_actions"],
+    args = ["{flag}"],
+    format = {"flag": "@rules_cc//cc/toolchains/variables:user_compile_flags"},
+    iterate_over = "@rules_cc//cc/toolchains/variables:user_compile_flags",
+    requires_not_none = "@rules_cc//cc/toolchains/variables:user_compile_flags",
+)
+
+# MSVC archiver flags
+cc_feature(
+    name = "msvc_archiver_flags_feature",
+    args = [":msvc_archiver_flags"],
+    overrides = "@rules_cc//cc/toolchains/features/legacy:archiver_flags",
+)
+
+cc_args_list(
+    name = "msvc_archiver_flags",
+    args = [
+        ":msvc_ar_output",
+        ":msvc_ar_input",
+    ],
+)
+
+cc_args(
+    name = "msvc_ar_output",
+    actions = ["@rules_cc//cc/toolchains/actions:ar_actions"],
+    args = ["/OUT:{output_execpath}"],
+    format = {"output_execpath": "@rules_cc//cc/toolchains/variables:output_execpath"},
+    requires_not_none = "@rules_cc//cc/toolchains/variables:output_execpath",
+)
+
+cc_args(
+    name = "msvc_ar_input",
+    actions = ["@rules_cc//cc/toolchains/actions:ar_actions"],
+    args = ["{libraries_to_link}"],
+    format = {"libraries_to_link": "@rules_cc//cc/toolchains/variables:libraries_to_link.name"},
+    iterate_over = "@rules_cc//cc/toolchains/variables:libraries_to_link",
+    requires_not_none = "@rules_cc//cc/toolchains/variables:libraries_to_link",
+)
+
+# MSVC user link flags - handles linkopts
+cc_feature(
+    name = "msvc_user_link_flags_feature",
+    args = [":msvc_user_link_flags"],
+    overrides = "@rules_cc//cc/toolchains/features/legacy:user_link_flags",
+)
+
+cc_args(
+    name = "msvc_user_link_flags",
+    actions = ["@rules_cc//cc/toolchains/actions:link_actions"],
+    args = ["{user_link_flags}"],
+    format = {"user_link_flags": "@rules_cc//cc/toolchains/variables:user_link_flags"},
+    iterate_over = "@rules_cc//cc/toolchains/variables:user_link_flags",
+    requires_not_none = "@rules_cc//cc/toolchains/variables:user_link_flags",
+)
+
+# MSVC libraries to link
+cc_feature(
+    name = "msvc_libraries_to_link_feature",
+    args = [":msvc_libraries_to_link"],
+    overrides = "@rules_cc//cc/toolchains/features/legacy:libraries_to_link",
+)
+
+cc_args(
+    name = "msvc_libraries_to_link",
+    actions = ["@rules_cc//cc/toolchains/actions:link_actions"],
+    args = ["{libraries_to_link}"],
+    format = {"libraries_to_link": "@rules_cc//cc/toolchains/variables:libraries_to_link.name"},
+    iterate_over = "@rules_cc//cc/toolchains/variables:libraries_to_link",
+    requires_not_none = "@rules_cc//cc/toolchains/variables:libraries_to_link",
+)
+
+# MSVC output execpath flags - uses /OUT: instead of -o
+cc_feature(
+    name = "msvc_output_execpath_flags_feature",
+    args = [":msvc_output_execpath_flags"],
+    overrides = "@rules_cc//cc/toolchains/features/legacy:output_execpath_flags",
+)
+
+cc_args(
+    name = "msvc_output_execpath_flags",
+    actions = ["@rules_cc//cc/toolchains/actions:link_actions"],
+    args = ["/OUT:{output_execpath}"],
+    format = {"output_execpath": "@rules_cc//cc/toolchains/variables:output_execpath"},
+    requires_not_none = "@rules_cc//cc/toolchains/variables:output_execpath",
+)
