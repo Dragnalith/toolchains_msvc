@@ -21,6 +21,7 @@ cc_feature_set(
         ":msvc_archiver_flags_feature",
         ":msvc_user_compile_flags_feature",
         ":msvc_user_link_flags_feature",
+        ":msvc_linker_param_file_feature",
         ":msvc_libraries_to_link_feature",
         ":msvc_output_execpath_flags_feature",
     ],
@@ -216,6 +217,21 @@ cc_args(
     format = {"user_link_flags": "@rules_cc//cc/toolchains/variables:user_link_flags"},
     iterate_over = "@rules_cc//cc/toolchains/variables:user_link_flags",
     requires_not_none = "@rules_cc//cc/toolchains/variables:user_link_flags",
+)
+
+# MSVC linker param file - pass linker args through response file
+cc_feature(
+    name = "msvc_linker_param_file_feature",
+    args = [":msvc_linker_param_file"],
+    overrides = "@rules_cc//cc/toolchains/features/legacy:linker_param_file",
+)
+
+cc_args(
+    name = "msvc_linker_param_file",
+    actions = ["@rules_cc//cc/toolchains/actions:link_actions"],
+    args = ["@{param_file}"],
+    format = {"param_file": "@rules_cc//cc/toolchains/variables:linker_param_file"},
+    requires_not_none = "@rules_cc//cc/toolchains/variables:linker_param_file",
 )
 
 # MSVC libraries to link

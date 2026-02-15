@@ -1,5 +1,14 @@
-- [ ] response file
 - [ ] Remove unecessary target platform
 - [ ] Select sdk and compiler version
 - [ ] Enforce version numbers and display available list using invalid one
 - [ ] Support WinSDK 19041
+- [ ] Support LLVM for Windows
+- [ ] Support clang-cl
+- [ ] Support DLL compilation
+- [ ] feature for enabling debug symbol: .pdb are enabled by feature instead of 'dbg' config
+- [ ] feature for enabling warning treated as error
+- [ ] feature to manage static linking (i.e /MT vd /MD)
+- [ ] feature to enable PGO
+- [ ] feature to enable LTO
+- [ ] Ability to select on compiler kind 'gcc' or 'msvc' when adding custom flag
+- [ ] Support lock file using the 'Update pattern'
