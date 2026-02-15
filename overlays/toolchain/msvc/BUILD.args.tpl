@@ -1,6 +1,5 @@
 load("@rules_cc//cc/toolchains:args.bzl", "cc_args")
 load("@rules_cc//cc/toolchains:args_list.bzl", "cc_args_list")
-load("@rules_cc//cc/toolchains:nested_args.bzl", "cc_nested_args")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -11,17 +10,6 @@ cc_args_list(
         ":msvc_compile_flags",
         ":msvc_include_paths",
         ":warnings",
-    ],
-)
-
-# Collect all link args
-cc_args_list(
-    name = "all_link_args",
-    args = [
-        ":msvc_link_flags",
-        ":msvc_lib_paths",
-        ":output_execpath_arg",
-        ":link_libraries",
     ],
 )
 
@@ -106,16 +94,6 @@ cc_args(
         "/MACHINE:X64",
         "/SUBSYSTEM:CONSOLE",
     ],
-)
-
-cc_args(
-    name = "output_execpath_arg",
-    actions = ["@rules_cc//cc/toolchains/actions:link_actions"],
-    args = ["/OUT:{output}"],
-    format = {
-        "output": "@rules_cc//cc/toolchains/variables:output_execpath",
-    },
-    requires_not_none = "@rules_cc//cc/toolchains/variables:output_execpath",
 )
 
 # MSVC library paths
@@ -217,88 +195,6 @@ cc_args(
         "/nologo",
         "/MACHINE:X64",
     ],
-)
-
-# MSVC Link Libraries Handling
-cc_args(
-    name = "link_libraries",
-    actions = ["@rules_cc//cc/toolchains/actions:link_actions"],
-    nested = [":iterate_libraries"],
-)
-
-cc_nested_args(
-    name = "iterate_libraries",
-    iterate_over = "@rules_cc//cc/toolchains/variables:libraries_to_link",
-    nested = [
-        ":object_file_group",
-        ":object_file",
-        ":interface_library",
-        ":static_library",
-        ":dynamic_library",
-        ":versioned_dynamic_library",
-    ],
-    requires_not_none = "@rules_cc//cc/toolchains/variables:libraries_to_link",
-)
-
-cc_nested_args(
-    name = "object_file_group",
-    args = ["{object_file}"],
-    format = {
-        "object_file": "@rules_cc//cc/toolchains/variables:libraries_to_link.object_files",
-    },
-    iterate_over = "@rules_cc//cc/toolchains/variables:libraries_to_link.object_files",
-    requires_equal = "@rules_cc//cc/toolchains/variables:libraries_to_link.type",
-    requires_equal_value = "object_file_group",
-)
-
-cc_nested_args(
-    name = "object_file",
-    args = ["{library}"],
-    format = {
-        "library": "@rules_cc//cc/toolchains/variables:libraries_to_link.name",
-    },
-    requires_equal = "@rules_cc//cc/toolchains/variables:libraries_to_link.type",
-    requires_equal_value = "object_file",
-)
-
-cc_nested_args(
-    name = "interface_library",
-    args = ["{library}"],
-    format = {
-        "library": "@rules_cc//cc/toolchains/variables:libraries_to_link.name",
-    },
-    requires_equal = "@rules_cc//cc/toolchains/variables:libraries_to_link.type",
-    requires_equal_value = "interface_library",
-)
-
-cc_nested_args(
-    name = "static_library",
-    args = ["{library}"],
-    format = {
-        "library": "@rules_cc//cc/toolchains/variables:libraries_to_link.name",
-    },
-    requires_equal = "@rules_cc//cc/toolchains/variables:libraries_to_link.type",
-    requires_equal_value = "static_library",
-)
-
-cc_nested_args(
-    name = "dynamic_library",
-    args = ["{library}"],
-    format = {
-        "library": "@rules_cc//cc/toolchains/variables:libraries_to_link.name",
-    },
-    requires_equal = "@rules_cc//cc/toolchains/variables:libraries_to_link.type",
-    requires_equal_value = "dynamic_library",
-)
-
-cc_nested_args(
-    name = "versioned_dynamic_library",
-    args = ["{library}"],
-    format = {
-        "library": "@rules_cc//cc/toolchains/variables:libraries_to_link.name",
-    },
-    requires_equal = "@rules_cc//cc/toolchains/variables:libraries_to_link.type",
-    requires_equal_value = "versioned_dynamic_library",
 )
 
 # Strip args (dummy)

@@ -10,8 +10,6 @@ cc_toolchain(
         "//toolchain_msvc_{msvc_version}_winsdk{winsdk_version}_{target}/args:warnings",
         "//toolchain_msvc_{msvc_version}_winsdk{winsdk_version}_{target}/args:msvc_link_flags",
         "//toolchain_msvc_{msvc_version}_winsdk{winsdk_version}_{target}/args:msvc_lib_paths",
-        "//toolchain_msvc_{msvc_version}_winsdk{winsdk_version}_{target}/args:link_libraries",
-        "//toolchain_msvc_{msvc_version}_winsdk{winsdk_version}_{target}/args:output_execpath_arg",
         "//toolchain_msvc_{msvc_version}_winsdk{winsdk_version}_{target}/args:ar_flags",
         "//toolchain_msvc_{msvc_version}_winsdk{winsdk_version}_{target}/args:fastbuild_compile_flags",
         "//toolchain_msvc_{msvc_version}_winsdk{winsdk_version}_{target}/args:msvc_strip_args",

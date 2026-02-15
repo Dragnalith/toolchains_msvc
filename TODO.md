@@ -1,4 +1,3 @@
-- [ ] Fix double .obj at link time
 - [ ] response file
 - [ ] Remove unecessary target platform
 - [ ] Select sdk and compiler version
