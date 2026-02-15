@@ -1,0 +1,29 @@
+name: build
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  hello_world:
+    runs-on: windows-latest
+    name: Build and Run //:hello_world
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Bazel 9.0.0
+        shell: pwsh
+        run: |
+          $bazelVersion = "9.0.0"
+          $bazelPath = "$env:RUNNER_TEMP\bazel.exe"
+          $downloadUrl = "https://github.com/bazelbuild/bazel/releases/download/$bazelVersion/bazel-$bazelVersion-windows-x86_64.exe"
+          Invoke-WebRequest -Uri $downloadUrl -OutFile $bazelPath
+          "$env:RUNNER_TEMP" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Build and Run //:hello_world
+        shell: pwsh
+        working-directory: tests/hello_world
+        run: bazel run //:hello_world

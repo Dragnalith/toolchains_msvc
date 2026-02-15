@@ -1,4 +1,4 @@
-# MSVC toolchain for Bazel
+# MSVC toolchain for Bazel [![Build Status](https://github.com/Dragnalith/toolchains_msvc/actions/workflows/build.yml/badge.svg)](https://github.com/Dragnalith/toolchains_msvc/actions/workflows/build.yml)
 
 *This is a prototype; expect the API to change before stabilization*
 
