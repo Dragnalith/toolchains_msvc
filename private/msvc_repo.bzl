@@ -42,7 +42,8 @@ msvc_repo = repository_rule(
     implementation = _msvc_repo_impl,
     attrs = {
         "packages": attr.string(doc = "JSON string list of package dicts"),
-        "targets": attr.string_list(doc = "Target architectures (currently unused)"),
+        "hosts": attr.string_list(doc = "Host architectures"),
+        "targets": attr.string_list(doc = "Target architectures"),
         "src_build": attr.label(default = Label("//overlays/msvc:BUILD.root.tpl"), allow_single_file = True, doc = "Label to BUILD.root.tpl"),
     },
 )

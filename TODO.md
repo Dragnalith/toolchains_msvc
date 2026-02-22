@@ -1,7 +1,9 @@
 - [X] Remove unecessary target platform
-- [ ] Default toolchain host is bazel host, can be override by module args, can be override by repo_env
-- [ ] Select sdk and compiler version
-- [ ] Enforce version numbers and display available list using invalid one
+- [X] Default toolchain host is bazel host, can be override by module args, can be override by repo_env
+- [X] Select sdk and compiler version
+- [ ] Verify hello_world output
+- [ ] Enforce compiler and sdkversion numbers and display available list using invalid one
+- [ ] Support multiple compiler version at the same time
 - [ ] Support WinSDK 19041
 - [ ] Support LLVM for Windows
 - [ ] Support clang-cl

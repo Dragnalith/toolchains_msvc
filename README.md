@@ -31,14 +31,14 @@ git_override(
 
 toolchain = use_extension("@toolchains_msvc//extensions:toolchain.bzl", "toolchain")
 
-toolchain.license_agreement(agree = True)
-toolchain.msvc_compiler(version = "14.44.17.14")
-toolchain.msvc_compiler(version = "14.50.18.0")
-toolchain.windows_sdk(version = "19041")
+toolchain.msvc_compiler(version = "14.44")
 toolchain.windows_sdk(version = "26100")
-toolchain.target(arch = "x86_64")
-toolchain.target(arch = "x86_32")
-toolchain.target(arch = "aarch64")
+toolchain.target(arch = "x86")
+toolchain.target(arch = "x64")
+toolchain.target(arch = "arm64")
+toolchain.host(arch = "x86")
+toolchain.host(arch = "x64")
+toolchain.host(arch = "arm64")
 
 use_repo(toolchain, "msvc_toolchains")
 

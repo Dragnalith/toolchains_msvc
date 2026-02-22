@@ -18,34 +18,34 @@ cc_tool_map(
 
 cc_tool(
     name = "cl",
-    src = "@{msvc_repo}//:cl_x64",
+    src = "@{msvc_repo}//:cl_host{host}_target{target}",
     data = [
-        "@{msvc_repo}//:msvc_all_binaries_x64",
+        "@{msvc_repo}//:msvc_all_binaries_host{host}_target{target}",
         "@{msvc_repo}//:msvc_all_includes",
     ],
 )
 
 cc_tool(
     name = "link",
-    src = "@{msvc_repo}//:link_x64",
+    src = "@{msvc_repo}//:link_host{host}_target{target}",
     data = [
-        "@{msvc_repo}//:msvc_all_binaries_x64",
-        "@{msvc_repo}//:msvc_all_libs_x64",
+        "@{msvc_repo}//:msvc_all_binaries_host{host}_target{target}",
+        "@{msvc_repo}//:msvc_all_libs_{target}",
     ],
 )
 
 cc_tool(
     name = "lib",
-    src = "@{msvc_repo}//:lib_x64",
+    src = "@{msvc_repo}//:lib_host{host}_target{target}",
     data = [
-        "@{msvc_repo}//:msvc_all_binaries_x64",
+        "@{msvc_repo}//:msvc_all_binaries_host{host}_target{target}",
     ],
 )
 
 cc_tool(
     name = "ml64",
-    src = "@{msvc_repo}//:ml64_x64",
+    src = "@{msvc_repo}//:ml64_host{host}_target{target}",
     data = [
-        "@{msvc_repo}//:msvc_all_binaries_x64",
+        "@{msvc_repo}//:msvc_all_binaries_host{host}_target{target}",
     ],
 )

@@ -1,0 +1,25 @@
+module(
+    name = "test_module",
+    version = "0.0.1",
+)
+
+bazel_dep(name = "rules_cc", version = "0.2.14")
+bazel_dep(name = "platforms", version = "1.0.0")
+bazel_dep(name = "toolchains_msvc", version = "0.1.0")
+local_path_override(
+    module_name = "toolchains_msvc",
+    path = "../../../toolchains_msvc",
+)
+
+toolchain = use_extension("@toolchains_msvc//:extensions.bzl", "toolchain")
+toolchain.msvc_compiler(version = "14.44")
+toolchain.windows_sdk(version = "26100")
+toolchain.target(arch = "x86")
+toolchain.target(arch = "x64")
+toolchain.target(arch = "arm64")
+toolchain.host(arch = "x86")
+toolchain.host(arch = "x64")
+toolchain.host(arch = "arm64")
+use_repo(toolchain, "msvc_toolchains")
+
+register_toolchains("@msvc_toolchains//:all")

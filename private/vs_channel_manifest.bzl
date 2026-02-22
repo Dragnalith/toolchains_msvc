@@ -74,8 +74,8 @@ def get_winsdk_package_id(version):
 # Valid values for hosts: x86, x64, arm64
 VALID_MSVC_HOSTS = ["x86", "x64", "arm64"]
 
-# Valid values for targets: x86, x64, arm64, arm
-VALID_MSVC_TARGETS = ["x86", "x64", "arm64", "arm"]
+# Valid values for targets: x86, x64, arm64
+VALID_MSVC_TARGETS = ["x86", "x64", "arm64"]
 
 def get_msvc_package_ids(
         packages_map,
@@ -89,7 +89,7 @@ def get_msvc_package_ids(
         version: The MSVC version string (e.g., "14.44.17.14").
         hosts: List of host architectures to include. Valid: x86, x64, arm64.
                Default None means include all hosts.
-        targets: List of target architectures to include. Valid: x86, x64, arm64, arm.
+        targets: List of target architectures to include. Valid: x86, x64, arm64.
                  Default None means include all targets.
 
     Returns:
@@ -110,7 +110,7 @@ def get_msvc_package_ids(
     # Construct Hosts and Targets filter
     excluded_targets = [t for t in VALID_MSVC_TARGETS if t not in targets]
     target_filter_patterns = [
-        t + "."
+        "." + t + "."
         for t in excluded_targets
     ]
 

@@ -91,7 +91,7 @@ cc_args(
     ],
     args = [
         "/nologo",
-        "/MACHINE:X64",
+        "/MACHINE:{target}",
         "/SUBSYSTEM:CONSOLE",
     ],
 )
@@ -193,7 +193,7 @@ cc_args(
     ],
     args = [
         "/nologo",
-        "/MACHINE:X64",
+        "/MACHINE:{target}",
     ],
 )
 
