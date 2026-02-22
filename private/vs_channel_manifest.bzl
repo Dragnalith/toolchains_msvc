@@ -58,10 +58,12 @@ def get_winsdk_msi_list(targets):
         "Windows SDK for Windows Store Apps Tools-x86_en-us.msi",
         "Windows SDK for Windows Store Apps Headers-x86_en-us.msi",
         "Windows SDK for Windows Store Apps Libs-x86_en-us.msi",
-        "Universal CRT Headers Libraries and Sources-x86_en-us.msi"
+        "Universal CRT Headers Libraries and Sources-x86_en-us.msi",
+        "Windows SDK Desktop Headers x86-x86_en-us.msi",
+        "Windows SDK Desktop Headers x64-x86_en-us.msi",
+        "Windows SDK Desktop Headers arm64-x86_en-us.msi",
     ]
     for target in targets:
-        msi_list.append("Windows SDK Desktop Headers {target}-x86_en-us.msi".format(target = target))
         msi_list.append("Windows SDK Desktop Libs {target}-x86_en-us.msi".format(target = target))
     return msi_list
 
@@ -69,16 +71,64 @@ def get_winsdk_package_id(version):
     """Finds all dependencies for a specific Windows SDK version."""
     return "Win11SDK_10.0.{version}".format(version = version)
 
-def get_msvc_package_ids(packages_map, version):
+# Valid values for hosts: x86, x64, arm64
+VALID_MSVC_HOSTS = ["x86", "x64", "arm64"]
+
+# Valid values for targets: x86, x64, arm64, arm
+VALID_MSVC_TARGETS = ["x86", "x64", "arm64", "arm"]
+
+def get_msvc_package_ids(
+        packages_map,
+        version,
+        hosts = None,
+        targets = None):
     """Finds all dependencies for a specific MSVC version.
 
     Args:
         packages_map: The map of package IDs to package data.
         version: The MSVC version string (e.g., "14.44.17.14").
+        hosts: List of host architectures to include. Valid: x86, x64, arm64.
+               Default None means include all hosts.
+        targets: List of target architectures to include. Valid: x86, x64, arm64, arm.
+                 Default None means include all targets.
 
     Returns:
         A list of package IDs sorted alphabetically.
     """
+    if hosts == None:
+        hosts = VALID_MSVC_HOSTS
+    if targets == None:
+        targets = VALID_MSVC_TARGETS
+
+    for h in hosts:
+        if h not in VALID_MSVC_HOSTS:
+            fail("Invalid host '{}', must be one of: {}".format(h, VALID_MSVC_HOSTS))
+    for t in targets:
+        if t not in VALID_MSVC_TARGETS:
+            fail("Invalid target '{}', must be one of: {}".format(t, VALID_MSVC_TARGETS))
+
+    # Construct Hosts and Targets filter
+    excluded_targets = [t for t in VALID_MSVC_TARGETS if t not in targets]
+    target_filter_patterns = [
+        t + "."
+        for t in excluded_targets
+    ]
+
+    excluded_hosts = [h for h in VALID_MSVC_HOSTS if h not in hosts]
+    host_filter_patterns = [
+        "host" + h + "."
+        for h in excluded_hosts
+    ]
+
+    def should_exclude_package(pid_lower):
+        """Returns True if package should be excluded based on hosts/targets."""
+        for pattern in target_filter_patterns:
+            if pattern in pid_lower:
+                return True
+        for pattern in host_filter_patterns:
+            if pattern in pid_lower:
+                return True
+        return False
 
     root_id = "Microsoft.VisualStudio.Product.BuildTools"
     filter_prefix = "Microsoft.VC.{}.".format(version).lower()
@@ -116,10 +166,9 @@ def get_msvc_package_ids(packages_map, version):
                 ".mfc" not in pid_lower and
                 ".atl" not in pid_lower and
                 ".onecore" not in pid_lower and
-                "x86" not in pid_lower and
-                "arm" not in pid_lower and
                 ".cli" not in pid_lower and
-                ".ca." not in pid_lower):
+                ".ca." not in pid_lower and
+                not should_exclude_package(pid_lower)):
                 is_match = True
 
         if is_match:

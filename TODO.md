@@ -1,10 +1,12 @@
-- [ ] Remove unecessary target platform
+- [X] Remove unecessary target platform
+- [ ] Default toolchain host is bazel host, can be override by module args, can be override by repo_env
 - [ ] Select sdk and compiler version
 - [ ] Enforce version numbers and display available list using invalid one
 - [ ] Support WinSDK 19041
 - [ ] Support LLVM for Windows
 - [ ] Support clang-cl
 - [ ] Support DLL compilation
+- [ ] Prepare lock file: Divide package URL/SHA256 resolution outside of the repo
 - [ ] feature for enabling debug symbol: .pdb are enabled by feature instead of 'dbg' config
 - [ ] feature for enabling warning treated as error
 - [ ] feature to manage static linking (i.e /MT vd /MD)

@@ -1,12 +1,13 @@
 load("//private:msvc_repo.bzl", "msvc_repo")
-load("//private:winsdk_repo.bzl", "winsdk_repo")
 load("//private:msvc_toolchains_repo.bzl", "msvc_toolchains_repo")
-load("//private:vs_channel_manifest.bzl", 
-    "download_and_map", 
-    "get_winsdk_package_id",
-    "get_winsdk_msi_list",
+load(
+    "//private:vs_channel_manifest.bzl",
+    "download_and_map",
     "get_msvc_package_ids",
+    "get_winsdk_msi_list",
+    "get_winsdk_package_id",
 )
+load("//private:winsdk_repo.bzl", "winsdk_repo")
 
 def _extension_impl(ctx):
     # 1. Download manifest and map
@@ -15,11 +16,12 @@ def _extension_impl(ctx):
     # 2. For verification, hardcode one version
     msvc_versions = ["14.44"]
     winsdk_versions = ["26100"]
-    targets = ["x86", "x64", "arm64"]
+    targets = ["x86", "x64", "arm", "arm64"]
+    hosts = ["x86", "x64", "arm64"]
 
     # 3. Construct all msvc repos
     for msvc_version in msvc_versions:
-        deps = get_msvc_package_ids(packages_map, msvc_version)
+        deps = get_msvc_package_ids(packages_map, msvc_version, hosts = hosts, targets = targets)
 
         packages_list = []
         for dep_id in deps:
@@ -52,7 +54,6 @@ def _extension_impl(ctx):
         payloads = pkg.get("payloads", [])
         for payload in payloads:
             if "url" in payload and "fileName" in payload:
-
                 raw_filename = payload["fileName"]
                 filename = raw_filename
                 if raw_filename.startswith("Installers\\"):
