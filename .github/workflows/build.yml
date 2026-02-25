@@ -8,9 +8,9 @@ on:
   pull_request:
 
 jobs:
-  all_hosts_all_targets_x64:
+  test_x64:
     runs-on: windows-latest
-    name: Test all_hosts_all_targets
+    name: Test x64
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -19,45 +19,15 @@ jobs:
         uses: bazel-contrib/setup-bazel@0.18.0
         with:
           repository-cache: true
-          module-root: tests/all_hosts_all_targets
           bazelrc: |
             common --curses=no
 
-      - name: Run all_hosts_all_targets
-        shell: pwsh
-        working-directory: tests/all_hosts_all_targets
-        run: |
-          bazel run //:hello_world
-          bazel run //:hello_world --host_platform=//:windows_x86 --platforms=//:windows_x86
-          bazel run //:hello_world --host_platform=//:windows_x86 --platforms=//:windows_x64
-          bazel run //:hello_world --host_platform=//:windows_x64 --platforms=//:windows_x86
-          bazel run //:hello_world --host_platform=//:windows_x64 --platforms=//:windows_x64
+      - name: Run tests
+        shell: cmd
+        working-directory: tests
+        run: test_host_x64.bat
 
-  one_host_one_target_x64:
-    runs-on: windows-latest
-    name: Test one_host_one_target
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Bazel
-        uses: bazel-contrib/setup-bazel@0.18.0
-        with:
-          repository-cache: true
-          module-root: tests/one_host_one_target
-          bazelrc: |
-            common --curses=no
-
-      - name: Run one_host_one_target
-        shell: pwsh
-        working-directory: tests/one_host_one_target
-        run: |
-          bazel run //:hello_world --host_platform=//:windows_x86 --platforms=//:windows_x86 --repo_env=BAZEL_TOOLCHAINS_MSVC_HOSTS=x86 --repo_env=BAZEL_TOOLCHAINS_MSVC_TARGETS=x86
-          bazel run //:hello_world --host_platform=//:windows_x86 --platforms=//:windows_x64 --repo_env=BAZEL_TOOLCHAINS_MSVC_HOSTS=x86 --repo_env=BAZEL_TOOLCHAINS_MSVC_TARGETS=x64
-          bazel run //:hello_world --host_platform=//:windows_x64 --platforms=//:windows_x86 --repo_env=BAZEL_TOOLCHAINS_MSVC_HOSTS=x64 --repo_env=BAZEL_TOOLCHAINS_MSVC_TARGETS=x86
-          bazel run //:hello_world --host_platform=//:windows_x64 --platforms=//:windows_x64 --repo_env=BAZEL_TOOLCHAINS_MSVC_HOSTS=x64 --repo_env=BAZEL_TOOLCHAINS_MSVC_TARGETS=x64
-
-  one_host_one_target_arm:
+  test_arm64:
     runs-on: windows-11-arm
     name: Test ARM
     steps:
@@ -68,12 +38,10 @@ jobs:
         uses: bazel-contrib/setup-bazel@0.18.0
         with:
           repository-cache: true
-          module-root: tests/one_host_one_target
           bazelrc: |
             common --curses=no
 
-      - name: Run one_host_one_target
-        shell: pwsh
-        working-directory: tests/one_host_one_target
-        run: |
-          bazel run //:hello_world --repo_env=BAZEL_TOOLCHAINS_MSVC_HOSTS=arm64 --repo_env=BAZEL_TOOLCHAINS_MSVC_TARGETS=arm64
+      - name: Run tests
+        shell: cmd
+        working-directory: tests
+        run: test_host_arm64.bat

@@ -1,7 +1,8 @@
 - [X] Remove unecessary target platform
 - [X] Default toolchain host is bazel host, can be override by module args, can be override by repo_env
 - [X] Select sdk and compiler version
-- [ ] Verify hello_world output
+- [X] Verify hello_world output
+- [X] Verify winsdk version
 - [ ] Enforce compiler and sdkversion numbers and display available list using invalid one
 - [ ] Support multiple compiler version at the same time
 - [ ] Support WinSDK 19041
@@ -16,3 +17,6 @@
 - [ ] feature to enable LTO
 - [ ] Ability to select on compiler kind 'gcc' or 'msvc' when adding custom flag
 - [ ] Support lock file using the 'Update pattern'
+- [ ] Enforce EULA agreement
+- [ ] Verify remote execution performance and number of dependencies to the toolchain and the sdk
+- [ ] Customization of default flags

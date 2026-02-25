@@ -76,6 +76,6 @@ int main() {
               << "  \"compiler_version\": \"" << compiler_version << "\",\n"
               << "  \"winsdk_version\": \"" << winsdk_version << "\",\n"
               << "  \"target\": \"" << target_arch << "\"\n"
-              << "}" << std::endl;
+              << "}";
     return 0;
 }
