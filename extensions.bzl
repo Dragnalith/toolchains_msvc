@@ -3,12 +3,14 @@ load("//private:msvc_toolchains_repo.bzl", "msvc_toolchains_repo")
 load("//private:utils.bzl", "convert_bazel_arch_to_msvc_arch")
 load(
     "//private:vs_channel_manifest.bzl",
+    "VALID_MSVC_HOSTS",
+    "VALID_MSVC_TARGETS",
     "download_and_map",
     "get_msvc_package_ids",
     "get_winsdk_msi_list",
     "get_winsdk_package_id",
-    "VALID_MSVC_HOSTS",
-    "VALID_MSVC_TARGETS",
+    "list_msvc_version",
+    "list_winsdk_version",
 )
 load("//private:winsdk_repo.bzl", "winsdk_repo")
 
@@ -33,6 +35,16 @@ def _extension_impl(module_ctx):
 
     msvc_versions = msvc_versions_set.keys()
     winsdk_versions = winsdk_versions_set.keys()
+
+    valid_msvc_versions = list_msvc_version(packages_map)
+    for msvc_version in msvc_versions:
+        if msvc_version not in valid_msvc_versions:
+            fail("Invalid MSVC version '{}'. Valid versions are: {}".format(msvc_version, valid_msvc_versions))
+
+    valid_winsdk_versions = list_winsdk_version(packages_map)
+    for winsdk_version in winsdk_versions:
+        if winsdk_version not in valid_winsdk_versions:
+            fail("Invalid Windows SDK version '{}'. Valid versions are: {}".format(winsdk_version, valid_winsdk_versions))
     targets = targets_set.keys()
     hosts = hosts_set.keys()
 
@@ -43,8 +55,6 @@ def _extension_impl(module_ctx):
     if not hosts:
         if env_hosts != "":
             hosts = [h.strip() for h in env_hosts.split(",") if h.strip()]
-        else:
-            arch = convert_bazel_arch_to_msvc_arch(module_ctx.os.arch)
 
     env_targets = module_ctx.os.environ.get("BAZEL_TOOLCHAINS_MSVC_TARGETS", "").strip()
     if targets and env_targets != "":

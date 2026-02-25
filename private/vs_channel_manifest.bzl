@@ -196,3 +196,55 @@ def get_msvc_package_ids(
             stack.append(dep_id)
 
     return sorted(found_dependencies.keys())
+
+def list_winsdk_version(packages_map):
+    """Finds all available Windows SDK versions from the manifest.
+
+    Args:
+        packages_map: The map of package IDs to package data.
+
+    Returns:
+        A list of Windows SDK versions sorted alphabetically.
+    """
+    versions = {}
+    for pkg_id in packages_map:
+        version = None
+        if pkg_id.startswith("Win11SDK_10.0."):
+            version = pkg_id[len("Win11SDK_10.0."):]
+        elif pkg_id.startswith("Win10SDK_10.0."):
+            version = pkg_id[len("Win10SDK_10.0."):]
+
+        if version:
+            is_valid_version = True
+            for p in version.split("."):
+                if not p.isdigit():
+                    is_valid_version = False
+                    break
+            if is_valid_version:
+                versions[version] = True
+    return sorted(versions.keys())
+
+def list_msvc_version(packages_map):
+    """Finds all available MSVC versions from the manifest.
+
+    Args:
+        packages_map: The map of package IDs to package data.
+
+    Returns:
+        A list of MSVC versions sorted alphabetically.
+    """
+    versions = {}
+    for pkg_id in packages_map:
+        if pkg_id.startswith("Microsoft.VC."):
+            remainder = pkg_id[len("Microsoft.VC."):]
+            parts = remainder.split(".")
+            version_parts = []
+            for p in parts:
+                if p.isdigit():
+                    version_parts.append(p)
+                else:
+                    break
+            if len(version_parts) >= 2:
+                version = ".".join(version_parts[:2])
+                versions[version] = True
+    return sorted(versions.keys())
