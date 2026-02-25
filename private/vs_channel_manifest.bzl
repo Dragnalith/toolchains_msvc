@@ -57,11 +57,17 @@ def get_winsdk_msi_list(targets):
     msi_list = [
         "Windows SDK for Windows Store Apps Tools-x86_en-us.msi",
         "Windows SDK for Windows Store Apps Headers-x86_en-us.msi",
+        "Windows SDK for Windows Store Apps Headers OnecoreUap-x86_en-us.msi",
         "Windows SDK for Windows Store Apps Libs-x86_en-us.msi",
         "Universal CRT Headers Libraries and Sources-x86_en-us.msi",
         "Windows SDK Desktop Headers x86-x86_en-us.msi",
         "Windows SDK Desktop Headers x64-x86_en-us.msi",
         "Windows SDK Desktop Headers arm64-x86_en-us.msi",
+        "Windows SDK Desktop Headers arm-x86_en-us.msi",
+        "Windows SDK OnecoreUap Headers x86-x86_en-us.msi",
+        "Windows SDK OnecoreUap Headers x64-x86_en-us.msi",
+        "Windows SDK OnecoreUap Headers arm64-x86_en-us.msi",
+        "Windows SDK OnecoreUap Headers arm-x86_en-us.msi",
     ]
     for target in targets:
         msi_list.append("Windows SDK Desktop Libs {target}-x86_en-us.msi".format(target = target))

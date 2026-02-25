@@ -8,7 +8,7 @@ bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "toolchains_msvc", version = "0.1.0")
 local_path_override(
     module_name = "toolchains_msvc",
-    path = "../../../toolchains_msvc",
+    path = "../..",
 )
 
 toolchain = use_extension("@toolchains_msvc//:extensions.bzl", "toolchain")

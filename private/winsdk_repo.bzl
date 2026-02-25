@@ -26,7 +26,6 @@ def _get_cabs_from_msi(ctx, local_msi_path):
             cabs.append(item)
     return cabs
 
-
 def _winsdk_repo_impl(ctx):
     """Implementation of the winsdk_repo rule."""
     packages = json.decode(ctx.attr.packages)
@@ -83,7 +82,7 @@ def _winsdk_repo_impl(ctx):
 
     extract_root = "tmp/extracted"
     for filename in downloaded_msi_paths:
-        ctx.report_progress("Extracting '{}'".format(filename))
+        ctx.report_progress("Extracting MSI '{}'".format(filename))
         extract_args = [
             "msiexec",
             "/a",
@@ -93,8 +92,7 @@ def _winsdk_repo_impl(ctx):
         ]
         result = ctx.execute(extract_args, quiet = True)
         if result.return_code != 0:
-            fail("Extracting {} failed (exit {code})".format(filename, code = result.return_code))
-
+            fail("Extracting MSI {} failed (exit {code})".format(filename, code = result.return_code))
 
     extracted_dir = ctx.path("tmp/extracted/Windows Kits/10")
     for child in extracted_dir.readdir():
@@ -108,6 +106,11 @@ def _winsdk_repo_impl(ctx):
         ])
 
     ctx.delete("tmp")
+
+    ctx.file(
+        "package.txt",
+        "\n".join(msi_filenames) + ("\n" if msi_filenames else ""),
+    )
 
     ctx.template(
         "BUILD.bazel",
