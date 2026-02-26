@@ -12,7 +12,7 @@ local_path_override(
 )
 
 toolchain = use_extension("@toolchains_msvc//:extensions.bzl", "toolchain")
-toolchain.msvc_compiler(version = "14.44")
+toolchain.msvc_compiler(version = "14.42")
 toolchain.windows_sdk(version = "26100")
 toolchain.target(arch = "x86")
 toolchain.target(arch = "x64")

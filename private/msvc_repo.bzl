@@ -21,15 +21,16 @@ def _msvc_repo_impl(ctx):
 
         extracted_package_filenames.append(filename)
 
+    ctx.file(
+        "package.txt",
+        "\n".join(extracted_package_filenames) + ("\n" if extracted_package_filenames else ""),
+    )
+
     tools_dir = ctx.path("tmp/Contents/VC/Tools/MSVC").readdir()[0]
     redist_dir = ctx.path("tmp/Contents/VC/Redist/MSVC").readdir()[0]
 
     ctx.execute(["cmd", "/c", "move", str(tools_dir).replace("/", "\\"), "Tools"])
     ctx.execute(["cmd", "/c", "move", str(redist_dir).replace("/", "\\"), "Redist"])
-    ctx.file(
-        "package.txt",
-        "\n".join(extracted_package_filenames) + ("\n" if extracted_package_filenames else ""),
-    )
     ctx.delete("tmp")
 
     # Generate a BUILD file

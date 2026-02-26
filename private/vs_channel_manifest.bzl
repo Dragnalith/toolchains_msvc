@@ -43,13 +43,16 @@ def download_and_map(ctx):
     packages_map = {}
     for pkg in package_manifest.get("packages", []):
         if "id" not in pkg:
-            continue
+            fail("Every package must have an id")
 
         lang = pkg.get("language")
         if lang and lang.lower() != "en-us":
             continue
 
-        packages_map[pkg["id"]] = pkg
+        pkg_id = pkg["id"].lower()
+        packages_map[pkg_id] = pkg
+        if pkg_id not in packages_map:
+            fail("Package not found: {pkg_id}".format(pkg_id = pkg_id))
 
     return packages_map
 
@@ -75,7 +78,7 @@ def get_winsdk_msi_list(targets):
 
 def get_winsdk_package_id(version):
     """Finds all dependencies for a specific Windows SDK version."""
-    return "Win11SDK_10.0.{version}".format(version = version)
+    return "Win11SDK_10.0.{version}".format(version = version).lower()
 
 # Valid values for hosts: x86, x64, arm64
 VALID_MSVC_HOSTS = ["x86", "x64", "arm64"]
@@ -136,7 +139,156 @@ def get_msvc_package_ids(
                 return True
         return False
 
-    root_id = "Microsoft.VisualStudio.Product.BuildTools"
+    root_id = "Microsoft.VisualStudio.Product.BuildTools".lower()
+    filter_prefix = "Microsoft.VC.{}.".format(version).lower()
+
+    visited = {}
+    found_dependencies = {}
+
+    stack = [root_id]
+
+    max_iterations = len(packages_map) * 10
+
+    for _ in range(max_iterations):
+        if not stack:
+            break
+
+        current_id = stack.pop()
+
+        if current_id in visited:
+            continue
+        visited[current_id] = True
+
+        if current_id not in packages_map: 
+                continue
+        pkg = packages_map.get(current_id)
+
+        pid_lower = current_id.lower()
+
+        is_match = False
+        if current_id != root_id:
+            if (pid_lower.startswith(filter_prefix) and
+                pid_lower.endswith(".base") and
+                "spectre" not in pid_lower and
+                ".props" not in pid_lower and
+                ".servicing" not in pid_lower and
+                ".mfc" not in pid_lower and
+                ".atl" not in pid_lower and
+                ".onecore" not in pid_lower and
+                ".cli" not in pid_lower and
+                ".ca." not in pid_lower and
+                ".redist." not in pid_lower and
+                not should_exclude_package(pid_lower)):
+                is_match = True
+
+        if is_match:
+            found_dependencies[current_id] = True
+
+        dependencies = pkg.get("dependencies", {})
+        for dep_id, dep_info in dependencies.items():
+            if type(dep_info) == "dict":
+                when_clause = dep_info.get("when")
+                if when_clause != None:
+                    found_root = False
+                    for w in when_clause:
+                        if w == root_id:
+                            found_root = True
+                            break
+                    if not found_root:
+                        continue
+            stack.append(dep_id.lower())
+
+    return sorted(found_dependencies.keys())
+
+def list_winsdk_version(packages_map):
+    """Finds all available Windows SDK versions from the manifest.
+
+    Args:
+        packages_map: The map of package IDs to package data.
+
+    Returns:
+        A list of Windows SDK versions sorted alphabetically.
+    """
+    versions = {}
+    for pkg_id in packages_map:
+        version = None
+        if pkg_id.startswith("Win11SDK_10.0.".lower()):
+            version = pkg_id[len("Win11SDK_10.0."):]
+        elif pkg_id.startswith("Win10SDK_10.0."):
+            version = pkg_id[len("Win10SDK_10.0."):]
+
+        if version:
+            is_valid_version = True
+            for p in version.split("."):
+                if not p.isdigit():
+                    is_valid_version = False
+                    break
+            if is_valid_version:
+                versions[version] = True
+    return sorted(versions.keys())
+
+def list_msvc_version(packages_map):
+    """Finds all available MSVC versions from the manifest.
+
+    Args:
+        packages_map: The map of package IDs to package data.
+
+    Returns:
+        A list of MSVC versions sorted alphabetically.
+    """
+    versions = {}
+    for pkg_id in packages_map:
+        if pkg_id.startswith("Microsoft.VC.".lower()):
+            remainder = pkg_id[len("Microsoft.VC."):]
+            parts = remainder.split(".")
+            version_parts = []
+            for p in parts:
+                if p.isdigit():
+                    version_parts.append(p)
+                else:
+                    break
+            if len(version_parts) >= 2:
+                version = ".".join(version_parts[:2])
+                versions[version] = True
+    return sorted(versions.keys())
+
+def get_msvc_redist_package_ids(
+        packages_map,
+        version,
+        targets = None):
+    """Finds all dependencies for a specific MSVC redist version.
+
+    Args:
+        packages_map: The map of package IDs to package data.
+        version: The MSVC redist version string (e.g., "14.34").
+        targets: List of target architectures to include. Valid: x86, x64, arm64.
+                 Default None means include all targets.
+
+    Returns:
+        A list of package IDs sorted alphabetically.
+    """
+    if targets == None:
+        targets = VALID_MSVC_TARGETS
+
+    for t in targets:
+        if t not in VALID_MSVC_TARGETS:
+            fail("Invalid target '{}', must be one of: {}".format(t, VALID_MSVC_TARGETS))
+
+    # Construct Targets filter
+    excluded_targets = [t for t in VALID_MSVC_TARGETS if t not in targets]
+    target_filter_patterns = [
+        "." + t + "."
+        for t in excluded_targets
+    ]
+
+    def should_exclude_package(pid_lower):
+        """Returns True if package should be excluded based on targets."""
+        for pattern in target_filter_patterns:
+            if pattern in pid_lower:
+                return True
+        return False
+
+    root_id = "Microsoft.VisualStudio.Product.BuildTools".lower()
     filter_prefix = "Microsoft.VC.{}.".format(version).lower()
 
     visited = {}
@@ -166,6 +318,7 @@ def get_msvc_package_ids(
         if current_id != root_id:
             if (pid_lower.startswith(filter_prefix) and
                 pid_lower.endswith(".base") and
+                ".crt.redist." in pid_lower and
                 "spectre" not in pid_lower and
                 ".props" not in pid_lower and
                 ".servicing" not in pid_lower and
@@ -193,49 +346,22 @@ def get_msvc_package_ids(
                     if not found_root:
                         continue
 
-            stack.append(dep_id)
+            stack.append(dep_id.lower())
 
     return sorted(found_dependencies.keys())
 
-def list_winsdk_version(packages_map):
-    """Finds all available Windows SDK versions from the manifest.
+def list_msvc_redist_version(packages_map):
+    """Finds all available MSVC Redist versions from the manifest.
 
     Args:
         packages_map: The map of package IDs to package data.
 
     Returns:
-        A list of Windows SDK versions sorted alphabetically.
+        A list of MSVC Redist versions sorted alphabetically.
     """
     versions = {}
     for pkg_id in packages_map:
-        version = None
-        if pkg_id.startswith("Win11SDK_10.0."):
-            version = pkg_id[len("Win11SDK_10.0."):]
-        elif pkg_id.startswith("Win10SDK_10.0."):
-            version = pkg_id[len("Win10SDK_10.0."):]
-
-        if version:
-            is_valid_version = True
-            for p in version.split("."):
-                if not p.isdigit():
-                    is_valid_version = False
-                    break
-            if is_valid_version:
-                versions[version] = True
-    return sorted(versions.keys())
-
-def list_msvc_version(packages_map):
-    """Finds all available MSVC versions from the manifest.
-
-    Args:
-        packages_map: The map of package IDs to package data.
-
-    Returns:
-        A list of MSVC versions sorted alphabetically.
-    """
-    versions = {}
-    for pkg_id in packages_map:
-        if pkg_id.startswith("Microsoft.VC."):
+        if pkg_id.startswith("Microsoft.VC.".lower()) and ".CRT.Redist.".lower() in pkg_id and pkg_id.endswith(".base"):
             remainder = pkg_id[len("Microsoft.VC."):]
             parts = remainder.split(".")
             version_parts = []

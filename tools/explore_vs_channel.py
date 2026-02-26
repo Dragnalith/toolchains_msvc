@@ -59,8 +59,8 @@ def get_dependencies(root_id, packages_map, filter_lambda, no_duplicate=True):
 
 def download_manifest(root_url=None, save_to_file=False):
     if root_url is None:
-        root_url = "https://aka.ms/vs/stable/channel"
-        #root_url = "https://aka.ms/vs/17/release/channel"
+        #root_url = "https://aka.ms/vs/stable/channel"
+        root_url = "https://aka.ms/vs/17/release/channel"
         #root_url = "https://aka.ms/vs/16/release/channel"
 
     # print(f"Downloading root manifest from {root_url}...")

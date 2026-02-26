@@ -7,12 +7,42 @@ load(
     "VALID_MSVC_TARGETS",
     "download_and_map",
     "get_msvc_package_ids",
+    "get_msvc_redist_package_ids",
     "get_winsdk_msi_list",
     "get_winsdk_package_id",
+    "list_msvc_redist_version",
     "list_msvc_version",
     "list_winsdk_version",
 )
 load("//private:winsdk_repo.bzl", "winsdk_repo")
+
+def _find_closest_redist_version(msvc_version, redist_versions):
+    target_v_parts = msvc_version.split(".")[:2]
+    target_v = (int(target_v_parts[0]), int(target_v_parts[1]))
+
+    closest_redist = None
+    closest_diff = None
+    for rv in redist_versions:
+        rv_parts = rv.split(".")
+        v = (int(rv_parts[0]), int(rv_parts[1]))
+
+        # Starlark doesn't support >= for tuples, check elements manually
+        is_greater_or_equal = v[0] > target_v[0] or (v[0] == target_v[0] and v[1] >= target_v[1])
+        if is_greater_or_equal:
+            diff_0 = v[0] - target_v[0]
+            diff_1 = v[1] - target_v[1]
+            if closest_diff == None or diff_0 < closest_diff[0] or (diff_0 == closest_diff[0] and diff_1 < closest_diff[1]):
+                closest_diff = (diff_0, diff_1)
+                closest_redist = rv
+
+    if not closest_redist and redist_versions:
+        # Fallback to the latest available redist version if no upper is found
+        closest_redist = redist_versions[-1]
+
+    if not closest_redist:
+        fail("No MSVC redist version could be determined for MSVC version {}".format(msvc_version))
+
+    return closest_redist
 
 def _extension_impl(module_ctx):
     # 1. Download manifest and map
@@ -73,9 +103,17 @@ def _extension_impl(module_ctx):
         if t not in VALID_MSVC_TARGETS:
             fail("Invalid target '{}', must be one of: {}".format(t, VALID_MSVC_TARGETS))
 
+    redist_versions = list_msvc_redist_version(packages_map)
+
     # 3. Construct all msvc repos
     for msvc_version in msvc_versions:
         deps = get_msvc_package_ids(packages_map, msvc_version, hosts = hosts, targets = targets)
+
+        closest_redist = _find_closest_redist_version(msvc_version, redist_versions)
+        redist_deps = get_msvc_redist_package_ids(packages_map, closest_redist, targets = targets)
+        deps.extend(redist_deps)
+
+        deps = sorted(deps)
 
         packages_list = []
         for dep_id in deps:
