@@ -75,7 +75,7 @@ package(default_visibility = ["//visibility:public"])
                     host_arch = convert_msvc_arch_to_bazel_arch(host)
                     root_build_file_content += """
 toolchain(
-    name = "msvc_{msvc_version}_winsdk{winsdk_version}_host{host}_target{target}_toolchain",
+    name = "msvc_{msvc_version}_winsdk{winsdk_version}_host{host}_target{target}",
     exec_compatible_with = [
         "@platforms//os:windows",
         "@platforms//cpu:{host_arch}",

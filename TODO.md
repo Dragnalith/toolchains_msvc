@@ -4,8 +4,8 @@
 - [X] Verify hello_world output
 - [X] Verify winsdk version
 - [X] Enforce compiler and sdkversion numbers and display available list using invalid one
-- [ ] Fix 19041 winsdk and MSVC version below 14.44
-- [ ] Support multiple compiler version at the same time
+- [X] Fix 19041 winsdk and MSVC version below 14.44
+- [X] Support multiple compiler version at the same time
 - [ ] Support WinSDK 19041 and 2026 channel at the same time
 - [ ] Support LLVM for Windows
 - [ ] Support clang-cl

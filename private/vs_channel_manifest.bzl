@@ -78,7 +78,10 @@ def get_winsdk_msi_list(targets):
 
 def get_winsdk_package_id(version):
     """Finds all dependencies for a specific Windows SDK version."""
-    return "Win11SDK_10.0.{version}".format(version = version).lower()
+    if version == "19041":
+        return "Win10SDK_10.0.19041".lower()
+    else:
+        return "Win11SDK_10.0.{version}".format(version = version).lower()
 
 # Valid values for hosts: x86, x64, arm64
 VALID_MSVC_HOSTS = ["x86", "x64", "arm64"]
@@ -214,7 +217,7 @@ def list_winsdk_version(packages_map):
         version = None
         if pkg_id.startswith("Win11SDK_10.0.".lower()):
             version = pkg_id[len("Win11SDK_10.0."):]
-        elif pkg_id.startswith("Win10SDK_10.0."):
+        elif pkg_id.startswith("Win10SDK_10.0.".lower()):
             version = pkg_id[len("Win10SDK_10.0."):]
 
         if version:
