@@ -23,9 +23,10 @@ jobs:
             common --curses=no
 
       - name: Run tests
-        shell: cmd
         working-directory: tests
-        run: test_host_x64.bat
+        run: |
+          python integration_test.py all_host_all_target
+          python integration_test.py one_host_one_target
 
   test_arm64:
     runs-on: windows-11-arm
@@ -42,6 +43,7 @@ jobs:
             common --curses=no
 
       - name: Run tests
-        shell: cmd
         working-directory: tests
-        run: test_host_arm64.bat
+        run: |
+          python integration_test.py all_host_all_target
+          python integration_test.py one_host_one_target
