@@ -1,19 +1,20 @@
 """Module for downloading and parsing Visual Studio channel manifests."""
 
-def download_and_map(ctx):
-    """Downloads the VS manifest and returns a mapping of package IDs to package data.
+def download_and_map(ctx, channel_url):
+    """Downloads the VS manifest from the given channel and returns a mapping of package IDs to package data.
 
     Args:
         ctx: The module_context or repository_ctx.
+        channel_url: The channel URL to download from (e.g., "https://aka.ms/vs/17/release/channel").
 
     Returns:
         A dictionary mapping package IDs to package data.
     """
 
     # 1. Download the root manifest
-    ctx.report_progress("Downloading Visual Studio root manifest...")
+    ctx.report_progress("Downloading Visual Studio root manifest from {}...".format(channel_url))
     ctx.download(
-        url = "https://aka.ms/vs/17/release/channel",
+        url = channel_url,
         output = "visual_studio_root_manifest.json",
     )
 
@@ -203,57 +204,64 @@ def get_msvc_package_ids(
 
     return sorted(found_dependencies.keys())
 
-def list_winsdk_version(packages_map):
-    """Finds all available Windows SDK versions from the manifest.
+def list_winsdk_version(packages_maps):
+    """Finds all available Windows SDK versions from the manifests.
 
     Args:
-        packages_map: The map of package IDs to package data.
+        packages_maps: Dict mapping package_map id (e.g., "18", "17") to package_map.
 
     Returns:
-        A list of Windows SDK versions sorted alphabetically.
+        A dict mapping version to package_map key. When printing, use .keys() for version list.
     """
     versions = {}
-    for pkg_id in packages_map:
-        version = None
-        if pkg_id.startswith("Win11SDK_10.0.".lower()):
-            version = pkg_id[len("Win11SDK_10.0."):]
-        elif pkg_id.startswith("Win10SDK_10.0.".lower()):
-            version = pkg_id[len("Win10SDK_10.0."):]
+    # Prefer most recent package map (e.g. "18" over "17") when versions overlap
+    for package_map_key in sorted(packages_maps.keys(), reverse = True):
+        packages_map = packages_maps[package_map_key]
+        for pkg_id in packages_map:
+            version = None
+            if pkg_id.startswith("Win11SDK_10.0.".lower()):
+                version = pkg_id[len("Win11SDK_10.0."):]
+            elif pkg_id.startswith("Win10SDK_10.0.".lower()):
+                version = pkg_id[len("Win10SDK_10.0."):]
 
-        if version:
-            is_valid_version = True
-            for p in version.split("."):
-                if not p.isdigit():
-                    is_valid_version = False
-                    break
-            if is_valid_version:
-                versions[version] = True
-    return sorted(versions.keys())
+            if version:
+                is_valid_version = True
+                for p in version.split("."):
+                    if not p.isdigit():
+                        is_valid_version = False
+                        break
+                if is_valid_version and version not in versions:
+                    versions[version] = package_map_key
+    return {v: versions[v] for v in sorted(versions.keys())}
 
-def list_msvc_version(packages_map):
-    """Finds all available MSVC versions from the manifest.
+def list_msvc_version(packages_maps):
+    """Finds all available MSVC versions from the manifests.
 
     Args:
-        packages_map: The map of package IDs to package data.
+        packages_maps: Dict mapping package_map id (e.g., "18", "17") to package_map.
 
     Returns:
-        A list of MSVC versions sorted alphabetically.
+        A dict mapping version to package_map key. When printing, use .keys() for version list.
     """
     versions = {}
-    for pkg_id in packages_map:
-        if pkg_id.startswith("Microsoft.VC.".lower()):
-            remainder = pkg_id[len("Microsoft.VC."):]
-            parts = remainder.split(".")
-            version_parts = []
-            for p in parts:
-                if p.isdigit():
-                    version_parts.append(p)
-                else:
-                    break
-            if len(version_parts) >= 2:
-                version = ".".join(version_parts[:2])
-                versions[version] = True
-    return sorted(versions.keys())
+    # Prefer most recent package map (e.g. "18" over "17") when versions overlap
+    for package_map_key in sorted(packages_maps.keys(), reverse = True):
+        packages_map = packages_maps[package_map_key]
+        for pkg_id in packages_map:
+            if pkg_id.startswith("Microsoft.VC.".lower()):
+                remainder = pkg_id[len("Microsoft.VC."):]
+                parts = remainder.split(".")
+                version_parts = []
+                for p in parts:
+                    if p.isdigit():
+                        version_parts.append(p)
+                    else:
+                        break
+                if len(version_parts) >= 2:
+                    version = ".".join(version_parts[:2])
+                    if version not in versions:
+                        versions[version] = package_map_key
+    return {v: versions[v] for v in sorted(versions.keys())}
 
 def get_msvc_redist_package_ids(
         packages_map,
@@ -353,27 +361,31 @@ def get_msvc_redist_package_ids(
 
     return sorted(found_dependencies.keys())
 
-def list_msvc_redist_version(packages_map):
-    """Finds all available MSVC Redist versions from the manifest.
+def list_msvc_redist_version(packages_maps):
+    """Finds all available MSVC Redist versions from the manifests.
 
     Args:
-        packages_map: The map of package IDs to package data.
+        packages_maps: Dict mapping package_map id (e.g., "18", "17") to package_map.
 
     Returns:
-        A list of MSVC Redist versions sorted alphabetically.
+        A dict mapping version to package_map key. When printing, use .keys() for version list.
     """
     versions = {}
-    for pkg_id in packages_map:
-        if pkg_id.startswith("Microsoft.VC.".lower()) and ".CRT.Redist.".lower() in pkg_id and pkg_id.endswith(".base"):
-            remainder = pkg_id[len("Microsoft.VC."):]
-            parts = remainder.split(".")
-            version_parts = []
-            for p in parts:
-                if p.isdigit():
-                    version_parts.append(p)
-                else:
-                    break
-            if len(version_parts) >= 2:
-                version = ".".join(version_parts[:2])
-                versions[version] = True
-    return sorted(versions.keys())
+    # Prefer most recent package map (e.g. "18" over "17") when versions overlap
+    for package_map_key in sorted(packages_maps.keys(), reverse = True):
+        packages_map = packages_maps[package_map_key]
+        for pkg_id in packages_map:
+            if pkg_id.startswith("Microsoft.VC.".lower()) and ".CRT.Redist.".lower() in pkg_id and pkg_id.endswith(".base"):
+                remainder = pkg_id[len("Microsoft.VC."):]
+                parts = remainder.split(".")
+                version_parts = []
+                for p in parts:
+                    if p.isdigit():
+                        version_parts.append(p)
+                    else:
+                        break
+                if len(version_parts) >= 2:
+                    version = ".".join(version_parts[:2])
+                    if version not in versions:
+                        versions[version] = package_map_key
+    return {v: versions[v] for v in sorted(versions.keys())}

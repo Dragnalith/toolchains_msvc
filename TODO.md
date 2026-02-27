@@ -6,7 +6,8 @@
 - [X] Enforce compiler and sdkversion numbers and display available list using invalid one
 - [X] Fix 19041 winsdk and MSVC version below 14.44
 - [X] Support multiple compiler version at the same time
-- [ ] Support WinSDK 19041 and 2026 channel at the same time
+- [X] Support WinSDK 19041 and 2026 channel at the same time
+- [ ] Make default MSVC and WinSDK version be explicit
 - [ ] Support LLVM for Windows
 - [ ] Support clang-cl
 - [ ] Support DLL compilation

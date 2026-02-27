@@ -16,7 +16,14 @@ load(
 )
 load("//private:winsdk_repo.bzl", "winsdk_repo")
 
-def _find_closest_redist_version(msvc_version, redist_versions):
+CHANNEL_URL = {
+    "18": "https://aka.ms/vs/stable/channel",
+    "17": "https://aka.ms/vs/17/release/channel"
+}
+
+def _find_closest_redist_version(msvc_version, redist_versions_dict):
+    """Returns (closest_redist_version, package_map_key)."""
+    redist_versions = redist_versions_dict.keys()
     target_v_parts = msvc_version.split(".")[:2]
     target_v = (int(target_v_parts[0]), int(target_v_parts[1]))
 
@@ -37,16 +44,18 @@ def _find_closest_redist_version(msvc_version, redist_versions):
 
     if not closest_redist and redist_versions:
         # Fallback to the latest available redist version if no upper is found
-        closest_redist = redist_versions[-1]
+        closest_redist = sorted(redist_versions)[-1]
 
     if not closest_redist:
         fail("No MSVC redist version could be determined for MSVC version {}".format(msvc_version))
 
-    return closest_redist
+    return (closest_redist, redist_versions_dict[closest_redist])
 
 def _extension_impl(module_ctx):
-    # 1. Download manifest and map
-    packages_map = download_and_map(module_ctx)
+    # 1. Download manifest and map for each channel
+    packages_maps = {}
+    for package_map_key, channel_url in CHANNEL_URL.items():
+        packages_maps[package_map_key] = download_and_map(module_ctx, channel_url)
 
     msvc_versions_set = {}
     winsdk_versions_set = {}
@@ -66,15 +75,15 @@ def _extension_impl(module_ctx):
     msvc_versions = msvc_versions_set.keys()
     winsdk_versions = winsdk_versions_set.keys()
 
-    valid_msvc_versions = list_msvc_version(packages_map)
+    msvc_versions_dict = list_msvc_version(packages_maps)
     for msvc_version in msvc_versions:
-        if msvc_version not in valid_msvc_versions:
-            fail("Invalid MSVC version '{}'. Valid versions are: {}".format(msvc_version, valid_msvc_versions))
+        if msvc_version not in msvc_versions_dict:
+            fail("Invalid MSVC version '{}'. Valid versions are: {}".format(msvc_version, msvc_versions_dict.keys()))
 
-    valid_winsdk_versions = list_winsdk_version(packages_map)
+    winsdk_versions_dict = list_winsdk_version(packages_maps)
     for winsdk_version in winsdk_versions:
-        if winsdk_version not in valid_winsdk_versions:
-            fail("Invalid Windows SDK version '{}'. Valid versions are: {}".format(winsdk_version, valid_winsdk_versions))
+        if winsdk_version not in winsdk_versions_dict:
+            fail("Invalid Windows SDK version '{}'. Valid versions are: {}".format(winsdk_version, winsdk_versions_dict.keys()))
     targets = targets_set.keys()
     hosts = hosts_set.keys()
 
@@ -103,21 +112,26 @@ def _extension_impl(module_ctx):
         if t not in VALID_MSVC_TARGETS:
             fail("Invalid target '{}', must be one of: {}".format(t, VALID_MSVC_TARGETS))
 
-    redist_versions = list_msvc_redist_version(packages_map)
+    redist_versions_dict = list_msvc_redist_version(packages_maps)
 
     # 3. Construct all msvc repos
     for msvc_version in msvc_versions:
-        deps = get_msvc_package_ids(packages_map, msvc_version, hosts = hosts, targets = targets)
+        msvc_package_map_key = msvc_versions_dict[msvc_version]
+        msvc_packages_map = packages_maps[msvc_package_map_key]
+        deps = get_msvc_package_ids(msvc_packages_map, msvc_version, hosts = hosts, targets = targets)
 
-        closest_redist = _find_closest_redist_version(msvc_version, redist_versions)
-        redist_deps = get_msvc_redist_package_ids(packages_map, closest_redist, targets = targets)
+        closest_redist, redist_package_map_key = _find_closest_redist_version(msvc_version, redist_versions_dict)
+        redist_packages_map = packages_maps[redist_package_map_key]
+        redist_deps = get_msvc_redist_package_ids(redist_packages_map, closest_redist, targets = targets)
         deps.extend(redist_deps)
 
         deps = sorted(deps)
 
         packages_list = []
         for dep_id in deps:
-            pkg = packages_map.get(dep_id)
+            pkg = msvc_packages_map.get(dep_id)
+            if not pkg:
+                pkg = redist_packages_map.get(dep_id)
             if pkg:
                 payloads = pkg.get("payloads", [])
                 for payload in payloads:
@@ -138,12 +152,14 @@ def _extension_impl(module_ctx):
 
     # 4. Construct all winsdk repos
     for winsdk_version in winsdk_versions:
+        winsdk_package_map_key = winsdk_versions_dict[winsdk_version]
+        winsdk_packages_map = packages_maps[winsdk_package_map_key]
         id = get_winsdk_package_id(winsdk_version)
         required_msi_files = get_winsdk_msi_list(targets)
 
         cab_list = {}
         msi_list = []
-        pkg = packages_map.get(id)
+        pkg = winsdk_packages_map.get(id)
         payloads = pkg.get("payloads", [])
         for payload in payloads:
             if "url" in payload and "fileName" in payload:

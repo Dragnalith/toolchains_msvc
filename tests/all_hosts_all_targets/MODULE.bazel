@@ -12,6 +12,7 @@ local_path_override(
 )
 
 toolchain = use_extension("@toolchains_msvc//:extensions.bzl", "toolchain")
+toolchain.msvc_compiler(version = "14.50")
 toolchain.msvc_compiler(version = "14.44")
 toolchain.msvc_compiler(version = "14.40")
 toolchain.msvc_compiler(version = "14.33")

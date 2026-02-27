@@ -6,7 +6,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-DEFAULT_MSVC_VERSIONS = ["14.33", "14.40", "14.44"]
+DEFAULT_MSVC_VERSIONS = ["14.33", "14.40", "14.44", "14.50"]
 DEFAULT_WINSDK_VERSIONS = ["19041", "22621", "26100"]
 
 
