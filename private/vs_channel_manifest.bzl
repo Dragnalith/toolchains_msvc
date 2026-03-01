@@ -389,3 +389,76 @@ def list_msvc_redist_version(packages_maps):
                     if version not in versions:
                         versions[version] = package_map_key
     return {v: versions[v] for v in sorted(versions.keys())}
+
+LLVM_RELEASES_API_URL = "https://api.github.com/repos/llvm/llvm-project/releases"
+
+def _is_clang_windows_msvc_asset(name):
+    """Matches clang+llvm-*-*-pc-windows-msvc.tar.xz (same as Python script)."""
+    if not name.endswith("-pc-windows-msvc.tar.xz"):
+        return False
+    base = name
+    if base.endswith(".sig"):
+        base = base[:-4]
+    if not base.startswith("clang+llvm-") or not base.endswith("-pc-windows-msvc.tar.xz"):
+        return False
+    middle = base[len("clang+llvm-"):-len("-pc-windows-msvc.tar.xz")]
+    parts = middle.split("-", 1)
+    return len(parts) == 2
+
+def list_clang_version(ctx):
+    """Downloads LLVM releases manifest from GitHub API and returns available versions with package URLs.
+
+    Returns:
+        A dict mapping version string to an object with arm64, arm64_digest, x64, x64_digest.
+    """
+    ctx.report_progress("Downloading LLVM releases manifest...")
+    ctx.download(
+        url = LLVM_RELEASES_API_URL,
+        output = "llvm_releases.json",
+    )
+    content = ctx.read("llvm_releases.json")
+    releases = json.decode(content)
+
+    # Build asset name -> (url, digest) from all releases
+    asset_data = {}
+    for release in releases:
+        for asset in release.get("assets", []):
+            aname = asset.get("name", "")
+            if _is_clang_windows_msvc_asset(aname):
+                url = asset.get("browser_download_url")
+                if url:
+                    digest = asset.get("digest", "")
+                    asset_data[aname] = {"url": url, "digest": digest}
+
+    # Parse versions: loop only on x64 assets, expect arm64 exists for each
+    result = {}
+    for name, data in asset_data.items():
+        if not name.endswith("-pc-windows-msvc.tar.xz"):
+            fail("Expected .tar.xz asset, got: " + name)
+        middle = name[len("clang+llvm-"):-len("-pc-windows-msvc.tar.xz")]
+        parts = middle.split("-", 1)
+        if len(parts) != 2:
+            fail("Expected version-arch format in asset name: " + name)
+        version = parts[0]
+        arch_part = parts[1]
+        if arch_part != "x86_64":
+            continue
+
+        arm64_name = "clang+llvm-" + version + "-aarch64-pc-windows-msvc.tar.xz"
+        arm64_data = asset_data.get(arm64_name)
+        if not arm64_data:
+            continue
+
+        if version in result:
+            fail("Duplicate x64 package for version {}: {}".format(version, name))
+
+        arm64_d = arm64_data.get("digest", "")
+        x64_d = data.get("digest", "")
+        result[version] = {
+            "arm64": arm64_data["url"],
+            "arm64_digest": arm64_d[len("sha256:"):] if (arm64_d and arm64_d.startswith("sha256:")) else "",
+            "x64": data["url"],
+            "x64_digest": x64_d[len("sha256:"):] if (x64_d and x64_d.startswith("sha256:")) else "",
+        }
+
+    return {v: result[v] for v in sorted(result.keys())}

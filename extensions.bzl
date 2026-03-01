@@ -1,6 +1,8 @@
+"""Toolchains extension for toolchains_msvc."""
+
+load("//private:llvm_repo.bzl", "llvm_repo")
 load("//private:msvc_repo.bzl", "msvc_repo")
 load("//private:msvc_toolchains_repo.bzl", "msvc_toolchains_repo")
-load("//private:utils.bzl", "convert_bazel_arch_to_msvc_arch")
 load(
     "//private:vs_channel_manifest.bzl",
     "VALID_MSVC_HOSTS",
@@ -10,6 +12,7 @@ load(
     "get_msvc_redist_package_ids",
     "get_winsdk_msi_list",
     "get_winsdk_package_id",
+    "list_clang_version",
     "list_msvc_redist_version",
     "list_msvc_version",
     "list_winsdk_version",
@@ -18,7 +21,7 @@ load("//private:winsdk_repo.bzl", "winsdk_repo")
 
 CHANNEL_URL = {
     "18": "https://aka.ms/vs/stable/channel",
-    "17": "https://aka.ms/vs/17/release/channel"
+    "17": "https://aka.ms/vs/17/release/channel",
 }
 
 def _find_closest_redist_version(msvc_version, redist_versions_dict):
@@ -58,11 +61,14 @@ def _extension_impl(module_ctx):
         packages_maps[package_map_key] = download_and_map(module_ctx, channel_url)
 
     msvc_versions_set = {}
+    clang_versions_set = {}
     winsdk_versions_set = {}
     targets_set = {}
     hosts_set = {}
 
     for mod in module_ctx.modules:
+        for tag in mod.tags.clang_compiler:
+            clang_versions_set[tag.version] = True
         for tag in mod.tags.msvc_compiler:
             msvc_versions_set[tag.version] = True
         for tag in mod.tags.windows_sdk:
@@ -72,6 +78,7 @@ def _extension_impl(module_ctx):
         for tag in mod.tags.host:
             hosts_set[tag.arch] = True
 
+    clang_versions = clang_versions_set.keys()
     msvc_versions = msvc_versions_set.keys()
     winsdk_versions = winsdk_versions_set.keys()
 
@@ -84,6 +91,7 @@ def _extension_impl(module_ctx):
     for winsdk_version in winsdk_versions:
         if winsdk_version not in winsdk_versions_dict:
             fail("Invalid Windows SDK version '{}'. Valid versions are: {}".format(winsdk_version, winsdk_versions_dict.keys()))
+
     targets = targets_set.keys()
     hosts = hosts_set.keys()
 
@@ -113,6 +121,28 @@ def _extension_impl(module_ctx):
             fail("Invalid target '{}', must be one of: {}".format(t, VALID_MSVC_TARGETS))
 
     redist_versions_dict = list_msvc_redist_version(packages_maps)
+
+    # 2. Construct all clang repos (only if clang versions are defined)
+    if clang_versions:
+        clang_versions_dict = list_clang_version(module_ctx)
+        for clang_version in clang_versions:
+            if clang_version not in clang_versions_dict:
+                fail("Invalid Clang/LLVM version '{}'. Valid versions are: {}".format(clang_version, clang_versions_dict.keys()))
+        for clang_version in clang_versions:
+            entry = clang_versions_dict[clang_version]
+            for host in hosts:
+                if host == "x86":
+                    continue  # LLVM does not provide x86 Windows binaries
+                url = entry["x64"] if host == "x64" else entry["arm64"]
+                digest = entry["x64_digest"] if host == "x64" else entry["arm64_digest"]
+                llvm_repo(
+                    name = "llvm_{}_{}".format(clang_version, host),
+                    version = clang_version,
+                    host = host,
+                    url = url,
+                    digest = digest,
+                    src_build = Label("//overlays/clang:BUILD.root.tpl"),
+                )
 
     # 3. Construct all msvc repos
     for msvc_version in msvc_versions:
@@ -197,6 +227,7 @@ def _extension_impl(module_ctx):
     # 5. Instantiate msvc_toolchains repo
     msvc_toolchains_repo(
         name = "msvc_toolchains",
+        clang_versions = clang_versions,
         msvc_versions = msvc_versions,
         winsdk_versions = winsdk_versions,
         targets = targets,
@@ -209,6 +240,7 @@ def _extension_impl(module_ctx):
         root_module_direct_dev_deps = [],
     )
 
+clang_compiler_tag = tag_class(attrs = {"version": attr.string(mandatory = True)})
 msvc_compiler_tag = tag_class(attrs = {"version": attr.string(mandatory = True)})
 windows_sdk_tag = tag_class(attrs = {"version": attr.string(mandatory = True)})
 target_tag = tag_class(attrs = {"arch": attr.string(mandatory = True)})
@@ -217,6 +249,7 @@ host_tag = tag_class(attrs = {"arch": attr.string(mandatory = True)})
 toolchain = module_extension(
     implementation = _extension_impl,
     tag_classes = {
+        "clang_compiler": clang_compiler_tag,
         "msvc_compiler": msvc_compiler_tag,
         "windows_sdk": windows_sdk_tag,
         "target": target_tag,

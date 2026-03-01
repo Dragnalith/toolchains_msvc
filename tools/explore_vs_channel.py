@@ -5,6 +5,7 @@ It supports:
 - Downloading and parsing channel manifests and package manifests.
 - analyzing dependencies between packages.
 - listing available MSVC versions.
+- listing available LLVM/Clang packages (clang+llvm-*-*-pc-windows-msvc.tar.xz).
 - listing files within a package payload.
 - Downloading and extracting specific packages or MSI files, including handling of associated cabinet files.
 
@@ -92,6 +93,29 @@ def download_manifest(root_url=None, save_to_file=False):
     return json.loads(package_content.decode('utf-8'))
 
 
+LLVM_ASSET_PATTERN = re.compile(
+    r'^clang\+llvm-[^-]+-[^-]+-pc-windows-msvc\.tar\.xz$',
+    re.IGNORECASE
+)
+
+
+def list_llvm_packages():
+    """Fetch LLVM releases from GitHub and list asset names matching clang+llvm-*-*-pc-windows-msvc.tar.xz."""
+    releases_url = "https://api.github.com/repos/llvm/llvm-project/releases"
+    req = urllib.request.Request(releases_url, headers={"Accept": "application/vnd.github+json"})
+    with urllib.request.urlopen(req) as response:
+        releases = json.loads(response.read().decode('utf-8'))
+
+    asset_names = []
+    for release in releases:
+        for asset in release.get('assets', []):
+            name = asset.get('name', '')
+            if LLVM_ASSET_PATTERN.match(name):
+                asset_names.append(name)
+
+    return sorted(set(asset_names))
+
+
 def main():
     parser = argparse.ArgumentParser(description="Visual Studio Package Analysis Tool")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -115,6 +139,9 @@ def main():
     # Manifest command
     manifest_parser = subparsers.add_parser("manifest", help="Download manifests")
 
+    # Clang/LLVM command
+    clang_parser = subparsers.add_parser("clang", help="List available LLVM packages (clang+llvm-*-*-pc-windows-msvc.tar.xz)")
+
     # Files command
     files_parser = subparsers.add_parser("files", help="List files in a package")
     files_parser.add_argument("--id", dest="package_id", required=True, help="Package ID to analyze")
@@ -130,6 +157,11 @@ def main():
     if args.command == "manifest":
         download_manifest(save_to_file=True)
         print("Manifests downloaded to vs_manifest.json and vs_package_manifest.json")
+        return
+
+    if args.command == "clang":
+        for name in list_llvm_packages():
+            print(name)
         return
 
     data = download_manifest()

@@ -4,28 +4,31 @@
 
 namespace {
 #if defined(_MSC_VER) && !defined(__clang__)
+int version_major = _MSC_VER / 100;
+int version_minor = _MSC_VER % 100;
+int version_patch = 0;
 const char* compiler = "cl.exe";
 const bool is_cl = true;
 const bool is_clang_cl = false;
 const bool is_clang = false;
-int version_minor = _MSC_VER % 100;
-int version_major = _MSC_VER / 100;
-#elif defined(__clang__) && defined(_MSC_VER)
+#elif defined(__clang__) && defined(__clang_cl__)
+int version_major = __clang_major__;
+int version_minor = __clang_minor__;
+int version_patch = __clang_patchlevel__;
 const char* compiler = "clang-cl.exe";
 const bool is_cl = false;
 const bool is_clang_cl = true;
 const bool is_clang = false;
-int version_minor = __clang_minor__;
-int version_major = __clang_major__;
 #elif defined(__clang__)
+int version_major = __clang_major__;
+int version_minor = __clang_minor__;
+int version_patch = __clang_patchlevel__;
 const char* compiler = "clang.exe";
 const bool is_cl = false;
 const bool is_clang_cl = false;
 const bool is_clang = true;
-int version_minor = __clang_minor__;
-int version_major = __clang_major__;
 #else
-#error "Unknown compiler
+#error "Unknown compiler"
 #endif
 
 #if defined(_M_X64) || defined(_M_AMD64) || defined(__x86_64__) || defined(__amd64__)
@@ -68,12 +71,27 @@ const char* get_winsdk_build_string() {
 
 int main() {
 
-    std::string compiler_version = std::to_string(version_major) + "." + std::to_string(version_minor);
+    std::string compiler_version;
+    std::string msvc_version;
+    msvc_version = std::to_string(_MSC_VER / 100 - 5) + "." + std::to_string(_MSC_VER % 100);
+    if (is_cl) {
+        compiler_version = msvc_version;
+    } else {
+        compiler_version = std::to_string(version_major) + "." + std::to_string(version_minor) + "." + std::to_string(version_patch);
+    }
     std::string winsdk_version = get_winsdk_build_string();
+
+    (void)(is_cl);
+    (void)(is_clang_cl);
+    (void)(is_clang);
+    (void)(is_x64);
+    (void)(is_x86);
+    (void)(is_arm64);
 
     std::cout << "{\n"
               << "  \"compiler\": \"" << compiler << "\",\n"
               << "  \"compiler_version\": \"" << compiler_version << "\",\n"
+              << "  \"msvc_version\": \"" << msvc_version << "\",\n"
               << "  \"winsdk_version\": \"" << winsdk_version << "\",\n"
               << "  \"target\": \"" << target_arch << "\"\n"
               << "}";

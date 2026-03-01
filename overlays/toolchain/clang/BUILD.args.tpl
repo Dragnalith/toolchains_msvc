@@ -3,6 +3,22 @@ load("@rules_cc//cc/toolchains:args_list.bzl", "cc_args_list")
 
 package(default_visibility = ["//visibility:public"])
 
+# Applied to every tool to prevent accidental host system includes/libs
+cc_args(
+    name = "nostdinc",
+    actions = [
+        "@rules_cc//cc/toolchains/actions:assembly_actions",
+        "@rules_cc//cc/toolchains/actions:c_compile",
+        "@rules_cc//cc/toolchains/actions:cpp_compile_actions",
+        "@rules_cc//cc/toolchains/actions:link_actions",
+        "@rules_cc//cc/toolchains/actions:ar_actions",
+        "@rules_cc//cc/toolchains/actions:strip",
+    ],
+    args = [
+        "-nostdinc",
+    ],
+)
+
 # Collect all compiler args
 cc_args_list(
     name = "all_compile_args",
@@ -21,21 +37,17 @@ cc_args(
         "@rules_cc//cc/toolchains/actions:cpp_compile_actions",
     ],
     args = [
-        "/nologo",
-        "/DCOMPILER_MSVC",
-        "/DNOMINMAX",
-        "/DWIN32_LEAN_AND_MEAN",
-        "/D_CRT_SECURE_NO_WARNINGS",
-        "/D_UNICODE",
-        "/DUNICODE",
-        "/Zc:inline",
-        "/Zc:preprocessor",
-        "/Zc:__cplusplus",
-        "/EHsc",
-        "/utf-8",
-        "/bigobj",
-        "/Brepro",
-        "/FS",
+        "--target={clang_target}",
+        "-DCOMPILER_MSVC",
+        "-DNOMINMAX",
+        "-DWIN32_LEAN_AND_MEAN",
+        "-D_CRT_SECURE_NO_WARNINGS",
+        "-D_UNICODE",
+        "-DUNICODE",
+        "-fms-compatibility",
+        "-fms-extensions",
+        "-fms-compatibility-version={cl_internal_version}",
+        "-fexceptions",
     ],
 )
 
@@ -47,13 +59,13 @@ cc_args(
         "@rules_cc//cc/toolchains/actions:cpp_compile_actions",
     ],
     args = [
-        "/I",
+        "-isystem",
         "{msvc_include}",
-        "/I",
+        "-isystem",
         "{winsdk_ucrt_include}",
-        "/I",
+        "-isystem",
         "{winsdk_um_include}",
-        "/I",
+        "-isystem",
         "{winsdk_shared_include}",
     ],
     data = [
@@ -78,8 +90,8 @@ cc_args(
         "@rules_cc//cc/toolchains/actions:cpp_compile_actions",
     ],
     args = [
-        "/W3",
-        "/WX-",
+        "-Wall",
+        "-Wno-error",
     ],
 )
 
@@ -108,9 +120,9 @@ cc_args(
         "/LIBPATH:{winsdk_ucrt_lib}",
     ],
     data = [
-        "@{msvc_repo}//:msvc_all_libs_x64",
-        "@{winsdk_repo}//:um_lib_dir_files_x64",
-        "@{winsdk_repo}//:ucrt_lib_dir_files_x64",
+        "@{msvc_repo}//:msvc_all_libs_{target}",
+        "@{winsdk_repo}//:um_lib_dir_files_{target}",
+        "@{winsdk_repo}//:ucrt_lib_dir_files_{target}",
     ],
     format = {
         "msvc_lib": "@{msvc_repo}//:lib_dir_{target}",
@@ -127,11 +139,11 @@ cc_args(
         "@rules_cc//cc/toolchains/actions:cpp_compile_actions",
     ],
     args = [
-        "/Od",
-        "/Zi",
-        "/RTC1",
-        "/MDd",
-        "/D_DEBUG",
+        "-O0",
+        "-g",
+        "-gcodeview",
+        "-D_DEBUG",
+        "-fms-runtime-lib=dll_dbg",
     ],
 )
 
@@ -153,11 +165,9 @@ cc_args(
         "@rules_cc//cc/toolchains/actions:cpp_compile_actions",
     ],
     args = [
-        "/O2",
-        "/Oi",
-        "/Gy",
-        "/MD",
-        "/DNDEBUG",
+        "-O2",
+        "-DNDEBUG",
+        "-fms-runtime-lib=dll",
     ],
 )
 
@@ -180,8 +190,8 @@ cc_args(
         "@rules_cc//cc/toolchains/actions:cpp_compile_actions",
     ],
     args = [
-        "/Od",
-        "/MD",
+        "-O0",
+        "-fms-runtime-lib=dll",
     ],
 )
 

@@ -7,18 +7,22 @@
 - [X] Fix 19041 winsdk and MSVC version below 14.44
 - [X] Support multiple compiler version at the same time
 - [X] Support WinSDK 19041 and 2026 channel at the same time
-- [ ] Make default MSVC and WinSDK version be explicit
-- [ ] Support LLVM for Windows
-- [ ] Support clang-cl
-- [ ] msvc-cl, clang-cl, and clang are defined with an appropriate 'compiler' attribute you can be used in `select()` statements to conditionally configure your build based on the compiler type
-- [ ] feature DLL compilation
-- [ ] feature for enabling debug symbol: .pdb are enabled by feature instead of 'dbg' config
-- [ ] feature for enabling warning treated as error
-- [ ] feature to manage static linking (i.e /MT vd /MD)
-- [ ] feature to enable PGO
-- [ ] feature to enable LTO
-- [ ] Prepare lock file: Divide package URL/SHA256 resolution outside of the repo
-- [ ] Support lock file using the 'Update pattern'
-- [ ] Enforce EULA agreement
-- [ ] Verify remote execution performance and number of dependencies to the toolchain and the sdk
-- [ ] Customization of default flags
+- [X] Make default MSVC and WinSDK version be explicit
+- [X] LLVM: Support clang.exe targetting MSVC ABI
+- [X] LLVM: Display the list of available llvm version on the error msg when specified version is not recognized
+- [ ] LLVM: Support clang-cl
+- [ ] Customization: Configure the compiler attribute for each toolchain kind (`msvc-cl`, `clang` and `clang-cl`) to be used in `select()` statements to conditionally configure your build based on the compiler type
+- [ ] Enable ability to define multiple toolchain repo
+- [ ] Cleanup default flags and define
+- [ ] Feature: Support DLL compilation
+- [ ] Feature: Support debug symbols.
+- [ ] Feature: Support warning treasted as error
+- [ ] Feature: Support both dynamic and static runtime linking (i.e /MT vd /MD)
+- [ ] Feature: Support PGO
+- [ ] Feature: Support LTO
+- [ ] Lock File: Separate toolchains installation into two phase: preparation of a "lock" file, then consuming the lock file for installation.
+- [ ] Lock File: Support lock file using the 'Update pattern'
+- [ ] Enforce Visual Studio's EULA agreement: require a BAZEL_TOOLCHAINS_MSVC_AGREE_WITH_VS_EULA envvar. If does not exist, installation fails with the url pointing to EULA gotten from the channel manifest
+- [ ] Remote Execution: verify it runs toolchains_msvc's toolchains properly
+- [ ] Remote Execution: minimize toolchain's file dependency
+- [ ] Customization: it is possible to override default features/args for `opt`, `fastbuild` and `dbg`. (flags and defines)

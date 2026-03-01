@@ -22,12 +22,17 @@ jobs:
           bazelrc: |
             common --curses=no
 
-      - name: Run tests
+      - name: Run test_default
         working-directory: tests
-        run: |
-          python integration_test.py test_default
-          python integration_test.py all_hosts_all_targets
-          python integration_test.py one_host_one_target
+        run: python integration_test.py test_default
+
+      - name: Run all_hosts_all_targets
+        working-directory: tests
+        run: python integration_test.py all_hosts_all_targets
+
+      - name: Run one_host_one_target
+        working-directory: tests
+        run: python integration_test.py one_host_one_target
 
   test_arm64:
     runs-on: windows-11-arm
@@ -43,9 +48,14 @@ jobs:
           bazelrc: |
             common --curses=no
 
-      - name: Run tests
+      - name: Run test_default
         working-directory: tests
-        run: |
-          python integration_test.py test_default
-          python integration_test.py all_hosts_all_targets
-          python integration_test.py one_host_one_target
+        run: python integration_test.py test_default
+
+      - name: Run all_hosts_all_targets
+        working-directory: tests
+        run: python integration_test.py all_hosts_all_targets
+
+      - name: Run one_host_one_target
+        working-directory: tests
+        run: python integration_test.py one_host_one_target
