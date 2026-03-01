@@ -10,14 +10,14 @@
 - [ ] Make default MSVC and WinSDK version be explicit
 - [ ] Support LLVM for Windows
 - [ ] Support clang-cl
-- [ ] Support DLL compilation
-- [ ] Prepare lock file: Divide package URL/SHA256 resolution outside of the repo
+- [ ] msvc-cl, clang-cl, and clang are defined with an appropriate 'compiler' attribute you can be used in `select()` statements to conditionally configure your build based on the compiler type
+- [ ] feature DLL compilation
 - [ ] feature for enabling debug symbol: .pdb are enabled by feature instead of 'dbg' config
 - [ ] feature for enabling warning treated as error
 - [ ] feature to manage static linking (i.e /MT vd /MD)
 - [ ] feature to enable PGO
 - [ ] feature to enable LTO
-- [ ] Ability to select on compiler kind 'gcc' or 'msvc' when adding custom flag
+- [ ] Prepare lock file: Divide package URL/SHA256 resolution outside of the repo
 - [ ] Support lock file using the 'Update pattern'
 - [ ] Enforce EULA agreement
 - [ ] Verify remote execution performance and number of dependencies to the toolchain and the sdk

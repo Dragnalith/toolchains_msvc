@@ -17,7 +17,7 @@ It generates:
 *   `@winsdk_{version}` for each requested Windows SDK version
 *   `@msvc_toolchains` containing all toolchain definitions
 
-## Usage
+## Quick Start
 
 Add this to your `MODULE.bazel`:
 
@@ -31,8 +31,10 @@ git_override(
 
 toolchain = use_extension("@toolchains_msvc//extensions:toolchain.bzl", "toolchain")
 
+toolchain.msvc_compiler(version = "14.50")
 toolchain.msvc_compiler(version = "14.44")
 toolchain.windows_sdk(version = "26100")
+toolchain.windows_sdk(version = "19041")
 toolchain.target(arch = "x86")
 toolchain.target(arch = "x64")
 toolchain.target(arch = "arm64")
@@ -42,7 +44,23 @@ toolchain.host(arch = "arm64")
 
 use_repo(toolchain, "msvc_toolchains")
 
-register_toolchains("@msvc_toolchains//:all")
+register_toolchains("@msvc_toolchains//:msvc_14.44_winsdk19041_hostx64_target_x64")
 ```
 
 This registers toolchains for all combinations of the declared targets, SDK versions, and compiler versions.
+
+## Toolchain Selection
+
+The toolchain name follows this pattern:
+`@msvc_toolchains//:msvc_<msvc-version>_winsdk<winsdk-version>_host<host-arch>_target<target-arch>`
+
+Currently supported values are:
+
+| Parameter | Supported Values |
+| --- | --- |
+| `host` | `x86`, `x64`, `arm64` |
+| `target` | `x86`, `x64`, `arm64` |
+| `msvc-version` | `14.29`, `14.30`, `14.31`, `14.32`, `14.33`, `14.34`, `14.35`, `14.36`, `14.37`, `14.38`, `14.39`, `14.40`, `14.41`, `14.42`, `14.43`, `14.44`, `14.50` |
+| `winsdk-version` | `19041`, `22621`, `26100` |
+
+The toolchain can be selected with `register_toolchains(...)` in your `MODULE.bazel` file. It can also be overridden without changing the `MODULE.bazel` by using the `--extra_toolchains` flag on the command line (e.g. `bazel build --extra_toolchains=@msvc_toolchains//:msvc_14.50_winsdk26100_hostx64_target_x64 //...`).

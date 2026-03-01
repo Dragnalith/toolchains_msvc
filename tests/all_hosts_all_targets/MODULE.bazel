@@ -27,12 +27,11 @@ toolchain.host(arch = "x64")
 toolchain.host(arch = "arm64")
 use_repo(toolchain, "msvc_toolchains")
 
-# Add default toolchain first for every pair of host and target
-register_toolchains("@msvc_toolchains//:msvc_14.44_winsdk26100_hostx64_targetx64")
-register_toolchains("@msvc_toolchains//:msvc_14.44_winsdk26100_hostx64_targetx86")
-register_toolchains("@msvc_toolchains//:msvc_14.44_winsdk26100_hostx86_targetx86")
-register_toolchains("@msvc_toolchains//:msvc_14.44_winsdk26100_hostx86_targetx64")
-register_toolchains("@msvc_toolchains//:msvc_14.44_winsdk26100_hostarm64_targetarm64")
-
-# add all toolchains
-register_toolchains("@msvc_toolchains//:all")
+# Add default toolchain forevery pair of host and target
+register_toolchains(
+    "@msvc_toolchains//:msvc_14.44_winsdk26100_hostx64_targetx64",
+    "@msvc_toolchains//:msvc_14.44_winsdk26100_hostx64_targetx86",
+    "@msvc_toolchains//:msvc_14.44_winsdk26100_hostx86_targetx86",
+    "@msvc_toolchains//:msvc_14.44_winsdk26100_hostx86_targetx64",
+    "@msvc_toolchains//:msvc_14.44_winsdk26100_hostarm64_targetarm64",
+)

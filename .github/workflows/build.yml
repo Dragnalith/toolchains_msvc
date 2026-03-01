@@ -25,7 +25,8 @@ jobs:
       - name: Run tests
         working-directory: tests
         run: |
-          python integration_test.py all_host_all_target
+          python integration_test.py test_default
+          python integration_test.py all_hosts_all_targets
           python integration_test.py one_host_one_target
 
   test_arm64:
@@ -45,5 +46,6 @@ jobs:
       - name: Run tests
         working-directory: tests
         run: |
-          python integration_test.py all_host_all_target
+          python integration_test.py test_default
+          python integration_test.py all_hosts_all_targets
           python integration_test.py one_host_one_target

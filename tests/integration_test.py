@@ -55,17 +55,21 @@ def validate_output(
     expected_target: str,
     expected_compiler: str,
     expected_winsdk_version: str,
+    expected_compiler_version: str = "",
 ) -> bool:
     """Validate that stdout contains expected JSON config. Returns True if valid."""
     try:
         data = json.loads(stdout.strip())
     except json.JSONDecodeError:
         return False
-    return (
+    is_valid = (
         data.get("target") == expected_target
         and data.get("compiler") == expected_compiler
         and data.get("winsdk_version") == expected_winsdk_version
     )
+    if expected_compiler_version:
+        is_valid = is_valid and data.get("compiler_version") == expected_compiler_version
+    return is_valid
 
 
 def _format_failure_output(stdout: str, stderr: str) -> str:
@@ -85,14 +89,14 @@ def get_default_targets(host: str) -> list[str]:
     return ["arm64"]
 
 
-def run_all_host_all_target(
+def run_all_hosts_all_targets(
     script_dir: Path,
     hosts: list[str],
     targets: list[str],
     msvc_versions: list[str],
     winsdk_versions: list[str],
 ) -> None:
-    """Run all_host_all_target tests."""
+    """Run all_hosts_all_targets tests."""
     print("DESCRIPTION: Test all toolchains in a workspace configured with every possible toolchain combination.")
     print(f"hosts: {', '.join(hosts)}")
     print(f"targets: {', '.join(targets)}")
@@ -113,7 +117,7 @@ def run_all_host_all_target(
             ]
 
             test_cmd = "bazel run //:hello_world " + " ".join(bazel_args)
-            print(f"TEST: {test_cmd}")
+            print(f"TEST(all_hosts_all_targets): {test_cmd}")
 
             returncode, stdout, stderr = run_bazel(bazel_args, workspace_dir)
             print(stdout, end="" if stdout.endswith("\n") else "\n")
@@ -125,15 +129,17 @@ def run_all_host_all_target(
                     f"{_format_failure_output(stdout, stderr)}"
                 )
 
+            expected_compiler_version = msvc.replace("14.", "19.", 1)
             if not validate_output(
                 stdout,
                 expected_target=target,
                 expected_compiler="cl.exe",
                 expected_winsdk_version=winsdk,
+                expected_compiler_version=expected_compiler_version,
             ):
                 fatal_error(
                     f"FAILED: Output validation failed\n"
-                    f"Expected: target={target}, compiler=cl.exe, winsdk_version={winsdk}\n"
+                    f"Expected: target={target}, compiler=cl.exe, compiler_version={expected_compiler_version}, winsdk_version={winsdk}\n"
                     f"{_format_failure_output(stdout, stderr)}"
                 )
 
@@ -168,7 +174,7 @@ def run_one_host_one_target(
             ]
 
             test_cmd = "bazel run //:hello_world " + " ".join(bazel_args)
-            print(f"TEST: {test_cmd}")
+            print(f"TEST(one_host_one_target): {test_cmd}")
 
             returncode, stdout, stderr = run_bazel(bazel_args, workspace_dir)
             print(stdout, end="" if stdout.endswith("\n") else "\n")
@@ -185,10 +191,61 @@ def run_one_host_one_target(
                 expected_target=target,
                 expected_compiler="cl.exe",
                 expected_winsdk_version=winsdk,
+                expected_compiler_version="19.44",
             ):
                 fatal_error(
                     f"FAILED: Output validation failed\n"
-                    f"Expected: target={target}, compiler=cl.exe, winsdk_version={winsdk}\n"
+                    f"Expected: target={target}, compiler=cl.exe, compiler_version=19.44, winsdk_version={winsdk}\n"
+                    f"{_format_failure_output(stdout, stderr)}"
+                )
+
+            print("PASSED")
+
+
+def run_test_default(
+    script_dir: Path,
+    hosts: list[str],
+    targets: list[str],
+) -> None:
+    """Run test_default tests."""
+    print("DESCRIPTION: Test default toolchain in all_hosts_all_targets workspace.")
+    print(f"hosts: {', '.join(hosts)}")
+    print(f"targets: {', '.join(targets)}")
+
+    workspace_dir = script_dir / "all_hosts_all_targets"
+    check(workspace_dir.is_dir(), f"Workspace not found: {workspace_dir}")
+
+    for host in hosts:
+        host_targets = [t for t in targets if t in get_default_targets(host)]
+        for target in host_targets:
+            bazel_args = [
+                f"--host_platform=//:windows_{host}",
+                f"--platforms=//:windows_{target}",
+            ]
+            test_cmd = "bazel run //:hello_world " + " ".join(bazel_args)
+            print(f"TEST(test_default): {test_cmd}")
+
+            returncode, stdout, stderr = run_bazel(bazel_args, workspace_dir)
+            print(stdout, end="" if stdout.endswith("\n") else "\n")
+
+            if returncode != 0:
+                fatal_error(
+                    f"FAILED: bazel run failed (exit code {returncode})\n"
+                    f"{_format_failure_output(stdout, stderr)}"
+                )
+
+            try:
+                data = json.loads(stdout.strip())
+                actual_target = data.get("target")
+                compiler = data.get("compiler")
+                winsdk = data.get("winsdk_version")
+                compiler_version = data.get("compiler_version")
+                if compiler != "cl.exe" or compiler_version != "19.44" or winsdk != "26100" or actual_target != target:
+                    fatal_error(f"FAILED: Output validation failed\nExpected target {target}, got {actual_target}. Unexpected data: {data}")
+            except json.JSONDecodeError:
+                fatal_error(
+                    f"FAILED: Output validation failed\n"
+                    f"Expected JSON output\n"
                     f"{_format_failure_output(stdout, stderr)}"
                 )
 
@@ -201,24 +258,24 @@ def main() -> None:
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    # all_host_all_target command
-    all_host_all_target_parser = subparsers.add_parser("all_host_all_target", help="Test all toolchain combinations")
-    all_host_all_target_parser.add_argument(
+    # all_hosts_all_targets command
+    all_hosts_all_targets_parser = subparsers.add_parser("all_hosts_all_targets", help="Test all toolchain combinations")
+    all_hosts_all_targets_parser.add_argument(
         "--hosts",
         default=None,
         help="Comma-separated host architectures (default: x86,x64 on AMD64, arm64 on ARM64)",
     )
-    all_host_all_target_parser.add_argument(
+    all_hosts_all_targets_parser.add_argument(
         "--targets",
         default=None,
         help="Comma-separated target architectures (default: x86,x64 for x64/x86 host, arm64 for arm64 host)",
     )
-    all_host_all_target_parser.add_argument(
+    all_hosts_all_targets_parser.add_argument(
         "--msvc_versions",
         default=None,
         help="Comma-separated MSVC versions (default: 14.29,14.33,14.40,14.44)",
     )
-    all_host_all_target_parser.add_argument(
+    all_hosts_all_targets_parser.add_argument(
         "--winsdk_versions",
         default=None,
         help="Comma-separated Windows SDK versions (default: 19041,22621,26100)",
@@ -235,6 +292,22 @@ def main() -> None:
         help="Comma-separated host architectures (default: x86,x64 on AMD64, arm64 on ARM64)",
     )
     one_host_parser.add_argument(
+        "--targets",
+        default=None,
+        help="Comma-separated target architectures (default: x86,x64 for x64/x86 host, arm64 for arm64 host)",
+    )
+
+    # test_default command
+    test_default_parser = subparsers.add_parser(
+        "test_default",
+        help="Test default toolchain configuration",
+    )
+    test_default_parser.add_argument(
+        "--hosts",
+        default=None,
+        help="Comma-separated host architectures (default: x86,x64 on AMD64, arm64 on ARM64)",
+    )
+    test_default_parser.add_argument(
         "--targets",
         default=None,
         help="Comma-separated target architectures (default: x86,x64 for x64/x86 host, arm64 for arm64 host)",
@@ -257,16 +330,18 @@ def main() -> None:
     else:
         targets = sorted(set(t for h in hosts for t in get_default_targets(h)))
 
-    if args.command == "all_host_all_target":
+    if args.command == "all_hosts_all_targets":
         msvc_versions = (
             parse_comma_list(args.msvc_versions) if args.msvc_versions else DEFAULT_MSVC_VERSIONS
         )
         winsdk_versions = (
             parse_comma_list(args.winsdk_versions) if args.winsdk_versions else DEFAULT_WINSDK_VERSIONS
         )
-        run_all_host_all_target(script_dir, hosts, targets, msvc_versions, winsdk_versions)
-    else:
+        run_all_hosts_all_targets(script_dir, hosts, targets, msvc_versions, winsdk_versions)
+    elif args.command == "one_host_one_target":
         run_one_host_one_target(script_dir, hosts, targets)
+    elif args.command == "test_default":
+        run_test_default(script_dir, hosts, targets)
 
 
 if __name__ == "__main__":

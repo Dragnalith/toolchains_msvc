@@ -12,6 +12,9 @@ local_path_override(
 )
 
 toolchain = use_extension("@toolchains_msvc//:extensions.bzl", "toolchain")
+
+# hosts and targets are not specified here. They will be specified
+# using BAZEL_TOOLCHAINS_MSVC_HOSTS and BAZEL_TOOLCHAINS_MSVC_TARGETS envvars
 toolchain.msvc_compiler(version = "14.44")
 toolchain.windows_sdk(version = "26100")
 use_repo(toolchain, "msvc_toolchains")
