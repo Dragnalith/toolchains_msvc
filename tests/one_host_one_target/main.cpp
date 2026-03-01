@@ -3,7 +3,7 @@
 #include <sdkddkver.h>
 
 namespace {
-#if defined(_MSC_VER) && !defined(__clang__)
+#if defined(COMPILER_IS_CL) 
 int version_major = _MSC_VER / 100;
 int version_minor = _MSC_VER % 100;
 int version_patch = 0;
@@ -11,7 +11,7 @@ const char* compiler = "cl.exe";
 const bool is_cl = true;
 const bool is_clang_cl = false;
 const bool is_clang = false;
-#elif defined(__clang__) && defined(__clang_cl__)
+#elif defined(COMPILER_IS_CLANG_CL)
 int version_major = __clang_major__;
 int version_minor = __clang_minor__;
 int version_patch = __clang_patchlevel__;
@@ -19,7 +19,7 @@ const char* compiler = "clang-cl.exe";
 const bool is_cl = false;
 const bool is_clang_cl = true;
 const bool is_clang = false;
-#elif defined(__clang__)
+#elif defined(COMPILER_IS_CLANG)
 int version_major = __clang_major__;
 int version_minor = __clang_minor__;
 int version_patch = __clang_patchlevel__;

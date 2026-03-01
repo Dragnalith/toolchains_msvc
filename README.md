@@ -70,3 +70,4 @@ At the time of writing this README, the following values are available (the actu
 | `winsdk-version` | `19041`, `22621`, `26100` |
 | `clang-version` | `20.1.0`, `20.1.1`, `20.1.2`, `20.1.3`, `20.1.4`, `20.1.5`, `20.1.6`, `20.1.7`, `20.1.8`, `21.1.0`, `21.1.1`, `21.1.2`, `21.1.3`, `21.1.4`, `21.1.5`, `21.1.6`, `21.1.7`, `21.1.8`, `22.1.0` |
 
+> **Note:** ARM64 host support requires MSVC version 14.33 or later.

@@ -21,6 +21,7 @@ cc_args(
         "@rules_cc//cc/toolchains/actions:cpp_compile_actions",
     ],
     args = [
+        "--target={clang_target}",
         "/nologo",
         "/DCOMPILER_MSVC",
         "/DNOMINMAX",

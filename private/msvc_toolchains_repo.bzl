@@ -24,10 +24,21 @@ def _msvc_toolchains_repo_impl(ctx):
         ctx.attr.src_artifacts,
     )
 
+    ctx.template(
+        "clang-cl/artifacts/BUILD.bazel",
+        ctx.attr.src_artifacts,
+    )
+
     # Install BUILD.features.bazel for clang
     ctx.template(
         "clang/features/BUILD.bazel",
         ctx.attr.clang_src_features,
+    )
+
+    # Install BUILD.features.bazel for clang-cl
+    ctx.template(
+        "clang-cl/features/BUILD.bazel",
+        ctx.attr.clang_cl_src_features,
     )
 
     for winsdk_version in winsdk_versions:
@@ -51,6 +62,8 @@ def _msvc_toolchains_repo_impl(ctx):
                         "toolchain_msvc{msvc_version}_winsdk{winsdk_version}_host{host}_target{target}/BUILD.bazel".format(msvc_version = msvc_version, host = host, target = target, winsdk_version = winsdk_version),
                         ctx.attr.src_toolchain,
                         substitutions = {
+                            "{toolchain_name}": "toolchain_msvc{msvc_version}_winsdk{winsdk_version}_host{host}_target{target}".format(msvc_version = msvc_version, host = host, target = target, winsdk_version = winsdk_version),
+                            "{compiler}": "msvc-cl",
                             "{msvc_version}": msvc_version,
                             "{winsdk_version}": winsdk_version,
                             "{target}": target,
@@ -94,6 +107,8 @@ def _msvc_toolchains_repo_impl(ctx):
                             "toolchain_clang{clang_version}_msvc{msvc_version}_winsdk{winsdk_version}_host{host}_target{target}/BUILD.bazel".format(clang_version = clang_version, msvc_version = msvc_version, host = host, target = target, winsdk_version = winsdk_version),
                             ctx.attr.clang_src_toolchain,
                             substitutions = {
+                                "{toolchain_name}": "toolchain_clang{clang_version}_msvc{msvc_version}_winsdk{winsdk_version}_host{host}_target{target}".format(clang_version = clang_version, msvc_version = msvc_version, host = host, target = target, winsdk_version = winsdk_version),
+                                "{compiler}": "clang",
                                 "{clang_version}": clang_version,
                                 "{msvc_version}": msvc_version,
                                 "{winsdk_version}": winsdk_version,
@@ -107,6 +122,48 @@ def _msvc_toolchains_repo_impl(ctx):
                             "toolchain_clang{clang_version}_msvc{msvc_version}_winsdk{winsdk_version}_host{host}_target{target}/tools/BUILD.bazel".format(clang_version = clang_version, msvc_version = msvc_version, host = host, target = target, winsdk_version = winsdk_version),
                             ctx.attr.clang_src_tools,
                             substitutions = {
+                                "{compiler}": "clang",
+                                "{llvm_repo}": "llvm_{}_{}".format(clang_version, host),
+                                "{msvc_repo}": "msvc_{}".format(msvc_version),
+                                "{target}": target,
+                                "{host}": host,
+                            },
+                        )
+
+                        # --- CLANG-CL ---
+                        # Install BUILD.args.bazel
+                        ctx.template(
+                            "toolchain_clang-cl{clang_version}_msvc{msvc_version}_winsdk{winsdk_version}_host{host}_target{target}/args/BUILD.bazel".format(clang_version = clang_version, msvc_version = msvc_version, host = host, target = target, winsdk_version = winsdk_version),
+                            ctx.attr.clang_cl_src_args,
+                            substitutions = {
+                                "{msvc_repo}": "msvc_{}".format(msvc_version),
+                                "{winsdk_repo}": "winsdk_{}".format(winsdk_version),
+                                "{target}": target,
+                                "{host}": host,
+                                "{clang_target}": clang_target,
+                            },
+                        )
+
+                        # Install BUILD.toolchain.bazel
+                        ctx.template(
+                            "toolchain_clang-cl{clang_version}_msvc{msvc_version}_winsdk{winsdk_version}_host{host}_target{target}/BUILD.bazel".format(clang_version = clang_version, msvc_version = msvc_version, host = host, target = target, winsdk_version = winsdk_version),
+                            ctx.attr.clang_cl_src_toolchain,
+                            substitutions = {
+                                "{toolchain_name}": "toolchain_clang-cl{clang_version}_msvc{msvc_version}_winsdk{winsdk_version}_host{host}_target{target}".format(clang_version = clang_version, msvc_version = msvc_version, host = host, target = target, winsdk_version = winsdk_version),
+                                "{compiler}": "clang-cl",
+                                "{msvc_version}": msvc_version,
+                                "{winsdk_version}": winsdk_version,
+                                "{target}": target,
+                                "{host}": host,
+                            },
+                        )
+
+                        # Install BUILD.tools.tpl
+                        ctx.template(
+                            "toolchain_clang-cl{clang_version}_msvc{msvc_version}_winsdk{winsdk_version}_host{host}_target{target}/tools/BUILD.bazel".format(clang_version = clang_version, msvc_version = msvc_version, host = host, target = target, winsdk_version = winsdk_version),
+                            ctx.attr.clang_cl_src_tools,
+                            substitutions = {
+                                "{compiler}": "clang-cl",
                                 "{llvm_repo}": "llvm_{}_{}".format(clang_version, host),
                                 "{msvc_repo}": "msvc_{}".format(msvc_version),
                                 "{target}": target,
@@ -160,6 +217,20 @@ toolchain(
     toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
 )
 
+toolchain(
+    name = "clang-cl{clang_version}_msvc{msvc_version}_winsdk{winsdk_version}_host{host}_target{target}",
+    exec_compatible_with = [
+        "@platforms//os:windows",
+        "@platforms//cpu:{host_arch}",
+    ],
+    target_compatible_with = [
+        "@platforms//os:windows",
+        "@platforms//cpu:{target_arch}",
+    ],
+    toolchain = "//toolchain_clang-cl{clang_version}_msvc{msvc_version}_winsdk{winsdk_version}_host{host}_target{target}:cc_toolchain",
+    toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
+)
+
     """.format(clang_version = clang_version, msvc_version = msvc_version, winsdk_version = winsdk_version, host = host, target = target, target_arch = target_arch, host_arch = host_arch)
 
     # Generate empty root BUILD.bazel to define the package
@@ -182,5 +253,9 @@ msvc_toolchains_repo = repository_rule(
         "clang_src_toolchain": attr.label(default = Label("//overlays/toolchain/clang:BUILD.toolchain.tpl"), allow_single_file = True),
         "clang_src_tools": attr.label(default = Label("//overlays/toolchain/clang:BUILD.tools.tpl"), allow_single_file = True),
         "clang_src_features": attr.label(default = Label("//overlays/toolchain/clang:BUILD.features.bazel"), allow_single_file = True),
+        "clang_cl_src_args": attr.label(default = Label("//overlays/toolchain/clang-cl:BUILD.args.tpl"), allow_single_file = True),
+        "clang_cl_src_toolchain": attr.label(default = Label("//overlays/toolchain/clang-cl:BUILD.toolchain.tpl"), allow_single_file = True),
+        "clang_cl_src_tools": attr.label(default = Label("//overlays/toolchain/clang-cl:BUILD.tools.tpl"), allow_single_file = True),
+        "clang_cl_src_features": attr.label(default = Label("//overlays/toolchain/clang-cl:BUILD.features.bazel"), allow_single_file = True),
     },
 )

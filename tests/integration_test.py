@@ -52,6 +52,7 @@ def run_bazel(args: list[str], cwd: Path) -> tuple[int, str]:
     ) as proc:
         for line in proc.stderr:
             print(line, end="")
+            sys.stdout.flush()
         stdout = proc.stdout.read()
         proc.wait()
         return proc.returncode, stdout
@@ -142,6 +143,7 @@ def run_test(
             f"Expected: target={expected_target}, compiler={expected_compiler}, compiler_version={expected_compiler_version}, msvc_version={expected_msvc_version}, winsdk_version={expected_winsdk_version}"
         )
     print("PASSED")
+    sys.stdout.flush()
 
 
 def run_all_hosts_all_targets(
@@ -183,6 +185,13 @@ def run_all_hosts_all_targets(
                                 extra_toolchains=f"clang{clang_version}_msvc{msvc}_winsdk{winsdk}_host{host}_target{target}",
                                 expected_target=target, expected_compiler="clang.exe",
                                 expected_compiler_version=clang_version, expected_msvc_version=msvc,
+                                expected_winsdk_version=winsdk,
+                            ))
+                            tests.append(dict(
+                                host=host, target=target,
+                                extra_toolchains=f"clang-cl{clang_version}_msvc{msvc}_winsdk{winsdk}_host{host}_target{target}",
+                                expected_target=target, expected_compiler="clang-cl.exe",
+                                expected_compiler_version=clang_version, expected_msvc_version="",
                                 expected_winsdk_version=winsdk,
                             ))
     total = len(tests)

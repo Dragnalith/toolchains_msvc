@@ -16,18 +16,18 @@ cc_toolchain(
         "//{toolchain_name}/args:msvc_strip_args",
     ],
     artifact_name_patterns = [
-        "//msvc/artifacts:executable",
-        "//msvc/artifacts:object_file",
-        "//msvc/artifacts:static_library",
-        "//msvc/artifacts:alwayslink_static_library",
-        "//msvc/artifacts:dynamic_library",
-        "//msvc/artifacts:interface_library",
+        "//clang-cl/artifacts:executable",
+        "//clang-cl/artifacts:object_file",
+        "//clang-cl/artifacts:static_library",
+        "//clang-cl/artifacts:alwayslink_static_library",
+        "//clang-cl/artifacts:dynamic_library",
+        "//clang-cl/artifacts:interface_library",
     ],
     enabled_features = [
-        "//msvc/features:msvc_features",
+        "//clang-cl/features:msvc_features",
     ],
     known_features = [
-        "//msvc/features:msvc_features",
+        "//clang-cl/features:msvc_features",
     ],
     tool_map = "//{toolchain_name}/tools:all_tools",
 )

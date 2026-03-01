@@ -4,16 +4,17 @@ package(default_visibility = ["//visibility:public"])
 
 cc_toolchain(
     name = "cc_toolchain",
+    compiler = "{compiler}",
     args = [
-        "//toolchain_clang{clang_version}_msvc{msvc_version}_winsdk{winsdk_version}_host{host}_target{target}/args:nostdinc",
-        "//toolchain_clang{clang_version}_msvc{msvc_version}_winsdk{winsdk_version}_host{host}_target{target}/args:base_compile_flags",
-        "//toolchain_clang{clang_version}_msvc{msvc_version}_winsdk{winsdk_version}_host{host}_target{target}/args:msvc_include_paths",
-        "//toolchain_clang{clang_version}_msvc{msvc_version}_winsdk{winsdk_version}_host{host}_target{target}/args:warnings",
-        "//toolchain_clang{clang_version}_msvc{msvc_version}_winsdk{winsdk_version}_host{host}_target{target}/args:msvc_link_flags",
-        "//toolchain_clang{clang_version}_msvc{msvc_version}_winsdk{winsdk_version}_host{host}_target{target}/args:msvc_lib_paths",
-        "//toolchain_clang{clang_version}_msvc{msvc_version}_winsdk{winsdk_version}_host{host}_target{target}/args:ar_flags",
-        "//toolchain_clang{clang_version}_msvc{msvc_version}_winsdk{winsdk_version}_host{host}_target{target}/args:fastbuild_compile_flags",
-        "//toolchain_clang{clang_version}_msvc{msvc_version}_winsdk{winsdk_version}_host{host}_target{target}/args:msvc_strip_args",
+        "//{toolchain_name}/args:nostdinc",
+        "//{toolchain_name}/args:base_compile_flags",
+        "//{toolchain_name}/args:msvc_include_paths",
+        "//{toolchain_name}/args:warnings",
+        "//{toolchain_name}/args:msvc_link_flags",
+        "//{toolchain_name}/args:msvc_lib_paths",
+        "//{toolchain_name}/args:ar_flags",
+        "//{toolchain_name}/args:fastbuild_compile_flags",
+        "//{toolchain_name}/args:msvc_strip_args",
     ],
     artifact_name_patterns = [
         "//msvc/artifacts:executable",
@@ -29,5 +30,5 @@ cc_toolchain(
     known_features = [
         "//clang/features:clang_features",
     ],
-    tool_map = "//toolchain_clang{clang_version}_msvc{msvc_version}_winsdk{winsdk_version}_host{host}_target{target}/tools:all_tools",
+    tool_map = "//{toolchain_name}/tools:all_tools",
 )

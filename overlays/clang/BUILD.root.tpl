@@ -25,56 +25,65 @@ filegroup(
 # Host x64
 # We create aliases so it looks like msvc_repo, but since Clang cross-compiles natively,
 # they all point to the same binaries.
-alias(name = "cl_hostx64_targetx64", actual = ":bin/clang.exe")
-alias(name = "cl_hostx64_targetx86", actual = ":bin/clang.exe")
-alias(name = "cl_hostx64_targetarm64", actual = ":bin/clang.exe")
+alias(name = "clang_hostx64_targetx64", actual = ":bin/clang.exe")
+alias(name = "clang_hostx64_targetx86", actual = ":bin/clang.exe")
+alias(name = "clang_hostx64_targetarm64", actual = ":bin/clang.exe")
+alias(name = "clang-cl_hostx64_targetx64", actual = ":bin/clang-cl.exe")
+alias(name = "clang-cl_hostx64_targetx86", actual = ":bin/clang-cl.exe")
+alias(name = "clang-cl_hostx64_targetarm64", actual = ":bin/clang-cl.exe")
 
-alias(name = "cl_hostx86_targetx64", actual = ":bin/clang.exe")
-alias(name = "cl_hostx86_targetx86", actual = ":bin/clang.exe")
-alias(name = "cl_hostx86_targetarm64", actual = ":bin/clang.exe")
+alias(name = "clang_hostx86_targetx64", actual = ":bin/clang.exe")
+alias(name = "clang_hostx86_targetx86", actual = ":bin/clang.exe")
+alias(name = "clang_hostx86_targetarm64", actual = ":bin/clang.exe")
+alias(name = "clang-cl_hostx86_targetx64", actual = ":bin/clang-cl.exe")
+alias(name = "clang-cl_hostx86_targetx86", actual = ":bin/clang-cl.exe")
+alias(name = "clang-cl_hostx86_targetarm64", actual = ":bin/clang-cl.exe")
 
-alias(name = "cl_hostarm64_targetx64", actual = ":bin/clang.exe")
-alias(name = "cl_hostarm64_targetx86", actual = ":bin/clang.exe")
-alias(name = "cl_hostarm64_targetarm64", actual = ":bin/clang.exe")
+alias(name = "clang_hostarm64_targetx64", actual = ":bin/clang.exe")
+alias(name = "clang_hostarm64_targetx86", actual = ":bin/clang.exe")
+alias(name = "clang_hostarm64_targetarm64", actual = ":bin/clang.exe")
+alias(name = "clang-cl_hostarm64_targetx64", actual = ":bin/clang-cl.exe")
+alias(name = "clang-cl_hostarm64_targetx86", actual = ":bin/clang-cl.exe")
+alias(name = "clang-cl_hostarm64_targetarm64", actual = ":bin/clang-cl.exe")
 
 # Linker
-alias(name = "link_hostx64_targetx64", actual = ":bin/lld-link.exe")
-alias(name = "link_hostx64_targetx86", actual = ":bin/lld-link.exe")
-alias(name = "link_hostx64_targetarm64", actual = ":bin/lld-link.exe")
+alias(name = "lld-link_hostx64_targetx64", actual = ":bin/lld-link.exe")
+alias(name = "lld-link_hostx64_targetx86", actual = ":bin/lld-link.exe")
+alias(name = "lld-link_hostx64_targetarm64", actual = ":bin/lld-link.exe")
 
-alias(name = "link_hostx86_targetx64", actual = ":bin/lld-link.exe")
-alias(name = "link_hostx86_targetx86", actual = ":bin/lld-link.exe")
-alias(name = "link_hostx86_targetarm64", actual = ":bin/lld-link.exe")
+alias(name = "lld-link_hostx86_targetx64", actual = ":bin/lld-link.exe")
+alias(name = "lld-link_hostx86_targetx86", actual = ":bin/lld-link.exe")
+alias(name = "lld-link_hostx86_targetarm64", actual = ":bin/lld-link.exe")
 
-alias(name = "link_hostarm64_targetx64", actual = ":bin/lld-link.exe")
-alias(name = "link_hostarm64_targetx86", actual = ":bin/lld-link.exe")
-alias(name = "link_hostarm64_targetarm64", actual = ":bin/lld-link.exe")
+alias(name = "lld-link_hostarm64_targetx64", actual = ":bin/lld-link.exe")
+alias(name = "lld-link_hostarm64_targetx86", actual = ":bin/lld-link.exe")
+alias(name = "lld-link_hostarm64_targetarm64", actual = ":bin/lld-link.exe")
 
 # Librarian
-alias(name = "lib_hostx64_targetx64", actual = ":bin/llvm-lib.exe")
-alias(name = "lib_hostx64_targetx86", actual = ":bin/llvm-lib.exe")
-alias(name = "lib_hostx64_targetarm64", actual = ":bin/llvm-lib.exe")
+alias(name = "llvm-lib_hostx64_targetx64", actual = ":bin/llvm-lib.exe")
+alias(name = "llvm-lib_hostx64_targetx86", actual = ":bin/llvm-lib.exe")
+alias(name = "llvm-lib_hostx64_targetarm64", actual = ":bin/llvm-lib.exe")
 
-alias(name = "lib_hostx86_targetx64", actual = ":bin/llvm-lib.exe")
-alias(name = "lib_hostx86_targetx86", actual = ":bin/llvm-lib.exe")
-alias(name = "lib_hostx86_targetarm64", actual = ":bin/llvm-lib.exe")
+alias(name = "llvm-lib_hostx86_targetx64", actual = ":bin/llvm-lib.exe")
+alias(name = "llvm-lib_hostx86_targetx86", actual = ":bin/llvm-lib.exe")
+alias(name = "llvm-lib_hostx86_targetarm64", actual = ":bin/llvm-lib.exe")
 
-alias(name = "lib_hostarm64_targetx64", actual = ":bin/llvm-lib.exe")
-alias(name = "lib_hostarm64_targetx86", actual = ":bin/llvm-lib.exe")
-alias(name = "lib_hostarm64_targetarm64", actual = ":bin/llvm-lib.exe")
+alias(name = "llvm-lib_hostarm64_targetx64", actual = ":bin/llvm-lib.exe")
+alias(name = "llvm-lib_hostarm64_targetx86", actual = ":bin/llvm-lib.exe")
+alias(name = "llvm-lib_hostarm64_targetarm64", actual = ":bin/llvm-lib.exe")
 
 # Assembler
-alias(name = "ml64_hostx64_targetx64", actual = ":bin/llvm-ml.exe")
-alias(name = "ml64_hostx64_targetx86", actual = ":bin/llvm-ml.exe")
-alias(name = "ml64_hostx64_targetarm64", actual = ":bin/llvm-ml.exe")
+alias(name = "llvm-ml_hostx64_targetx64", actual = ":bin/llvm-ml.exe")
+alias(name = "llvm-ml_hostx64_targetx86", actual = ":bin/llvm-ml.exe")
+alias(name = "llvm-ml_hostx64_targetarm64", actual = ":bin/llvm-ml.exe")
 
-alias(name = "ml64_hostx86_targetx64", actual = ":bin/llvm-ml.exe")
-alias(name = "ml64_hostx86_targetx86", actual = ":bin/llvm-ml.exe")
-alias(name = "ml64_hostx86_targetarm64", actual = ":bin/llvm-ml.exe")
+alias(name = "llvm-ml_hostx86_targetx64", actual = ":bin/llvm-ml.exe")
+alias(name = "llvm-ml_hostx86_targetx86", actual = ":bin/llvm-ml.exe")
+alias(name = "llvm-ml_hostx86_targetarm64", actual = ":bin/llvm-ml.exe")
 
-alias(name = "ml64_hostarm64_targetx64", actual = ":bin/llvm-ml.exe")
-alias(name = "ml64_hostarm64_targetx86", actual = ":bin/llvm-ml.exe")
-alias(name = "ml64_hostarm64_targetarm64", actual = ":bin/llvm-ml.exe")
+alias(name = "llvm-ml_hostarm64_targetx64", actual = ":bin/llvm-ml.exe")
+alias(name = "llvm-ml_hostarm64_targetx86", actual = ":bin/llvm-ml.exe")
+alias(name = "llvm-ml_hostarm64_targetarm64", actual = ":bin/llvm-ml.exe")
 
 filegroup(
     name = "clang_all_binaries_hostx64_targetx64",
