@@ -13,12 +13,12 @@
 - [X] LLVM: Support clang-cl
 - [X] Customization: Configure the compiler attribute for each toolchain kind (`msvc-cl`, `clang` and `clang-cl`) to be used in `select()` statements to conditionally configure your build based on the compiler type
 - [ ] Cleanup default flags and define
-- [ ] Feature: Support DLL compilation
 - [ ] Feature: Support debug symbols.
 - [ ] Feature: Support warning treasted as error
 - [ ] Feature: Support both dynamic and static runtime linking (i.e /MT vd /MD)
 - [ ] Feature: Support PGO
 - [ ] Feature: Support LTO
+- [ ] Feature: Support DLL compilation
 - [ ] Lock File: Separate toolchains installation into two phase: preparation of a "lock" file, then consuming the lock file for installation.
 - [ ] Lock File: Support lock file using the 'Update pattern'
 - [ ] Enforce Visual Studio's EULA agreement: require a BAZEL_TOOLCHAINS_MSVC_AGREE_WITH_VS_EULA envvar. If does not exist, installation fails with the url pointing to EULA gotten from the channel manifest
