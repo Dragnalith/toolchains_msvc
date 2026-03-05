@@ -5,16 +5,16 @@ import subprocess
 import sys
 from pathlib import Path
 
-DEFAULT_MSVC_VERSIONS = ["14.33", "14.40", "14.44", "14.50"]
-DEFAULT_WINSDK_VERSIONS = ["19041", "22621", "26100"]
-DEFAULT_CLANG_VERSIONS = ["20.1.0", "22.1.0"]
+DEFAULT_MSVC_VERSIONS = ["14.50", "14.44", "14.40", "14.33"]
+DEFAULT_WINSDK_VERSIONS = ["26100", "22621", "19041"]
+DEFAULT_CLANG_VERSIONS = ["22.1.0", "20.1.0"]
 
 
 def get_default_hosts() -> list[str]:
     """Default hosts based on current architecture: x86,x64 on AMD64, arm64 on ARM64."""
     machine = platform.machine().upper()
     if machine in ("AMD64", "X86_64"):
-        return ["x86", "x64"]
+        return ["x64", "x86"]
     if machine in ("ARM64", "AARCH64"):
         return ["arm64"]
     fatal_error(f"Unsupported architecture: {machine}")
@@ -87,7 +87,7 @@ def validate_output(
 def get_default_targets(host: str) -> list[str]:
     """Get default targets for a given host."""
     if host in ("x64", "x86"):
-        return ["x86", "x64"]
+        return ["x64", "x86"]
     return ["arm64"]
 
 
@@ -273,6 +273,7 @@ def main() -> None:
     all_hosts_all_targets_parser.add_argument("--msvc_versions", type=parse_comma_list, default=DEFAULT_MSVC_VERSIONS, help="Comma-separated MSVC versions (default: 14.33, 14.40, 14.44, 14.50)")
     all_hosts_all_targets_parser.add_argument("--winsdk_versions", type=parse_comma_list, default=DEFAULT_WINSDK_VERSIONS, help="Comma-separated Windows SDK versions (default: 19041, 22621, 26100)")
     all_hosts_all_targets_parser.add_argument("--clang_versions", type=parse_comma_list, default=DEFAULT_CLANG_VERSIONS, help="Comma-separated Clang/LLVM versions to also test; if empty only msvc is tested (default: 20.1.0, 22.1.0)")
+    all_hosts_all_targets_parser.add_argument("--one-default", action="store_true", help="Run only one value for each axis (overrides other lists)")
 
     # one_host_one_target command
     one_host_parser = subparsers.add_parser("one_host_one_target", help="Test workspace with single host and target (fixed 14.44/26100)")
@@ -297,6 +298,12 @@ def main() -> None:
         check(t in ("x64", "x86", "arm64"), f"Invalid target: {t}")
 
     if args.command == "all_hosts_all_targets":
+        if args.one_default:
+            hosts = hosts[:1]
+            targets = targets[:1]
+            args.msvc_versions = args.msvc_versions[:1]
+            args.winsdk_versions = args.winsdk_versions[:1]
+            args.clang_versions = args.clang_versions[:1]
         run_all_hosts_all_targets(script_dir, hosts, targets, args.msvc_versions, args.winsdk_versions, args.clang_versions)
     elif args.command == "one_host_one_target":
         run_one_host_one_target(script_dir, hosts, targets)
