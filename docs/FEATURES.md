@@ -2,19 +2,20 @@
 
 | feature                       | source    | action      |
 |-------------------------------|-----------|-------------|
-| `compiler_input`              | toolchain | compile     |
-| `compiler_output`             | toolchain | compile     |
+| `no_legacy_features`          | toolchain |             |
+| `compiler_input_flags`        | toolchain | compile     |
+| `compiler_output_flags`       | toolchain | compile     |
 | `include_paths`               | toolchain | compile     |
-| `system_include_paths`        | toolchain | compile     |
+| `external_include_paths`      | toolchain | compile     |
 | `preprocessor_defines`        | toolchain | compile     |
 | `dependency_file`             | toolchain | compile     |
 | `linker_input`                | toolchain | link        |
 | `libraries_to_link`           | toolchain | link        |
 | `library_search_directories`  | toolchain | link        |
-| `linker_output`               | toolchain | link        |
+| `output_execpath_flags`       | toolchain | link        |
 | `linker_param_file`           | toolchain | link        |
 | `archiver_input`              | toolchain | archive     |
-| `archiver_output`             | toolchain | archive     |
+| `archiver_flags`              | toolchain | archive     |
 | `strip_input`                 | toolchain | strip       |
 | `strip_output`                | toolchain | strip       |
 
@@ -37,7 +38,7 @@
 | `default_link_flags`          | default   | link     |
 | `default_archive_flags`       | default   | archive  |
 | `default_strip_flags`         | default   | strip    |
-| `system_library_paths`        | default   | link     |
+| `default_link_libs`           | default   | link     |
 
 # Rule-Level Passthrough
 
@@ -45,7 +46,7 @@
 |-------------------------------|-----------|---------|
 | `user_compile_flags`          | copts     | compile |
 | `user_compile_defines`        | defines   | compile |
-| `user_include_paths`          | includes  | compile |
+| `includes`                    | includes  | compile |
 | `user_system_include_paths`   | includes  | compile |
 | `user_link_flags`             | linkopts  | link    |
 
@@ -82,16 +83,16 @@
 
 ## Runtime Linkage
 
-- `dynamic_runtime`
-- `static_runtime`
+- `dynamic_link_msvcrt`
+- `static_link_msvcrt`
 - `debug_runtime`
 
 ## Optimization Technologies
 
-- `thin_lto`
-- `full_lto`
-- `pgo_generate`
-- `pgo_use`
+- `thinlto`
+- `fulllto`
+- `fdo_instrument`
+- `fdo_optimize`
 
 ## Language Standard
 

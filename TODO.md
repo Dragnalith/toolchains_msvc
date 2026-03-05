@@ -12,12 +12,13 @@
 - [X] LLVM: Display the list of available llvm version on the error msg when specified version is not recognized
 - [X] LLVM: Support clang-cl
 - [X] Customization: Configure the compiler attribute for each toolchain kind (`msvc-cl`, `clang` and `clang-cl`) to be used in `select()` statements to conditionally configure your build based on the compiler type
-- [ ] Cleanup default flags and define
-- [ ] Feature: Support debug symbols.
-- [ ] Feature: Support warning treasted as error
-- [ ] Feature: Support both dynamic and static runtime linking (i.e /MT vd /MD)
-- [ ] Feature: Support PGO
-- [ ] Feature: Support LTO
+- [ ] Configuration: cl, clang-cl, and clang uses the same features
+- [ ] Configuration: features include debug symbols, C++ language version, PGO, LTO, warning treated as error, dynamic/static runtime
+- [ ] Configuration: Link action use response file
+- [ ] Configuration: module extension API allows overriding default, dbg, fastbuild, and opt flags for compile and link actions
+- [ ] Configuration: module extension API allows specifying features to be enabled by dbg, fastbuild, and opt
+- [ ] Configuration: debug symbol file should be reproducible
+- [ ] Configuration: Enable cc_import to select static libraries based on the toolchain's runtime type (Debug vs. Release)
 - [ ] Feature: Support DLL compilation
 - [ ] Lock File: Separate toolchains installation into two phase: preparation of a "lock" file, then consuming the lock file for installation.
 - [ ] Lock File: Support lock file using the 'Update pattern'
@@ -25,4 +26,3 @@
 - [ ] Enable ability to define multiple toolchain repo
 - [ ] Remote Execution: verify it runs toolchains_msvc's toolchains properly
 - [ ] Remote Execution: minimize toolchain's file dependency
-- [ ] Customization: it is possible to override default features/args for `opt`, `fastbuild` and `dbg`. (flags and defines)
