@@ -1,6 +1,0 @@
-exports_files([
-    "BUILD.features.bazel",
-    "BUILD.args.tpl",
-    "BUILD.toolchain.tpl",
-    "BUILD.tools.tpl",
-])

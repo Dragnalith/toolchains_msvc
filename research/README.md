@@ -1,0 +1,1 @@
+This folder contains scripts and projects used during the development of `toolchains_msvc` to understand how toolchain executables behave and how the Visual Studio channel manifest is structured. None of these are part of the module implementation.

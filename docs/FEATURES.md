@@ -5,17 +5,12 @@
 | `no_legacy_features`          | toolchain |             |
 | `compiler_input_flags`        | toolchain | compile     |
 | `compiler_output_flags`       | toolchain | compile     |
-| `include_paths`               | toolchain | compile     |
-| `external_include_paths`      | toolchain | compile     |
-| `preprocessor_defines`        | toolchain | compile     |
 | `dependency_file`             | toolchain | compile     |
 | `linker_input`                | toolchain | link        |
-| `libraries_to_link`           | toolchain | link        |
-| `library_search_directories`  | toolchain | link        |
 | `output_execpath_flags`       | toolchain | link        |
 | `linker_param_file`           | toolchain | link        |
 | `archiver_input`              | toolchain | archive     |
-| `archiver_flags`              | toolchain | archive     |
+| `archiver_output`             | toolchain | archive     |
 | `strip_input`                 | toolchain | strip       |
 | `strip_output`                | toolchain | strip       |
 
@@ -38,7 +33,6 @@
 | `default_link_flags`          | default   | link     |
 | `default_archive_flags`       | default   | archive  |
 | `default_strip_flags`         | default   | strip    |
-| `default_link_libs`           | default   | link     |
 
 # Rule-Level Passthrough
 
@@ -47,7 +41,6 @@
 | `user_compile_flags`          | copts     | compile |
 | `user_compile_defines`        | defines   | compile |
 | `includes`                    | includes  | compile |
-| `user_system_include_paths`   | includes  | compile |
 | `user_link_flags`             | linkopts  | link    |
 
 # Configuration (Mode-Driven)
@@ -59,17 +52,6 @@
 | `dbg`       | dbg       | compile,link |
 | `fastbuild` | fastbuild | compile,link |
 | `opt`       | opt       | compile,link |
-
-## Fine-Grain Mode Flags
-
-| feature                    | source    | action  |
-|----------------------------|-----------|---------|
-| `dbg_compile_flags`        | dbg       | compile |
-| `fastbuild_compile_flags`  | fastbuild | compile |
-| `opt_compile_flags`        | opt       | compile |
-| `dbg_link_flags`           | dbg       | link    |
-| `fastbuild_link_flags`     | fastbuild | link    |
-| `opt_link_flags`           | opt       | link    |
 
 # Semantic Option Features
 
@@ -83,9 +65,12 @@
 
 ## Runtime Linkage
 
-- `dynamic_link_msvcrt`
-- `static_link_msvcrt`
+- `static_runtime`
 - `debug_runtime`
+
+## Subsystem
+
+- `window_subsystem`
 
 ## Optimization Technologies
 

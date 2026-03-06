@@ -6,12 +6,13 @@ load("@rules_cc//cc/toolchains:toolchain.bzl", "cc_toolchain")
 package(default_visibility = ["//visibility:public"])
 
 # tools
+
 cc_tool_map(
     name = "all_tools",
     tools = {
         "@rules_cc//cc/toolchains/actions:assembly_actions": ":ml64",
-        "@rules_cc//cc/toolchains/actions:c_compile": ":clang",
-        "@rules_cc//cc/toolchains/actions:cpp_compile_actions": ":clang",
+        "@rules_cc//cc/toolchains/actions:c_compile": ":cl",
+        "@rules_cc//cc/toolchains/actions:cpp_compile_actions": ":cl",
         "@rules_cc//cc/toolchains/actions:link_actions": ":link",
         "@rules_cc//cc/toolchains/actions:ar_actions": ":lib",
         "@rules_cc//cc/toolchains/actions:strip": ":link",
@@ -20,40 +21,41 @@ cc_tool_map(
 )
 
 cc_tool(
-    name = "clang",
-    src = "@{llvm_repo}//:{compiler}_host{host}_target{target}",
+    name = "cl",
+    src = "@{msvc_repo}//:cl_host{host}_target{target}",
     data = [
-        "@{llvm_repo}//:clang_all_binaries_host{host}_target{target}",
+        "@{msvc_repo}//:msvc_all_binaries_host{host}_target{target}",
         "@{msvc_repo}//:msvc_all_includes",
     ],
 )
 
 cc_tool(
     name = "link",
-    src = "@{llvm_repo}//:lld-link_host{host}_target{target}",
+    src = "@{msvc_repo}//:link_host{host}_target{target}",
     data = [
-        "@{llvm_repo}//:clang_all_binaries_host{host}_target{target}",
+        "@{msvc_repo}//:msvc_all_binaries_host{host}_target{target}",
         "@{msvc_repo}//:msvc_all_libs_{target}",
     ],
 )
 
 cc_tool(
     name = "lib",
-    src = "@{llvm_repo}//:llvm-lib_host{host}_target{target}",
+    src = "@{msvc_repo}//:lib_host{host}_target{target}",
     data = [
-        "@{llvm_repo}//:clang_all_binaries_host{host}_target{target}",
+        "@{msvc_repo}//:msvc_all_binaries_host{host}_target{target}",
     ],
 )
 
 cc_tool(
     name = "ml64",
-    src = "@{llvm_repo}//:llvm-ml_host{host}_target{target}",
+    src = "@{msvc_repo}//:ml64_host{host}_target{target}",
     data = [
-        "@{llvm_repo}//:clang_all_binaries_host{host}_target{target}",
+        "@{msvc_repo}//:msvc_all_binaries_host{host}_target{target}",
     ],
 )
 
 # args
+
 cc_args(
     name = "base_compile_flags",
     actions = [
@@ -61,10 +63,7 @@ cc_args(
         "@rules_cc//cc/toolchains/actions:cpp_compile_actions",
     ],
     args = [
-        "--target={clang_target}",
-        "-fms-compatibility",
-        "-fms-extensions",
-        "-fms-compatibility-version={cl_internal_version}",
+        "/nologo",
     ],
 )
 
@@ -74,8 +73,7 @@ cc_args(
         "@rules_cc//cc/toolchains/actions:link_actions",
     ],
     args = [
-        "/lldignoreenv",
-        "/nodefaultlib",
+        "/nologo", "/nodefaultlib",
     ],
 )
 
@@ -86,20 +84,21 @@ cc_args(
         "@rules_cc//cc/toolchains/actions:cpp_compile_actions",
     ],
     args = [
-        "-isystem",
+        "/external:W0",
+        "/external:I",
         "{msvc_include}",
-        "-isystem",
+        "/external:I",
         "{winsdk_ucrt_include}",
-        "-isystem",
+        "/external:I",
         "{winsdk_um_include}",
-        "-isystem",
+        "/external:I",
         "{winsdk_shared_include}",
     ],
     data = [
         "@{msvc_repo}//:msvc_all_includes",
-        "@{winsdk_repo}//:um_include_files",
-        "@{winsdk_repo}//:ucrt_include_files",
         "@{winsdk_repo}//:shared_include_files",
+        "@{winsdk_repo}//:ucrt_include_files",
+        "@{winsdk_repo}//:um_include_files",
     ],
     format = {
         "msvc_include": "@{msvc_repo}//:include_dir",
@@ -120,9 +119,9 @@ cc_args(
         "/LIBPATH:{winsdk_ucrt_lib}",
     ],
     data = [
-        "@{msvc_repo}//:msvc_all_libs_{target}",
-        "@{winsdk_repo}//:um_lib_dir_files_{target}",
-        "@{winsdk_repo}//:ucrt_lib_dir_files_{target}",
+        "@{msvc_repo}//:msvc_all_libs_x64",
+        "@{winsdk_repo}//:ucrt_lib_dir_files_x64",
+        "@{winsdk_repo}//:um_lib_dir_files_x64",
     ],
     format = {
         "msvc_lib": "@{msvc_repo}//:lib_dir_{target}",
@@ -131,15 +130,13 @@ cc_args(
     },
 )
 
-# cc_toolchain
 cc_toolchain(
     name = "cc_toolchain",
-    compiler = "{compiler}",
     args = [
-        ":base_compile_flags",
-        ":base_link_flags",
-        ":include_paths",
-        ":lib_paths",
+        "base_compile_flags",
+        "base_link_flags",
+        "include_paths",
+        "lib_paths",
     ],
     artifact_name_patterns = [
         "//artifacts:executable",
@@ -149,12 +146,14 @@ cc_toolchain(
         "//artifacts:dynamic_library",
         "//artifacts:interface_library",
     ],
+    compiler = "{compiler}",
     enabled_features = [
-        "//clang/features:default_features",
-        "//clang/features:dependency_file",
+        "//msvc/features:default_features",
+        "//msvc/features:no_dotd_file",
+        "//msvc/features:parse_showincludes",
     ],
     known_features = [
-        "//clang/features:all_known_features",
+        "//msvc/features:all_known_features",
     ],
     tool_map = ":all_tools",
 )

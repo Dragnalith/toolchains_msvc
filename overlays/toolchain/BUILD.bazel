@@ -1,3 +1,6 @@
 exports_files([
     "BUILD.artifacts.bazel",
+    "BUILD.features.tpl",
+    "BUILD.args-msvc.bazel",
+    "BUILD.args-clang.bazel",
 ])

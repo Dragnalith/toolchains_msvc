@@ -37,22 +37,24 @@ def parse_comma_list(value: str) -> list[str]:
     return [v.strip() for v in value.split(",") if v.strip()]
 
 
-def run_bazel(args: list[str], cwd: Path) -> tuple[int, str]:
+def run_bazel(args: list[str], cwd: Path, *, no_stderr_flush: bool = False) -> tuple[int, str]:
     """Run bazel with given args. Returns (returncode, stdout).
 
-    Stderr is streamed live to stdout.
+    Unless no_stderr_flush is True, stderr is captured and streamed live to stdout.
     """
     cmd = ["bazel", "run", "//:hello_world"] + args
+    stderr_dest = None if no_stderr_flush else subprocess.PIPE
     with subprocess.Popen(
         cmd,
         cwd=str(cwd),
         stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stderr=stderr_dest,
         text=True,
     ) as proc:
-        for line in proc.stderr:
-            print(line, end="")
-            sys.stdout.flush()
+        if not no_stderr_flush and proc.stderr is not None:
+            for line in proc.stderr:
+                print(line, end="")
+                sys.stdout.flush()
         stdout = proc.stdout.read()
         proc.wait()
         return proc.returncode, stdout
@@ -97,6 +99,8 @@ def run_test(
     current: int,
     total: int,
     *,
+    show_progress: bool = False,
+    no_stderr_flush: bool = False,
     host: str | None = None,
     target: str | None = None,
     extra_toolchains: str | None = None,
@@ -109,7 +113,7 @@ def run_test(
     expected_winsdk_version: str,
 ) -> None:
     """Run a single bazel test case and validate the output."""
-    bazel_args = ['--noshow_progress']
+    bazel_args = [] if show_progress else ['--noshow_progress']
     if host is not None:
         bazel_args.append(f"--host_platform=//:windows_{host}")
     if target is not None:
@@ -122,7 +126,7 @@ def run_test(
         bazel_args.append(f"--repo_env=BAZEL_TOOLCHAINS_MSVC_TARGETS={msvc_targets_env}")
 
     print(f"[{current}/{total}] TEST({test_label}): bazel run //:hello_world {' '.join(bazel_args)}")
-    returncode, stdout = run_bazel(bazel_args, workspace_dir)
+    returncode, stdout = run_bazel(bazel_args, workspace_dir, no_stderr_flush=no_stderr_flush)
     print(stdout, end="" if stdout.endswith("\n") else "\n")
 
     if returncode != 0:
@@ -153,6 +157,8 @@ def run_all_hosts_all_targets(
     msvc_versions: list[str],
     winsdk_versions: list[str],
     clang_versions: list[str] = [],
+    show_progress: bool = False,
+    no_stderr_flush: bool = False,
 ) -> None:
     """Run all_hosts_all_targets tests."""
     print("DESCRIPTION: Test all toolchains in a workspace configured with every possible toolchain combination.")
@@ -196,13 +202,15 @@ def run_all_hosts_all_targets(
                             ))
     total = len(tests)
     for current, kwargs in enumerate(tests, 1):
-        run_test(workspace_dir, "all_hosts_all_targets", current, total, **kwargs)
+        run_test(workspace_dir, "all_hosts_all_targets", current, total, show_progress=show_progress, no_stderr_flush=no_stderr_flush, **kwargs)
 
 
 def run_one_host_one_target(
     script_dir: Path,
     hosts: list[str],
     targets: list[str],
+    show_progress: bool = False,
+    no_stderr_flush: bool = False,
 ) -> None:
     """Run one_host_one_target tests (fixed 14.44/26100)."""
     print("DESCRIPTION: Test toolchains in a workspace configured with only one host and one target.")
@@ -227,7 +235,7 @@ def run_one_host_one_target(
             ))
     total = len(tests)
     for current, kwargs in enumerate(tests, 1):
-        run_test(workspace_dir, "one_host_one_target", current, total, **kwargs)
+        run_test(workspace_dir, "one_host_one_target", current, total, show_progress=show_progress, no_stderr_flush=no_stderr_flush, **kwargs)
 
 
 def run_test_default(
@@ -235,6 +243,8 @@ def run_test_default(
     hosts: list[str],
     targets: list[str],
     clang_versions: list[str] = [],
+    show_progress: bool = False,
+    no_stderr_flush: bool = False,
 ) -> None:
     """Run test_default tests."""
     print("DESCRIPTION: Test default toolchain in all_hosts_all_targets workspace.")
@@ -257,7 +267,7 @@ def run_test_default(
             ))
     total = len(tests)
     for current, kwargs in enumerate(tests, 1):
-        run_test(workspace_dir, "test_default", current, total, **kwargs)
+        run_test(workspace_dir, "test_default", current, total, show_progress=show_progress, no_stderr_flush=no_stderr_flush, **kwargs)
 
 
 def main() -> None:
@@ -265,6 +275,8 @@ def main() -> None:
         description="Integration tests for toolchains_msvc",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
+
+    show_progress_help = "Show Bazel progress (do not pass --noshow_progress to bazel)"
 
     # all_hosts_all_targets command
     all_hosts_all_targets_parser = subparsers.add_parser("all_hosts_all_targets", help="Test all toolchain combinations")
@@ -274,17 +286,23 @@ def main() -> None:
     all_hosts_all_targets_parser.add_argument("--winsdk_versions", type=parse_comma_list, default=DEFAULT_WINSDK_VERSIONS, help="Comma-separated Windows SDK versions (default: 19041, 22621, 26100)")
     all_hosts_all_targets_parser.add_argument("--clang_versions", type=parse_comma_list, default=DEFAULT_CLANG_VERSIONS, help="Comma-separated Clang/LLVM versions to also test; if empty only msvc is tested (default: 20.1.0, 22.1.0)")
     all_hosts_all_targets_parser.add_argument("--one-default", action="store_true", help="Run only one value for each axis (overrides other lists)")
+    all_hosts_all_targets_parser.add_argument("--show-progress", action="store_true", dest="show_progress", help=show_progress_help)
+    all_hosts_all_targets_parser.add_argument("--no-stderr-flush", action="store_true", dest="no_stderr_flush", help="Do not capture or flush stderr; let it go to the terminal")
 
     # one_host_one_target command
     one_host_parser = subparsers.add_parser("one_host_one_target", help="Test workspace with single host and target (fixed 14.44/26100)")
     one_host_parser.add_argument("--hosts", type=parse_comma_list, default=None, help="Comma-separated host architectures (default: x86, x64 on AMD64, arm64 on ARM64)")
     one_host_parser.add_argument("--targets", type=parse_comma_list, default=None, help="Comma-separated target architectures (default: x86, x64 for x64/x86 host, arm64 for arm64 host)")
+    one_host_parser.add_argument("--show-progress", action="store_true", dest="show_progress", help=show_progress_help)
+    one_host_parser.add_argument("--no-stderr-flush", action="store_true", dest="no_stderr_flush", help="Do not capture or flush stderr; let it go to the terminal")
 
     # test_default command
     test_default_parser = subparsers.add_parser("test_default", help="Test default toolchain configuration")
     test_default_parser.add_argument("--hosts", type=parse_comma_list, default=None, help="Comma-separated host architectures (default: x86, x64 on AMD64, arm64 on ARM64)")
     test_default_parser.add_argument("--targets", type=parse_comma_list, default=None, help="Comma-separated target architectures (default: x86, x64 for x64/x86 host, arm64 for arm64 host)")
     test_default_parser.add_argument("--clang_versions", type=parse_comma_list, default=DEFAULT_CLANG_VERSIONS, help="Comma-separated Clang/LLVM versions to also test; if empty only msvc is tested (default: 20.1.0, 22.1.0)")
+    test_default_parser.add_argument("--show-progress", action="store_true", dest="show_progress", help=show_progress_help)
+    test_default_parser.add_argument("--no-stderr-flush", action="store_true", dest="no_stderr_flush", help="Do not capture or flush stderr; let it go to the terminal")
 
     args = parser.parse_args()
     script_dir = Path(__file__).resolve().parent
@@ -304,11 +322,11 @@ def main() -> None:
             args.msvc_versions = args.msvc_versions[:1]
             args.winsdk_versions = args.winsdk_versions[:1]
             args.clang_versions = args.clang_versions[:1]
-        run_all_hosts_all_targets(script_dir, hosts, targets, args.msvc_versions, args.winsdk_versions, args.clang_versions)
+        run_all_hosts_all_targets(script_dir, hosts, targets, args.msvc_versions, args.winsdk_versions, args.clang_versions, show_progress=args.show_progress, no_stderr_flush=args.no_stderr_flush)
     elif args.command == "one_host_one_target":
-        run_one_host_one_target(script_dir, hosts, targets)
+        run_one_host_one_target(script_dir, hosts, targets, show_progress=args.show_progress, no_stderr_flush=args.no_stderr_flush)
     elif args.command == "test_default":
-        run_test_default(script_dir, hosts, targets, args.clang_versions)
+        run_test_default(script_dir, hosts, targets, args.clang_versions, show_progress=args.show_progress, no_stderr_flush=args.no_stderr_flush)
 
 
 if __name__ == "__main__":
