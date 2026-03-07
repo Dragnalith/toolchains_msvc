@@ -14,7 +14,7 @@
 - [X] Customization: Configure the compiler attribute for each toolchain kind (`msvc-cl`, `clang` and `clang-cl`) to be used in `select()` statements to conditionally configure your build based on the compiler type
 - [X] Configuration: cl, clang-cl, and clang uses the same features
 - [X] Configuration: features include debug symbols, C++ language version, LTO, warning treated as error, dynamic/static runtime
-- [ ] Configuration: Link action use response file
+- [X] Configuration: Link action use response file
 - [ ] Configuration: module extension API allows overriding default, dbg, fastbuild, and opt flags for compile and link actions
 - [ ] Configuration: module extension API allows specifying features to be enabled by dbg, fastbuild, and opt
 - [ ] Configuration: debug symbol file should be reproducible

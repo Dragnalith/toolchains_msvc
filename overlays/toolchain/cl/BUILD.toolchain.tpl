@@ -133,6 +133,8 @@ cc_args(
 
 cc_toolchain(
     name = "cc_toolchain",
+    compiler = "{compiler}",
+    supports_param_files = True,
     args = [
         "base_compile_flags",
         "base_link_flags",
@@ -147,7 +149,6 @@ cc_toolchain(
         "//artifacts:dynamic_library",
         "//artifacts:interface_library",
     ],
-    compiler = "{compiler}",
     enabled_features = [
         "//msvc/features:default_features",
         "//msvc/features:no_dotd_file",

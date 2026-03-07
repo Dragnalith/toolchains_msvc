@@ -101,7 +101,7 @@ cc_args(
 )
 
 cc_args(
-    name = "linker_param_file",
+    name = "param_file_args",
     actions = [
         "@rules_cc//cc/toolchains/actions:link_actions",
         "@rules_cc//cc/toolchains/actions:ar_actions",

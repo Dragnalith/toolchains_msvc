@@ -10,11 +10,12 @@ cc_feature_set(
     all_of = [
         # Plumbing Features
         ":no_legacy_features",
+        ":linker_param_file",
+        ":archive_param_file",
         ":compiler_input_flags",
         ":compiler_output_flags",
         ":linker_input",
         ":output_execpath_flags",
-        ":linker_param_file",
         ":archiver_input",
         ":archiver_output",
         ":strip_input",
@@ -61,11 +62,12 @@ cc_feature_set(
     all_of = [
         # Plumbing Features
         ":no_legacy_features",
+        ":linker_param_file",
+        ":archive_param_file",
         ":compiler_input_flags",
         ":compiler_output_flags",
         ":linker_input",
         ":output_execpath_flags",
-        ":linker_param_file",
         ":archiver_input",
         ":archiver_output",
         ":strip_input",
@@ -91,6 +93,18 @@ cc_feature(
 )
 
 cc_feature(
+    name = "linker_param_file",
+    args = ["//{COMPILER_KIND}/args:param_file_args"],
+    overrides = "@rules_cc//cc/toolchains/features/legacy:linker_param_file",
+)
+
+cc_feature(
+    name = "archive_param_file",
+    args = ["//{COMPILER_KIND}/args:param_file_args"],
+    feature_name = "archive_param_file",
+)
+
+cc_feature(
     name = "compiler_input_flags",
     args = ["//{COMPILER_KIND}/args:compiler_input_flags"],
     overrides = "@rules_cc//cc/toolchains/features/legacy:compiler_input_flags",
@@ -112,12 +126,6 @@ cc_feature(
     name = "output_execpath_flags",
     args = ["//{COMPILER_KIND}/args:output_execpath_flags"],
     overrides = "@rules_cc//cc/toolchains/features/legacy:output_execpath_flags",
-)
-
-cc_feature(
-    name = "linker_param_file",
-    args = ["//{COMPILER_KIND}/args:linker_param_file"],
-    overrides = "@rules_cc//cc/toolchains/features/legacy:linker_param_file",
 )
 
 cc_feature(

@@ -136,6 +136,7 @@ cc_args(
 cc_toolchain(
     name = "cc_toolchain",
     compiler = "{compiler}",
+    supports_param_files = True,
     args = [
         ":base_compile_flags",
         ":base_link_flags",
