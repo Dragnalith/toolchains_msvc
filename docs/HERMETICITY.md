@@ -16,3 +16,15 @@ In this setup, build tools run only with the `TMP`, `TEMP`, and `SYSTEMROOT` env
 - **lld-link.exe** — It can use built-in search paths for `LIBPATH`. Use the `/lldignoreenv` flag to prevent that.
 
 To fully control which runtime library the linker uses, link with `/nodefaultlib` and specify the runtime library explicitly on the command line.
+
+
+# Note
+
+/Z7
+/INCREMENTAL:NO
+
+/Brepro for link.exe and cl.exe
+Verify .obj embedded relative file path to .pdb
+strip absolute path from .pdb
+random_seed
+prente __TIME__, __FILE__, etc

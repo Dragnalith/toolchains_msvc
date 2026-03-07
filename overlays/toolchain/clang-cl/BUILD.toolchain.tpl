@@ -75,7 +75,8 @@ cc_args(
     ],
     args = [
         "/nologo",
-        "/nodefaultlib",
+        "/NODEFAULTLIB",
+        "/INCREMENTAL:NO"
     ],
 )
 

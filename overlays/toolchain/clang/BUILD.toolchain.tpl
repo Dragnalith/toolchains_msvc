@@ -75,7 +75,8 @@ cc_args(
     ],
     args = [
         "/lldignoreenv",
-        "/nodefaultlib",
+        "/NODEFAULTLIB",
+        "/INCREMENTAL:NO"
     ],
 )
 

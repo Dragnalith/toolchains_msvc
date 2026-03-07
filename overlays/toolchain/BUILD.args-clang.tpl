@@ -322,16 +322,19 @@ cc_args(
         "@rules_cc//cc/toolchains/actions:c_compile",
         "@rules_cc//cc/toolchains/actions:cpp_compile_actions",
     ],
-    args = [],
+    args = ["-Werror"],
 )
 
 cc_args(
-    name = "generate_debug_symbols",
-    actions = [
-        "@rules_cc//cc/toolchains/actions:compile_actions",
-        "@rules_cc//cc/toolchains/actions:link_actions",
-    ],
-    args = [],
+    name = "generate_debug_symbols_compile",
+    actions = ["@rules_cc//cc/toolchains/actions:compile_actions"],
+    args = ["-gcodeview"],
+)
+
+cc_args(
+    name = "generate_debug_symbols_link",
+    actions = ["@rules_cc//cc/toolchains/actions:link_actions"],
+    args = ["/DEBUG"],
 )
 
 cc_args(
@@ -455,21 +458,34 @@ cc_args(
 # === Optimization Technologies ===
 
 cc_args(
-    name = "thin_lto",
+    name = "thin_lto_compile",
     actions = [
         "@rules_cc//cc/toolchains/actions:compile_actions",
-        "@rules_cc//cc/toolchains/actions:link_actions",
     ],
-    args = [],
+    args = ["-flto=thin"],
 )
 
 cc_args(
-    name = "full_lto",
+    name = "thin_lto_link",
     actions = [
-        "@rules_cc//cc/toolchains/actions:compile_actions",
         "@rules_cc//cc/toolchains/actions:link_actions",
     ],
-    args = [],
+    args = ["/LTCG"],
+)
+
+cc_args(
+    name = "full_lto_compile",
+    actions = [
+        "@rules_cc//cc/toolchains/actions:compile_actions",
+    ],
+    args = ["-flto"],
+)
+cc_args(
+    name = "full_lto_link",
+    actions = [
+        "@rules_cc//cc/toolchains/actions:link_actions",
+    ],
+    args = ["/LTCG"],
 )
 
 # === Language Standard ===
@@ -477,29 +493,36 @@ cc_args(
 cc_args(
     name = "cxx_standard_14",
     actions = ["@rules_cc//cc/toolchains/actions:cpp_compile_actions"],
-    args = [],
+    args = ["-std=c++14"],
 )
 
 cc_args(
     name = "cxx_standard_17",
     actions = ["@rules_cc//cc/toolchains/actions:cpp_compile_actions"],
-    args = [],
+    args = ["-std=c++17"],
 )
 
 cc_args(
     name = "cxx_standard_20",
     actions = ["@rules_cc//cc/toolchains/actions:cpp_compile_actions"],
-    args = [],
+    args = ["-std=c++20"],
 )
 
 cc_args(
     name = "cxx_standard_23",
     actions = ["@rules_cc//cc/toolchains/actions:cpp_compile_actions"],
-    args = [],
+    args = ["-std=c++23"],
 )
 
 cc_args(
     name = "cxx_standard_26",
     actions = ["@rules_cc//cc/toolchains/actions:cpp_compile_actions"],
-    args = [],
+    args = ["-std=c++26"],
+)
+
+
+cc_args(
+    name = "cxx_standard_latest",
+    actions = ["@rules_cc//cc/toolchains/actions:cpp_compile_actions"],
+    args = ["-std=c++2c"],
 )

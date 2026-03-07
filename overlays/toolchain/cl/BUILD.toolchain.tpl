@@ -73,8 +73,9 @@ cc_args(
         "@rules_cc//cc/toolchains/actions:link_actions",
     ],
     args = [
-        "/nologo", "/nodefaultlib",
-    ],
+        "/nologo",
+        "/NODEFAULTLIB",
+        "/INCREMENTAL:NO"    ],
 )
 
 cc_args(

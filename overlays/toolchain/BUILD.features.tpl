@@ -40,15 +40,17 @@ cc_feature_set(
         ":opt",
         ":treat_warnings_as_errors",
         ":generate_debug_symbols",
+        ":generate_pdb_file",
         ":static_runtime",
         ":debug_runtime",
-        ":thin_lto",
-        ":full_lto",
+        ":thinlto",
+        ":fulllto",
         ":cxx_standard_14",
         ":cxx_standard_17",
         ":cxx_standard_20",
         ":cxx_standard_23",
         ":cxx_standard_26",
+        ":cxx_standard_latest",
         ":window_subsystem",
         ":console_subsystem",
     ],
@@ -247,8 +249,17 @@ cc_feature(
 ## Debug Information
 cc_feature(
     name = "generate_debug_symbols",
-    args = ["//{COMPILER_KIND}/args:generate_debug_symbols"],
+    args = [
+        "//{COMPILER_KIND}/args:generate_debug_symbols_compile",
+        "//{COMPILER_KIND}/args:generate_debug_symbols_link",
+    ],
     feature_name = "generate_debug_symbols",
+    implies = [":generate_pdb_file"],
+)
+
+cc_feature(
+    name = "generate_pdb_file",
+    feature_name = "generate_pdb_file",
 )
 
 ## Runtime Linkage
@@ -335,16 +346,22 @@ cc_feature_constraint(
 cc_mutually_exclusive_category(name = "lto")
 
 cc_feature(
-    name = "thin_lto",
-    args = ["//{COMPILER_KIND}/args:thin_lto"],
-    feature_name = "thin_lto",
+    name = "thinlto",
+    args = [
+        "//{COMPILER_KIND}/args:thin_lto_compile",
+        "//{COMPILER_KIND}/args:thin_lto_link",
+    ],
+    feature_name = "thinlto",
     mutually_exclusive = [":lto"],
 )
 
 cc_feature(
-    name = "full_lto",
-    args = ["//{COMPILER_KIND}/args:full_lto"],
-    feature_name = "full_lto",
+    name = "fulllto",
+    args = [
+        "//{COMPILER_KIND}/args:full_lto_compile",
+        "//{COMPILER_KIND}/args:full_lto_link",
+    ],
+    feature_name = "fulllto",
     mutually_exclusive = [":lto"],
 )
 
@@ -383,5 +400,12 @@ cc_feature(
     name = "cxx_standard_26",
     args = ["//{COMPILER_KIND}/args:cxx_standard_26"],
     feature_name = "cxx_standard_26",
+    mutually_exclusive = [":cxx_standard"],
+)
+
+cc_feature(
+    name = "cxx_standard_latest",
+    args = ["//{COMPILER_KIND}/args:cxx_standard_latest"],
+    feature_name = "cxx_standard_latest",
     mutually_exclusive = [":cxx_standard"],
 )
