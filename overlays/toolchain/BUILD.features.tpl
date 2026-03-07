@@ -1,4 +1,5 @@
 load("@rules_cc//cc/toolchains:feature.bzl", "cc_feature")
+load("@rules_cc//cc/toolchains:feature_constraint.bzl", "cc_feature_constraint")
 load("@rules_cc//cc/toolchains:feature_set.bzl", "cc_feature_set")
 load("@rules_cc//cc/toolchains:mutually_exclusive_category.bzl", "cc_mutually_exclusive_category")
 
@@ -7,6 +8,7 @@ package(default_visibility = ["//visibility:public"])
 cc_feature_set(
     name = "all_known_features",
     all_of = [
+        # Plumbing Features
         ":no_legacy_features",
         ":compiler_input_flags",
         ":compiler_output_flags",
@@ -20,11 +22,19 @@ cc_feature_set(
         ":parse_showincludes",
         ":no_dotd_file",
         ":dependency_file",
+
+        # Toolchain Policy Defaults
         ":default_flags",
+        ":all_runtime_flags",
+        ":all_subsystem_flags",
+
+        # Rule-Level Passthrough
         ":user_compile_flags",
         ":user_compile_defines",
-        ":includes",
+        ":includes",        
         ":user_link_flags",
+
+        # Configuration (Mode-Driven)
         ":dbg",
         ":fastbuild",
         ":opt",
@@ -32,22 +42,15 @@ cc_feature_set(
         ":generate_debug_symbols",
         ":static_runtime",
         ":debug_runtime",
-        ":debug_dynamic_runtime",
-        ":debug_static_runtime",
-        ":release_dynamic_runtime",
-        ":release_static_runtime",
-        ":thinlto",
-        ":fulllto",
-        ":fdo_instrument",
-        ":fdo_optimize",
+        ":thin_lto",
+        ":full_lto",
         ":cxx_standard_14",
         ":cxx_standard_17",
         ":cxx_standard_20",
         ":cxx_standard_23",
         ":cxx_standard_26",
         ":window_subsystem",
-        ":window_subsystem_impl",
-        ":console_subsystem_impl",
+        ":console_subsystem",
     ],
 )
 
@@ -68,22 +71,14 @@ cc_feature_set(
 
         # Toolchain Policy Defaults
         ":default_flags",
+        ":all_runtime_flags",
+        ":all_subsystem_flags",
 
         # Rule-Level Passthrough
         ":user_compile_flags",
         ":user_compile_defines",
         ":includes",
         ":user_link_flags",
-
-        # Runtime linkage (constraints determine which variant is enabled)
-        ":debug_dynamic_runtime",
-        ":debug_static_runtime",
-        ":release_dynamic_runtime",
-        ":release_static_runtime",
-
-        # Subsystem (constraints determine which variant is enabled)
-        ":window_subsystem_impl",
-        ":console_subsystem_impl",
     ],
 )
 
@@ -268,113 +263,89 @@ cc_feature(
     feature_name = "debug_runtime",
 )
 
-cc_feature_set(
-    name = "debug_static_runtime_requirement",
-    all_of = [
-        ":static_runtime",
-        ":debug_runtime",
-    ],
+cc_feature_constraint(
+    name = "no_static_no_debug_constraint",
+    none_of = [":static_runtime", ":debug_runtime"],
 )
 
-cc_feature_set(
-    name = "release_static_runtime_requirement",
-    all_of = [":static_runtime"],
-)
-
-cc_feature_set(
-    name = "debug_dynamic_runtime_requirement",
+cc_feature_constraint(
+    name = "no_static_debug_constraint",
     all_of = [":debug_runtime"],
+    none_of = [":static_runtime"],
+)
+
+cc_feature_constraint(
+    name = "static_no_debug_constraint",
+    all_of = [":static_runtime"],
+    none_of = [":debug_runtime"],
+)
+
+cc_feature_set(
+    name = "static_debug_constraint",
+    all_of = [":static_runtime", ":debug_runtime"],
 )
 
 cc_feature(
-    name = "debug_dynamic_runtime",
+    name = "all_runtime_flags",
     args = [
         "//{COMPILER_KIND}/args:debug_dynamic_runtime_compile",
         "//{COMPILER_KIND}/args:debug_dynamic_runtime_link",
-    ],
-    feature_name = "debug_dynamic_runtime",
-    requires_any_of = [":debug_dynamic_runtime_requirement"],
-)
-
-cc_feature(
-    name = "debug_static_runtime",
-    args = [
         "//{COMPILER_KIND}/args:debug_static_runtime_compile",
         "//{COMPILER_KIND}/args:debug_static_runtime_link",
-    ],
-    feature_name = "debug_static_runtime",
-    requires_any_of = [":debug_static_runtime_requirement"],
-)
-
-cc_feature(
-    name = "release_dynamic_runtime",
-    args = [
         "//{COMPILER_KIND}/args:release_dynamic_runtime_compile",
         "//{COMPILER_KIND}/args:release_dynamic_runtime_link",
-    ],
-    feature_name = "release_dynamic_runtime",
-)
-
-cc_feature(
-    name = "release_static_runtime",
-    args = [
         "//{COMPILER_KIND}/args:release_static_runtime_compile",
         "//{COMPILER_KIND}/args:release_static_runtime_link",
     ],
-    feature_name = "release_static_runtime",
-    requires_any_of = [":release_static_runtime_requirement"],
+    feature_name = "all_runtime_flags",
 )
 
 ## Subsystem
+cc_mutually_exclusive_category(  
+    name = "subsystem_mutually_exclusive_category",  
+)
+
+cc_feature(
+    name = "all_subsystem_flags",
+    args = [
+        "//{COMPILER_KIND}/args:window_subsystem",
+        "//{COMPILER_KIND}/args:console_subsystem",
+    ],
+    feature_name = "all_subsystem_flags",
+)
+
 cc_feature(
     name = "window_subsystem",
     feature_name = "window_subsystem",
+    mutually_exclusive = [":subsystem_mutually_exclusive_category"],
 )
 
 cc_feature(
-    name = "window_subsystem_impl",
-    args = ["//{COMPILER_KIND}/args:window_subsystem_impl"],
-    feature_name = "window_subsystem_impl",
-    requires_any_of = [":window_subsystem"],
+    name = "console_subsystem",
+    feature_name = "console_subsystem",
+    mutually_exclusive = [":subsystem_mutually_exclusive_category"],
 )
 
-cc_feature(
-    name = "console_subsystem_impl",
-    args = ["//{COMPILER_KIND}/args:console_subsystem_impl"],
-    feature_name = "console_subsystem_impl",
+cc_feature_constraint(
+    name = "no_subsystem_constraint",
+    none_of = [":window_subsystem", ":console_subsystem"],
 )
 
 ## Optimization Technologies
 cc_mutually_exclusive_category(name = "lto")
 
 cc_feature(
-    name = "thinlto",
-    args = ["//{COMPILER_KIND}/args:thinlto"],
-    feature_name = "thinlto",
+    name = "thin_lto",
+    args = ["//{COMPILER_KIND}/args:thin_lto"],
+    feature_name = "thin_lto",
     mutually_exclusive = [":lto"],
 )
 
 cc_feature(
-    name = "fulllto",
-    args = ["//{COMPILER_KIND}/args:fulllto"],
-    feature_name = "fulllto",
+    name = "full_lto",
+    args = ["//{COMPILER_KIND}/args:full_lto"],
+    feature_name = "full_lto",
     mutually_exclusive = [":lto"],
-)
-
-cc_mutually_exclusive_category(name = "fdo")
-
-cc_feature(
-    name = "fdo_instrument",
-    args = ["//{COMPILER_KIND}/args:fdo_instrument"],
-    mutually_exclusive = [":fdo"],
-    overrides = "@rules_cc//cc/toolchains/features/legacy:fdo_instrument",
-)
-
-cc_feature(
-    name = "fdo_optimize",
-    args = ["//{COMPILER_KIND}/args:fdo_optimize"],
-    mutually_exclusive = [":fdo"],
-    overrides = "@rules_cc//cc/toolchains/features/legacy:fdo_optimize",
 )
 
 ## Language Standard

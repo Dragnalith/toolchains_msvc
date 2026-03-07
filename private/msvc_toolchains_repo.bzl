@@ -33,11 +33,17 @@ def _msvc_toolchains_repo_impl(ctx):
     ctx.template(
         "msvc/args/BUILD.bazel",
         ctx.attr.src_args_msvc,
+        substitutions = {
+            "{COMPILER_KIND}": "msvc",
+        },
     )
 
     ctx.template(
         "clang/args/BUILD.bazel",
         ctx.attr.src_args_clang,
+        substitutions = {
+            "{COMPILER_KIND}": "clang",
+        },
     )
 
     # Install shared artifacts
@@ -210,8 +216,8 @@ msvc_toolchains_repo = repository_rule(
         "hosts": attr.string_list(mandatory = True),
         "src_features": attr.label(default = Label("//overlays/toolchain:BUILD.features.tpl"), allow_single_file = True),
         "src_artifacts": attr.label(default = Label("//overlays/toolchain:BUILD.artifacts.bazel"), allow_single_file = True),
-        "src_args_msvc": attr.label(default = Label("//overlays/toolchain:BUILD.args-msvc.bazel"), allow_single_file = True),
-        "src_args_clang": attr.label(default = Label("//overlays/toolchain:BUILD.args-clang.bazel"), allow_single_file = True),
+        "src_args_msvc": attr.label(default = Label("//overlays/toolchain:BUILD.args-msvc.tpl"), allow_single_file = True),
+        "src_args_clang": attr.label(default = Label("//overlays/toolchain:BUILD.args-clang.tpl"), allow_single_file = True),
         "src_toolchain_msvc": attr.label(default = Label("//overlays/toolchain/cl:BUILD.toolchain.tpl"), allow_single_file = True),
         "src_toolchain_clang": attr.label(default = Label("//overlays/toolchain/clang:BUILD.toolchain.tpl"), allow_single_file = True),
         "src_toolchain_clang_cl": attr.label(default = Label("//overlays/toolchain/clang-cl:BUILD.toolchain.tpl"), allow_single_file = True),

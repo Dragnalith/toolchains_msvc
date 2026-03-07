@@ -13,7 +13,7 @@
 - [X] LLVM: Support clang-cl
 - [X] Customization: Configure the compiler attribute for each toolchain kind (`msvc-cl`, `clang` and `clang-cl`) to be used in `select()` statements to conditionally configure your build based on the compiler type
 - [X] Configuration: cl, clang-cl, and clang uses the same features
-- [ ] Configuration: features include debug symbols, C++ language version, PGO, LTO, warning treated as error, dynamic/static runtime
+- [ ] Configuration: features include debug symbols, C++ language version, LTO, warning treated as error, dynamic/static runtime
 - [ ] Configuration: Link action use response file
 - [ ] Configuration: module extension API allows overriding default, dbg, fastbuild, and opt flags for compile and link actions
 - [ ] Configuration: module extension API allows specifying features to be enabled by dbg, fastbuild, and opt
@@ -26,5 +26,3 @@
 - [ ] Lock File: Support lock file using the 'Update pattern'
 - [ ] Enforce Visual Studio's EULA agreement: require a BAZEL_TOOLCHAINS_MSVC_AGREE_WITH_VS_EULA envvar. If does not exist, installation fails with the url pointing to EULA gotten from the channel manifest
 - [ ] Enable ability to define multiple toolchain repo
-- [ ] Remote Execution: verify it runs toolchains_msvc's toolchains properly
-- [ ] Remote Execution: minimize toolchain's file dependency

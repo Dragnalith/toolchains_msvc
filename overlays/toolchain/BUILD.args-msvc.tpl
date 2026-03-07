@@ -331,28 +331,6 @@ cc_args(
 )
 
 cc_args(
-    name = "debug_dynamic_runtime_compile",
-    actions = [
-        "@rules_cc//cc/toolchains/actions:c_compile",
-        "@rules_cc//cc/toolchains/actions:cpp_compile_actions",
-    ],
-    args = [
-        "/MDd",
-    ],
-)
-
-cc_args(
-    name = "debug_static_runtime_compile",
-    actions = [
-        "@rules_cc//cc/toolchains/actions:c_compile",
-        "@rules_cc//cc/toolchains/actions:cpp_compile_actions",
-    ],
-    args = [
-        "/MTd",
-    ],
-)
-
-cc_args(
     name = "release_dynamic_runtime_compile",
     actions = [
         "@rules_cc//cc/toolchains/actions:c_compile",
@@ -361,43 +339,7 @@ cc_args(
     args = [
         "/MD",
     ],
-)
-
-cc_args(
-    name = "release_static_runtime_compile",
-    actions = [
-        "@rules_cc//cc/toolchains/actions:c_compile",
-        "@rules_cc//cc/toolchains/actions:cpp_compile_actions",
-    ],
-    args = [
-        "/MT",
-    ],
-)
-
-cc_args(
-    name = "debug_dynamic_runtime_link",
-    actions = [
-        "@rules_cc//cc/toolchains/actions:link_actions",
-    ],
-    args = [
-        "ucrtd.lib",
-        "msvcrtd.lib",
-        "vcruntimed.lib",
-        "msvcprtd.lib",
-    ],
-)
-
-cc_args(
-    name = "debug_static_runtime_link",
-    actions = [
-        "@rules_cc//cc/toolchains/actions:link_actions",
-    ],
-    args = [
-        "libucrtd.lib",
-        "libvcruntimed.lib",
-        "libcmtd.lib",
-        "libcpmtd.lib",
-    ],
+    requires_any_of = ["//{COMPILER_KIND}/features:no_static_no_debug_constraint"],
 )
 
 cc_args(
@@ -411,6 +353,19 @@ cc_args(
         "vcruntime.lib",
         "msvcprt.lib",
     ],
+    requires_any_of = ["//{COMPILER_KIND}/features:no_static_no_debug_constraint"],
+)
+
+cc_args(
+    name = "release_static_runtime_compile",
+    actions = [
+        "@rules_cc//cc/toolchains/actions:c_compile",
+        "@rules_cc//cc/toolchains/actions:cpp_compile_actions",
+    ],
+    args = [
+        "/MT",
+    ],
+    requires_any_of = ["//{COMPILER_KIND}/features:static_no_debug_constraint"],
 )
 
 cc_args(
@@ -424,24 +379,79 @@ cc_args(
         "libcmt.lib",
         "libcpmt.lib",
     ],
+    requires_any_of = ["//{COMPILER_KIND}/features:static_no_debug_constraint"],
 )
 
 cc_args(
-    name = "window_subsystem_impl",
+    name = "debug_dynamic_runtime_compile",
+    actions = [
+        "@rules_cc//cc/toolchains/actions:c_compile",
+        "@rules_cc//cc/toolchains/actions:cpp_compile_actions",
+    ],
+    args = [
+        "/MDd",
+    ],
+    requires_any_of = ["//{COMPILER_KIND}/features:no_static_debug_constraint"],
+)
+
+cc_args(
+    name = "debug_dynamic_runtime_link",
+    actions = [
+        "@rules_cc//cc/toolchains/actions:link_actions",
+    ],
+    args = [
+        "ucrtd.lib",
+        "msvcrtd.lib",
+        "vcruntimed.lib",
+        "msvcprtd.lib",
+    ],
+    requires_any_of = ["//{COMPILER_KIND}/features:no_static_debug_constraint"],
+)
+
+cc_args(
+    name = "debug_static_runtime_compile",
+    actions = [
+        "@rules_cc//cc/toolchains/actions:c_compile",
+        "@rules_cc//cc/toolchains/actions:cpp_compile_actions",
+    ],
+    args = [
+        "/MTd",
+    ],
+    requires_any_of = ["//{COMPILER_KIND}/features:static_debug_constraint"],
+)
+
+cc_args(
+    name = "debug_static_runtime_link",
+    actions = [
+        "@rules_cc//cc/toolchains/actions:link_actions",
+    ],
+    args = [
+        "libucrtd.lib",
+        "libvcruntimed.lib",
+        "libcmtd.lib",
+        "libcpmtd.lib",
+    ],
+    requires_any_of = ["//{COMPILER_KIND}/features:static_debug_constraint"],
+)
+
+cc_args(
+    name = "window_subsystem",
     actions = ["@rules_cc//cc/toolchains/actions:link_actions"],
+    requires_any_of = ["//{COMPILER_KIND}/features:window_subsystem"],
     args = ["/SUBSYSTEM:WINDOWS"],
 )
 
 cc_args(
-    name = "console_subsystem_impl",
+    name = "console_subsystem",
     actions = ["@rules_cc//cc/toolchains/actions:link_actions"],
+    requires_any_of = ["//{COMPILER_KIND}/features:no_subsystem_constraint"],
     args = ["/SUBSYSTEM:CONSOLE"],
 )
 
 # === Optimization Technologies ===
 
 cc_args(
-    name = "thinlto",
+    name = "thin_lto",
     actions = [
         "@rules_cc//cc/toolchains/actions:compile_actions",
         "@rules_cc//cc/toolchains/actions:link_actions",
@@ -450,25 +460,7 @@ cc_args(
 )
 
 cc_args(
-    name = "fulllto",
-    actions = [
-        "@rules_cc//cc/toolchains/actions:compile_actions",
-        "@rules_cc//cc/toolchains/actions:link_actions",
-    ],
-    args = [],
-)
-
-cc_args(
-    name = "fdo_instrument",
-    actions = [
-        "@rules_cc//cc/toolchains/actions:compile_actions",
-        "@rules_cc//cc/toolchains/actions:link_actions",
-    ],
-    args = [],
-)
-
-cc_args(
-    name = "fdo_optimize",
+    name = "full_lto",
     actions = [
         "@rules_cc//cc/toolchains/actions:compile_actions",
         "@rules_cc//cc/toolchains/actions:link_actions",
