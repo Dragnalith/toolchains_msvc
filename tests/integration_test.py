@@ -3,6 +3,7 @@ import json
 import platform
 import subprocess
 import sys
+import threading
 from pathlib import Path
 
 DEFAULT_MSVC_VERSIONS = ["14.50", "14.44", "14.40", "14.33"]
@@ -37,12 +38,11 @@ def parse_comma_list(value: str) -> list[str]:
     return [v.strip() for v in value.split(",") if v.strip()]
 
 
-def run_bazel(args: list[str], cwd: Path, *, no_stderr_flush: bool = False) -> tuple[int, str]:
-    """Run bazel with given args. Returns (returncode, stdout).
-
-    Unless no_stderr_flush is True, stderr is captured and streamed live to stdout.
+def run(cmd: list[str], cwd: Path, *, no_stderr_flush: bool = False) -> tuple[int, str]:
+    """Run command and return (returncode, stdout).
+    
+    Unless no_stderr_flush is True, stderr is captured and streamed live.
     """
-    cmd = ["bazel", "run", "//:hello_world"] + args
     stderr_dest = None if no_stderr_flush else subprocess.PIPE
     with subprocess.Popen(
         cmd,
@@ -51,13 +51,83 @@ def run_bazel(args: list[str], cwd: Path, *, no_stderr_flush: bool = False) -> t
         stderr=stderr_dest,
         text=True,
     ) as proc:
+        stderr_thread: threading.Thread | None = None
         if not no_stderr_flush and proc.stderr is not None:
-            for line in proc.stderr:
-                print(line, end="")
-                sys.stdout.flush()
-        stdout = proc.stdout.read()
+            stderr = proc.stderr
+
+            def consume_stderr():
+                for line in stderr:
+                    print(line, end="", file=sys.stderr)
+                    sys.stderr.flush()
+
+            stderr_thread = threading.Thread(target=consume_stderr)
+            stderr_thread.start()
+        stdout = proc.stdout.read() if proc.stdout else ""
         proc.wait()
+        if stderr_thread is not None:
+            stderr_thread.join()
         return proc.returncode, stdout
+
+
+def parse_aquery_to_actions(stdout: str) -> dict:
+    """Parse aquery jsonproto stdout into { compile: { args, outputs }, link: { args, outputs } }."""
+    data = json.loads(stdout.strip())
+    artifacts_by_id = {artifact["id"]: artifact for artifact in data.get("artifacts", [])}
+    path_fragments_by_id = {fragment["id"]: fragment for fragment in data.get("pathFragments", [])}
+
+    def resolve_path_fragment(path_fragment_id: int) -> str | None:
+        parts = []
+        current_id = path_fragment_id
+        while current_id is not None:
+            fragment = path_fragments_by_id.get(current_id)
+            if fragment is None:
+                return None
+            parts.append(fragment["label"])
+            current_id = fragment.get("parentId")
+        parts.reverse()
+        return "/".join(parts)
+
+    def resolve_outputs(action: dict) -> list[str]:
+        output_paths = []
+        for output_id in action.get("outputIds", []):
+            artifact = artifacts_by_id.get(output_id)
+            if artifact is None:
+                continue
+            path_fragment_id = artifact.get("pathFragmentId")
+            if path_fragment_id is None:
+                continue
+            path = resolve_path_fragment(path_fragment_id)
+            if path is not None:
+                output_paths.append(path)
+
+        # Keep compatibility with any aquery shape that provides paths directly.
+        if output_paths:
+            return output_paths
+        return action.get("outputs", [])
+
+    actions = data.get("actions", [])
+    result: dict[str, dict] = {}
+    for action in actions:
+        mnemonic = action.get("mnemonic", "")
+        if mnemonic == "CppCompile":
+            result["compile"] = {
+                "args": action.get("arguments", []),
+                "outputs": resolve_outputs(action),
+            }
+        elif mnemonic == "CppLink":
+            result["link"] = {
+                "args": action.get("arguments", []),
+                "outputs": resolve_outputs(action),
+            }
+    
+    if "compile" not in result:
+        fatal_error("CppCompile action not found in aquery output")
+    if "link" not in result:
+        fatal_error("CppLink action not found in aquery output")
+    
+    return result
+
+
 
 
 def validate_output(
@@ -126,7 +196,8 @@ def run_test(
         bazel_args.append(f"--repo_env=BAZEL_TOOLCHAINS_MSVC_TARGETS={msvc_targets_env}")
 
     print(f"[{current}/{total}] TEST({test_label}): bazel run //:hello_world {' '.join(bazel_args)}")
-    returncode, stdout = run_bazel(bazel_args, workspace_dir, no_stderr_flush=no_stderr_flush)
+    cmd = ["bazel", "run", "//:hello_world"] + bazel_args
+    returncode, stdout = run(cmd, workspace_dir, no_stderr_flush=no_stderr_flush)
     print(stdout, end="" if stdout.endswith("\n") else "\n")
 
     if returncode != 0:
@@ -269,6 +340,154 @@ def run_test_default(
     for current, kwargs in enumerate(tests, 1):
         run_test(workspace_dir, "test_default", current, total, show_progress=show_progress, no_stderr_flush=no_stderr_flush, **kwargs)
 
+class FeatureTest:
+    def __init__(self, features_list: list[str], cl_c_args: list[str] = [], cl_link_args: list[str] = [], clang_c_args: list[str] = [], clang_link_args: list[str] = [], output_file: list[str] = []):
+        self.features_list = features_list
+        self.cl_c_args = cl_c_args
+        self.cl_link_args = cl_link_args
+        self.clang_c_args = clang_c_args
+        self.clang_link_args = clang_link_args
+        self.output_file = output_file
+        
+FEATURE_TESTS = [FeatureTest(
+    features_list=[], 
+    cl_c_args=["$/D_DEBUG", "/MD", "$/MDd", "$/MT", "$/MTd"],
+    clang_c_args=["$-D_DEBUG""-fms-runtime-lib=dll", "$-fms-runtime-lib=dll_dbg", "$-fms-runtime-lib=static", "$-fms-runtime-lib=static_dbg"],
+    cl_link_args=["/SUBSYSTEM:CONSOLE", "$/SUBSYSTEM:WINDOW"],
+    clang_link_args=["/SUBSYSTEM:CONSOLE", "$/SUBSYSTEM:WINDOW"],
+), FeatureTest(
+    features_list=["debug_runtime", "static_runtime"], 
+    cl_c_args=["/D_DEBUG","$/MD", "$/MDd", "$/MT", "/MTd"],
+    clang_c_args=["-D_DEBUG", "$-fms-runtime-lib=dll", "$-fms-runtime-lib=dll_dbg", "$-fms-runtime-lib=static", "-fms-runtime-lib=static_dbg"],
+), FeatureTest(
+    features_list=["static_runtime"], 
+    cl_c_args=["$/D_DEBUG","$/MD", "$/MDd", "/MT", "$/MTd"],
+    clang_c_args=["$-D_DEBUG", "$-fms-runtime-lib=dll", "$-fms-runtime-lib=dll_dbg", "-fms-runtime-lib=static", "$-fms-runtime-lib=static_dbg"],
+), FeatureTest(
+    features_list=["debug_runtime"], 
+    cl_c_args=["/D_DEBUG", "$/MD", "/MDd", "$/MT", "$/MTd"],
+    clang_c_args=["-D_DEBUG", "$-fms-runtime-lib=dll", "-fms-runtime-lib=dll_dbg", "$-fms-runtime-lib=static", "$-fms-runtime-lib=static_dbg"],
+), FeatureTest(
+    features_list=["generate_debug_symbols"], 
+    cl_c_args=["/Z7"],
+    cl_link_args=["/DEBUG"],
+    clang_c_args=["-gcodeview"],
+    clang_link_args=["/DEBUG"],
+    output_file=["hello_world.pdb"],
+), FeatureTest(
+    features_list=["treat_warnings_as_errors"], 
+    cl_c_args=["/WX"],
+    clang_c_args=["-Werror"],
+), FeatureTest(
+    features_list=["thinlto"],
+    cl_c_args=["/GL"],
+    clang_c_args=["-flto=thin"],
+    clang_link_args=["/LTCG"],
+    cl_link_args=["/LTCG"],
+), FeatureTest(
+    features_list=["fulllto"],
+    cl_c_args=["/GL"],
+    clang_c_args=["-flto"],
+    clang_link_args=["/LTCG"],
+    cl_link_args=["/LTCG"],
+)]
+
+def run_test_features(
+    script_dir: Path,
+    *,
+    no_stderr_flush: bool = False,
+) -> None:
+    """Run aquery tests for each feature configuration and validate compile/link args."""
+    workspace_dir = script_dir / "all_hosts_all_targets"
+    check(workspace_dir.is_dir(), f"Workspace not found: {workspace_dir}")
+
+    # Use first available versions from defaults
+    msvc_version = DEFAULT_MSVC_VERSIONS[0]
+    winsdk_version = DEFAULT_WINSDK_VERSIONS[0]
+    clang_version = DEFAULT_CLANG_VERSIONS[0]
+    
+    # Determine host/target based on current architecture
+    hosts = get_default_hosts()
+    host = hosts[0]
+    targets = get_default_targets(host)
+    target = targets[0]
+    
+    # Define toolchains to test: msvc (cl.exe), clang, clang-cl
+    toolchains = [
+        ("msvc", f"msvc{msvc_version}_winsdk{winsdk_version}_host{host}_target{target}"),
+        ("clang", f"clang{clang_version}_msvc{msvc_version}_winsdk{winsdk_version}_host{host}_target{target}"),
+        ("clang-cl", f"clang-cl{clang_version}_msvc{msvc_version}_winsdk{winsdk_version}_host{host}_target{target}"),
+    ]
+    
+    # Feature tests should not run on x86 host (clang toolchains not supported)
+    check(host != "x86", "Feature tests should not use x86 host")
+    
+    total_tests = len(FEATURE_TESTS) * len(toolchains)
+    test_counter = 0
+    
+    for toolchain_name, toolchain_id in toolchains:
+        for feature_test in FEATURE_TESTS:
+            test_counter += 1
+            features_str = ",".join(feature_test.features_list) if feature_test.features_list else "default"
+            
+            cmd = [
+                "bazel", "aquery", 
+                'mnemonic("CppLink|CppCompile",//:hello_world)', 
+                "--output=jsonproto",
+                f"--extra_toolchains=@msvc_toolchains//:{toolchain_id}",
+                f"--host_platform=//:windows_{host}",
+                f"--platforms=//:windows_{target}",
+            ]
+            if feature_test.features_list:
+                for feature in feature_test.features_list:
+                    cmd.append(f"--features={feature}")
+            
+            print(f"[{test_counter}/{total_tests}] TEST_FEATURES({toolchain_name}, {features_str}): {' '.join(cmd)}")
+            
+            returncode, stdout = run(cmd, workspace_dir, no_stderr_flush=no_stderr_flush)
+            if returncode != 0:
+                fatal_error(f"bazel aquery failed (exit code {returncode})")
+            
+            actions = parse_aquery_to_actions(stdout)
+            
+            compile_args = actions["compile"]["args"]
+            link_args = actions["link"]["args"]
+            link_outputs = actions["link"]["outputs"]
+            
+            def validate_args(actual_args: list[str], expected_args: list[str], action_name: str) -> None:
+                for expected in expected_args:
+                    if expected.startswith("$"):
+                        arg_to_check = expected[1:]
+                        if arg_to_check in actual_args:
+                            fatal_error(
+                                f"FAILED: {action_name} should NOT contain '{arg_to_check}' for toolchain={toolchain_name}, features={features_str}\n"
+                                f"Actual args: {actual_args}"
+                            )
+                    else:
+                        if expected not in actual_args:
+                            fatal_error(
+                                f"FAILED: {action_name} should contain '{expected}' for toolchain={toolchain_name}, features={features_str}\n"
+                                f"Actual args: {actual_args}"
+                            )
+            
+            if toolchain_name in ("msvc", "clang-cl"):
+                validate_args(compile_args, feature_test.cl_c_args, "CppCompile")
+                validate_args(link_args, feature_test.cl_link_args, "CppLink")
+            else:
+                validate_args(compile_args, feature_test.clang_c_args, "CppCompile")
+                validate_args(link_args, feature_test.clang_link_args, "CppLink")
+            
+            for expected_output in feature_test.output_file:
+                found = any(output.lower().endswith(expected_output.lower()) for output in link_outputs)
+                if not found:
+                    fatal_error(
+                        f"FAILED: Link outputs should end with '{expected_output}' for toolchain={toolchain_name}, features={features_str}\n"
+                        f"Actual outputs: {link_outputs}"
+                    )
+            
+            print("PASSED")
+            sys.stdout.flush()
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(
@@ -304,14 +523,17 @@ def main() -> None:
     test_default_parser.add_argument("--show-progress", action="store_true", dest="show_progress", help=show_progress_help)
     test_default_parser.add_argument("--no-stderr-flush", action="store_true", dest="no_stderr_flush", help="Do not capture or flush stderr; let it go to the terminal")
 
+    # test_features command
+    test_features_parser = subparsers.add_parser("test_features", help="Run aquery on //:hello_world and output CppCompile/CppLink args and outputs as JSON")
+    test_features_parser.add_argument("--no-stderr-flush", action="store_true", dest="no_stderr_flush", help="Do not capture or flush stderr; let it go to the terminal")
+
     args = parser.parse_args()
     script_dir = Path(__file__).resolve().parent
 
-    hosts = args.hosts or get_default_hosts()
+    hosts = getattr(args, "hosts", None) or get_default_hosts()
     for h in hosts:
         check(h in ("x64", "x86", "arm64"), f"Invalid host: {h}")
-
-    targets = args.targets or sorted(set(t for h in hosts for t in get_default_targets(h)))
+    targets = getattr(args, "targets", None) or sorted(set(t for h in hosts for t in get_default_targets(h)))
     for t in targets:
         check(t in ("x64", "x86", "arm64"), f"Invalid target: {t}")
 
@@ -327,6 +549,8 @@ def main() -> None:
         run_one_host_one_target(script_dir, hosts, targets, show_progress=args.show_progress, no_stderr_flush=args.no_stderr_flush)
     elif args.command == "test_default":
         run_test_default(script_dir, hosts, targets, args.clang_versions, show_progress=args.show_progress, no_stderr_flush=args.no_stderr_flush)
+    elif args.command == "test_features":
+        run_test_features(script_dir, no_stderr_flush=args.no_stderr_flush)
 
 
 if __name__ == "__main__":

@@ -15,14 +15,15 @@
 - [X] Configuration: cl, clang-cl, and clang uses the same features
 - [X] Configuration: features include debug symbols, C++ language version, LTO, warning treated as error, dynamic/static runtime
 - [X] Configuration: Link action use response file
+- [X] Configuration: Missing _DEBUG with /MTd and /MDd
+- [X] Configuration: Test features
+- [ ] Configuration: debug symbol file should be reproducible
 - [ ] Configuration: module extension API allows overriding default, dbg, fastbuild, and opt flags for compile and link actions
 - [ ] Configuration: module extension API allows specifying features to be enabled by dbg, fastbuild, and opt
-- [ ] Configuration: debug symbol file should be reproducible
-- [ ] Configuration: Enable cc_import to select static libraries based on the toolchain's runtime type (Debug vs. Release)
-- [ ] Configuration: You can configure which system library get link by default (kernel32.lib, user32.lib, advapi32.lib, ...)
-- [ ] Configuration: Available cc_import for WinSDK libs (or equivalent)
-- [ ] Feature: Support DLL compilation
+- [ ] Configuration: feature to add system libraries
+- [ ] Configuration: dependent DLL are copied next to the executable
+- [ ] Multiple toolchain repo
 - [ ] Lock File: Separate toolchains installation into two phase: preparation of a "lock" file, then consuming the lock file for installation.
 - [ ] Lock File: Support lock file using the 'Update pattern'
 - [ ] Enforce Visual Studio's EULA agreement: require a BAZEL_TOOLCHAINS_MSVC_AGREE_WITH_VS_EULA envvar. If does not exist, installation fails with the url pointing to EULA gotten from the channel manifest
-- [ ] Enable ability to define multiple toolchain repo
+- [ ] Feature: ASAN (design: one cc_feature and one alias on cc_import selecting asan runtime for the current toolchain)

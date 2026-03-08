@@ -397,6 +397,7 @@ cc_args(
     ],
     args = [
         "-fms-runtime-lib=dll_dbg",
+        "-D_DEBUG",
     ],
     requires_any_of = ["//{COMPILER_KIND}/features:no_static_debug_constraint"],
 )
@@ -423,6 +424,7 @@ cc_args(
     ],
     args = [
         "-fms-runtime-lib=static_dbg",
+        "-D_DEBUG",
     ],
     requires_any_of = ["//{COMPILER_KIND}/features:static_debug_constraint"],
 )

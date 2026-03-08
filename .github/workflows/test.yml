@@ -30,6 +30,10 @@ jobs:
         working-directory: tests
         run: python integration_test.py all_hosts_all_targets
 
+      - name: Run test_features
+        working-directory: tests
+        run: python integration_test.py test_features
+
       - name: Run one_host_one_target
         working-directory: tests
         run: python integration_test.py one_host_one_target

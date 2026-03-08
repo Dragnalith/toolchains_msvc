@@ -18,6 +18,25 @@ It generates:
 *   `@llvm_{version}_{host}` for each requested Clang version and host architecture
 *   `@msvc_toolchains` containing all toolchain definitions
 
+## Features
+
+### Toolchain Distribution Management
+
+TODO
+
+### Toolchain Features
+
+TODO
+
+
+### Toolchain Customization
+
+TODO
+
+### Hermicity
+
+TODO
+
 ## Quick Start
 
 Add this to your `MODULE.bazel`:
