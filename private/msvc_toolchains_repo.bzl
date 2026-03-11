@@ -7,6 +7,7 @@ def _msvc_toolchains_repo_impl(ctx):
     # It assumes the compiler repo is available as external repo.
 
     msvc_versions = ctx.attr.msvc_versions
+    msvc_lld_link_version = ctx.attr.msvc_lld_link_version
     clang_versions = ctx.attr.clang_versions
     winsdk_versions = ctx.attr.winsdk_versions
     targets = ctx.attr.targets
@@ -64,6 +65,47 @@ def _msvc_toolchains_repo_impl(ctx):
                         target = target,
                     )
 
+                    msvc_repo = "msvc_{}".format(msvc_version)
+                    if msvc_lld_link_version:
+                        if msvc_lld_link_version not in clang_versions:
+                            fail("msvc_lld_link_version must be in clang_versions")
+                        lld_link_llvm_repo = "llvm_{}_{}".format(clang_versions[0], host)
+                        link_cc_tool = """cc_tool(
+    name = "link",
+    src = "@{llvm_repo}//:lld-link_host{host}_target{target}",
+    data = [
+        "@{llvm_repo}//:clang_all_binaries_host{host}_target{target}",
+        "@{msvc_repo}//:msvc_all_libs_{target}",
+    ],
+)""".format(llvm_repo = lld_link_llvm_repo, msvc_repo = msvc_repo, host = host, target = target)
+                        base_link_flags = """base_link_flags = [
+    "/lldignoreenv",
+    "/NODEFAULTLIB",
+    "/INCREMENTAL:NO",
+    "/PDBALTPATH:%_PDB%",
+    "/Brepro",
+    "/pdbsourcepath:.",
+]"""
+
+                    else:
+                        lld_link_llvm_repo = None
+                        link_cc_tool = """cc_tool(
+    name = "link",
+    src = "@{msvc_repo}//:link_host{host}_target{target}",
+    data = [
+        "@{msvc_repo}//:msvc_all_binaries_host{host}_target{target}",
+        "@{msvc_repo}//:msvc_all_libs_{target}",
+    ],
+)""".format(msvc_repo = msvc_repo, host = host, target = target)
+                        base_link_flags = """base_link_flags = [
+    "/nologo",
+    "/NODEFAULTLIB",
+    "/INCREMENTAL:NO",
+    "/experimental:deterministic",
+    "/Brepro",
+    "/PDBALTPATH:%_PDB%",
+]"""
+
                     # Install MSVC toolchain
                     ctx.template(
                         "{toolchain_name}/BUILD.bazel".format(toolchain_name = toolchain_name),
@@ -71,7 +113,9 @@ def _msvc_toolchains_repo_impl(ctx):
                         substitutions = {
                             "{toolchain_name}": toolchain_name,
                             "{compiler}": "msvc-cl",
-                            "{msvc_repo}": "msvc_{}".format(msvc_version),
+                            "{msvc_repo}": msvc_repo,
+                            "{link_cc_tool}": link_cc_tool,
+                            "{base_link_flags}": base_link_flags,
                             "{winsdk_repo}": "winsdk_{}".format(winsdk_version),
                             "{msvc_version}": msvc_version,
                             "{winsdk_version}": winsdk_version,
@@ -210,6 +254,7 @@ msvc_toolchains_repo = repository_rule(
     implementation = _msvc_toolchains_repo_impl,
     attrs = {
         "msvc_versions": attr.string_list(mandatory = True),
+        "msvc_lld_link_version": attr.string(mandatory = False),
         "clang_versions": attr.string_list(mandatory = True),
         "winsdk_versions": attr.string_list(mandatory = True),
         "targets": attr.string_list(mandatory = True),

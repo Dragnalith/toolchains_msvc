@@ -33,6 +33,20 @@ def _msvc_repo_impl(ctx):
     ctx.execute(["cmd", "/c", "move", str(redist_dir).replace("/", "\\"), "Redist"])
     ctx.delete("tmp")
 
+    # Add cl_wrapper.bat next to cl.exe in every host/target config so EXECROOT can be
+    # forwarded to cl.exe via /pathmap:%EXECROOT%=. for reproducible paths.
+    cl_wrapper_content = """@echo off
+:: %CD% provides the absolute path of the current directory (the execroot)
+set EXECROOT=%CD%
+"%~dp0cl.exe" /pathmap:%EXECROOT%=. %*
+"""
+    for host in ctx.attr.hosts:
+        for target in ctx.attr.targets:
+            ctx.file(
+                "Tools/bin/Host{host}/{target}/cl_wrapper.bat".format(host = host, target = target),
+                cl_wrapper_content,
+            )
+
     # Generate a BUILD file
     ctx.template(
         "BUILD.bazel",

@@ -31,26 +31,26 @@ cc_tool(
 
 cc_tool(
     name = "link",
-    src = "@{msvc_repo}//:link_host{host}_target{target}",
+    src = "@{llvm_repo}//:lld-link_host{host}_target{target}",
     data = [
-        "@{msvc_repo}//:msvc_all_binaries_host{host}_target{target}",
+        "@{llvm_repo}//:clang_all_binaries_host{host}_target{target}",
         "@{msvc_repo}//:msvc_all_libs_{target}",
     ],
 )
 
 cc_tool(
     name = "lib",
-    src = "@{msvc_repo}//:lib_host{host}_target{target}",
+    src = "@{llvm_repo}//:llvm-lib_host{host}_target{target}",
     data = [
-        "@{msvc_repo}//:msvc_all_binaries_host{host}_target{target}",
+        "@{llvm_repo}//:clang_all_binaries_host{host}_target{target}",
     ],
 )
 
 cc_tool(
     name = "ml64",
-    src = "@{msvc_repo}//:ml64_host{host}_target{target}",
+    src = "@{llvm_repo}//:llvm-ml_host{host}_target{target}",
     data = [
-        "@{msvc_repo}//:msvc_all_binaries_host{host}_target{target}",
+        "@{llvm_repo}//:clang_all_binaries_host{host}_target{target}",
     ],
 )
 
@@ -65,6 +65,13 @@ cc_args(
         "--target={clang_target}",
         "-fms-compatibility-version={cl_internal_version}",
         "-nostdinc",
+        "-mno-incremental-linker-compatible",
+        "-fdebug-compilation-dir=.",
+        "-fcoverage-compilation-dir=.",
+        "-resource-dir=.",
+        "-no-canonical-prefixes",
+        "-gno-codeview-command-line",
+        "-fno-ident",
     ],
 )
 
@@ -74,9 +81,12 @@ cc_args(
         "@rules_cc//cc/toolchains/actions:link_actions",
     ],
     args = [
-        "/nologo",
+        "/lldignoreenv",
         "/NODEFAULTLIB",
-        "/INCREMENTAL:NO"
+        "/INCREMENTAL:NO",
+        "/PDBALTPATH:%_PDB%",
+        "/Brepro",
+        "/PDBSOURCEPATH:.",
     ],
 )
 

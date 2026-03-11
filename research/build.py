@@ -86,7 +86,8 @@ class Environment:
         self.llvm_root = llvm_root
         self.clang_exe = llvm_root / "bin/clang.exe"
         self.clang_cl_exe = llvm_root / "bin/clang-cl.exe"
-        self.lld_link_exe = llvm_root / "bin/lld-link.exe"
+        #self.lld_link_exe = llvm_root / "bin/lld-link.exe"
+        self.lld_link_exe = pathlib.Path("lld-link.exe")
         self.llvm_lib_exe = llvm_root / "bin/llvm-lib.exe"
         self.winsdk_root = winsdk_root
         self.winsdk_ucrt = winsdk_root / f"include/10.0.{winsdk_version}.0/ucrt"
@@ -96,11 +97,14 @@ class Environment:
         self.winsdk_ucrt_lib = winsdk_root / f"lib/10.0.{winsdk_version}.0/ucrt/x64"
         self.verbose = verbose
     def _run(self, exe: pathlib.Path, args: list[str|pathlib.Path]):
-        check(exe.is_file(), f"{exe} is not a file")
+        #check(exe.is_file(), f"{exe} is not a file")
         run_args = [str(a) for a in [exe, *args]]
-        if self.verbose:
-            print(' '.join(run_args))
-        result = subprocess.run(run_args, env=_subprocess_env())
+        print(' '.join(run_args))
+        env = os.environ.copy()
+        llvm_bin = str(self.llvm_root / "bin")
+        existing = env.get("PATH", "")
+        env["PATH"] = llvm_bin + (os.pathsep + existing) if existing else llvm_bin
+        result = subprocess.run(run_args, env=env)
         check(result.returncode == 0, f"{exe.name} failed with return code {result.returncode}")
         
     def cl(self, args: list[str|pathlib.Path]):

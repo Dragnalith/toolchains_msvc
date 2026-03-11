@@ -22,21 +22,14 @@ cc_tool_map(
 
 cc_tool(
     name = "cl",
-    src = "@{msvc_repo}//:cl_host{host}_target{target}",
+    src = "@{msvc_repo}//:cl_wrapper_host{host}_target{target}",
     data = [
         "@{msvc_repo}//:msvc_all_binaries_host{host}_target{target}",
         "@{msvc_repo}//:msvc_all_includes",
     ],
 )
 
-cc_tool(
-    name = "link",
-    src = "@{msvc_repo}//:link_host{host}_target{target}",
-    data = [
-        "@{msvc_repo}//:msvc_all_binaries_host{host}_target{target}",
-        "@{msvc_repo}//:msvc_all_libs_{target}",
-    ],
-)
+{link_cc_tool}
 
 cc_tool(
     name = "lib",
@@ -64,18 +57,31 @@ cc_args(
     ],
     args = [
         "/nologo",
+        "/experimental:deterministic",
+        "/Brepro",
     ],
 )
+
+cc_args(
+    name = "base_ar_flags",
+    actions = [
+        "@rules_cc//cc/toolchains/actions:ar_actions",
+    ],
+    args = [
+        "/nologo",
+        "/experimental:deterministic",
+        "/Brepro",
+    ],
+)
+
+{base_link_flags}
 
 cc_args(
     name = "base_link_flags",
     actions = [
         "@rules_cc//cc/toolchains/actions:link_actions",
     ],
-    args = [
-        "/nologo",
-        "/NODEFAULTLIB",
-        "/INCREMENTAL:NO"    ],
+    args = base_link_flags
 )
 
 cc_args(
@@ -138,6 +144,7 @@ cc_toolchain(
     args = [
         "base_compile_flags",
         "base_link_flags",
+        "base_ar_flags",
         "include_paths",
         "lib_paths",
     ],

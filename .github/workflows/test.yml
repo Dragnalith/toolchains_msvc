@@ -26,6 +26,10 @@ jobs:
         working-directory: tests
         run: python integration_test.py test_default
 
+      - name: Run reproducible_test
+        working-directory: tests
+        run: python integration_test.py reproducible_test --one
+
       - name: Run all_hosts_all_targets
         working-directory: tests
         run: python integration_test.py all_hosts_all_targets
@@ -55,6 +59,10 @@ jobs:
       - name: Run test_default
         working-directory: tests
         run: python integration_test.py test_default
+
+      - name: Run reproducible_test
+        working-directory: tests
+        run: python integration_test.py reproducible_test --one
 
       - name: Run all_hosts_all_targets
         working-directory: tests

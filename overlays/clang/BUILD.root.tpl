@@ -8,6 +8,7 @@ exports_files(
         "bin/clang.exe",
         "bin/clang-cl.exe",
         "bin/lld-link.exe",
+        "bin/lld-link_wrapper.bat",
         "bin/llvm-lib.exe",
         "bin/llvm-ml.exe",
     ],
@@ -46,18 +47,18 @@ alias(name = "clang-cl_hostarm64_targetx64", actual = ":bin/clang-cl.exe")
 alias(name = "clang-cl_hostarm64_targetx86", actual = ":bin/clang-cl.exe")
 alias(name = "clang-cl_hostarm64_targetarm64", actual = ":bin/clang-cl.exe")
 
-# Linker
-alias(name = "lld-link_hostx64_targetx64", actual = ":bin/lld-link.exe")
-alias(name = "lld-link_hostx64_targetx86", actual = ":bin/lld-link.exe")
-alias(name = "lld-link_hostx64_targetarm64", actual = ":bin/lld-link.exe")
+# Linker (via wrapper so lld-link is always invoked from the command line)
+alias(name = "lld-link_hostx64_targetx64", actual = ":bin/lld-link_wrapper.bat")
+alias(name = "lld-link_hostx64_targetx86", actual = ":bin/lld-link_wrapper.bat")
+alias(name = "lld-link_hostx64_targetarm64", actual = ":bin/lld-link_wrapper.bat")
 
-alias(name = "lld-link_hostx86_targetx64", actual = ":bin/lld-link.exe")
-alias(name = "lld-link_hostx86_targetx86", actual = ":bin/lld-link.exe")
-alias(name = "lld-link_hostx86_targetarm64", actual = ":bin/lld-link.exe")
+alias(name = "lld-link_hostx86_targetx64", actual = ":bin/lld-link_wrapper.bat")
+alias(name = "lld-link_hostx86_targetx86", actual = ":bin/lld-link_wrapper.bat")
+alias(name = "lld-link_hostx86_targetarm64", actual = ":bin/lld-link_wrapper.bat")
 
-alias(name = "lld-link_hostarm64_targetx64", actual = ":bin/lld-link.exe")
-alias(name = "lld-link_hostarm64_targetx86", actual = ":bin/lld-link.exe")
-alias(name = "lld-link_hostarm64_targetarm64", actual = ":bin/lld-link.exe")
+alias(name = "lld-link_hostarm64_targetx64", actual = ":bin/lld-link_wrapper.bat")
+alias(name = "lld-link_hostarm64_targetx86", actual = ":bin/lld-link_wrapper.bat")
+alias(name = "lld-link_hostarm64_targetarm64", actual = ":bin/lld-link_wrapper.bat")
 
 # Librarian
 alias(name = "llvm-lib_hostx64_targetx64", actual = ":bin/llvm-lib.exe")

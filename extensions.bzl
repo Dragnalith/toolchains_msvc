@@ -65,6 +65,7 @@ def _extension_impl(module_ctx):
     winsdk_versions_set = {}
     targets_set = {}
     hosts_set = {}
+    msvc_lld_link_version = None
 
     for mod in module_ctx.modules:
         for tag in mod.tags.clang_compiler:
@@ -77,6 +78,10 @@ def _extension_impl(module_ctx):
             targets_set[tag.arch] = True
         for tag in mod.tags.host:
             hosts_set[tag.arch] = True
+        if (len(mod.tags.msvc_lld_link_version) > 1):
+            fail("Multiple msvc_lld_link_version tags are not allowed.")
+        for tag in mod.tags.msvc_lld_link_version:
+            msvc_lld_link_version = tag.version
 
     clang_versions = clang_versions_set.keys()
     msvc_versions = msvc_versions_set.keys()
@@ -229,6 +234,7 @@ def _extension_impl(module_ctx):
         name = "msvc_toolchains",
         clang_versions = clang_versions,
         msvc_versions = msvc_versions,
+        msvc_lld_link_version = msvc_lld_link_version,
         winsdk_versions = winsdk_versions,
         targets = targets,
         hosts = hosts,
@@ -242,6 +248,7 @@ def _extension_impl(module_ctx):
 
 clang_compiler_tag = tag_class(attrs = {"version": attr.string(mandatory = True)})
 msvc_compiler_tag = tag_class(attrs = {"version": attr.string(mandatory = True)})
+msvc_lld_link_version_tag = tag_class(attrs = {"version": attr.string(mandatory = True)})
 windows_sdk_tag = tag_class(attrs = {"version": attr.string(mandatory = True)})
 target_tag = tag_class(attrs = {"arch": attr.string(mandatory = True)})
 host_tag = tag_class(attrs = {"arch": attr.string(mandatory = True)})
@@ -251,6 +258,7 @@ toolchain = module_extension(
     tag_classes = {
         "clang_compiler": clang_compiler_tag,
         "msvc_compiler": msvc_compiler_tag,
+        "msvc_lld_link_version": msvc_lld_link_version_tag,
         "windows_sdk": windows_sdk_tag,
         "target": target_tag,
         "host": host_tag,

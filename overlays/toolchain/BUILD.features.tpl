@@ -32,7 +32,7 @@ cc_feature_set(
         # Rule-Level Passthrough
         ":user_compile_flags",
         ":user_compile_defines",
-        ":includes",        
+        ":includes",
         ":user_link_flags",
 
         # Configuration (Mode-Driven)

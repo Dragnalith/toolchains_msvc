@@ -17,13 +17,15 @@
 - [X] Configuration: Link action use response file
 - [X] Configuration: Missing _DEBUG with /MTd and /MDd
 - [X] Configuration: Test features
-- [ ] Configuration: debug symbol file should be reproducible
+- [X] Configuration: Build is reproducible
+- [ ] Test: --all test all cross-product, --one test one per axis, except for hosts and targets which use their own default system
+- [ ] Configuration: dependent DLL are copied next to the executable
 - [ ] Configuration: module extension API allows overriding default, dbg, fastbuild, and opt flags for compile and link actions
 - [ ] Configuration: module extension API allows specifying features to be enabled by dbg, fastbuild, and opt
 - [ ] Configuration: feature to add system libraries
-- [ ] Configuration: dependent DLL are copied next to the executable
 - [ ] Multiple toolchain repo
 - [ ] Lock File: Separate toolchains installation into two phase: preparation of a "lock" file, then consuming the lock file for installation.
 - [ ] Lock File: Support lock file using the 'Update pattern'
 - [ ] Enforce Visual Studio's EULA agreement: require a BAZEL_TOOLCHAINS_MSVC_AGREE_WITH_VS_EULA envvar. If does not exist, installation fails with the url pointing to EULA gotten from the channel manifest
 - [ ] Feature: ASAN (design: one cc_feature and one alias on cc_import selecting asan runtime for the current toolchain)
+- [ ] Test: Display test result using Github "Check API"

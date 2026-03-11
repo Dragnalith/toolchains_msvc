@@ -19,6 +19,22 @@ exports_files(
     visibility = ["//visibility:public"],
 )
 
+# CL wrapper (forwards EXECROOT to cl.exe via /pathmap for reproducible paths)
+exports_files(
+    [
+        "Tools/bin/Hostx64/x64/cl_wrapper.bat",
+        "Tools/bin/Hostx64/x86/cl_wrapper.bat",
+        "Tools/bin/Hostx64/arm64/cl_wrapper.bat",
+        "Tools/bin/Hostx86/x64/cl_wrapper.bat",
+        "Tools/bin/Hostx86/x86/cl_wrapper.bat",
+        "Tools/bin/Hostx86/arm64/cl_wrapper.bat",
+        "Tools/bin/Hostarm64/x64/cl_wrapper.bat",
+        "Tools/bin/Hostarm64/x86/cl_wrapper.bat",
+        "Tools/bin/Hostarm64/arm64/cl_wrapper.bat",
+    ],
+    visibility = ["//visibility:public"],
+)
+
 alias(
     name = "cl_hostx64_targetx64",
     actual = ":Tools/bin/Hostx64/x64/cl.exe",
@@ -62,6 +78,43 @@ alias(
 alias(
     name = "cl_hostarm64_targetarm64",
     actual = ":Tools/bin/Hostarm64/arm64/cl.exe",
+)
+
+alias(
+    name = "cl_wrapper_hostx64_targetx64",
+    actual = ":Tools/bin/Hostx64/x64/cl_wrapper.bat",
+)
+alias(
+    name = "cl_wrapper_hostx64_targetx86",
+    actual = ":Tools/bin/Hostx64/x86/cl_wrapper.bat",
+)
+alias(
+    name = "cl_wrapper_hostx64_targetarm64",
+    actual = ":Tools/bin/Hostx64/arm64/cl_wrapper.bat",
+)
+alias(
+    name = "cl_wrapper_hostx86_targetx64",
+    actual = ":Tools/bin/Hostx86/x64/cl_wrapper.bat",
+)
+alias(
+    name = "cl_wrapper_hostx86_targetx86",
+    actual = ":Tools/bin/Hostx86/x86/cl_wrapper.bat",
+)
+alias(
+    name = "cl_wrapper_hostx86_targetarm64",
+    actual = ":Tools/bin/Hostx86/arm64/cl_wrapper.bat",
+)
+alias(
+    name = "cl_wrapper_hostarm64_targetx64",
+    actual = ":Tools/bin/Hostarm64/x64/cl_wrapper.bat",
+)
+alias(
+    name = "cl_wrapper_hostarm64_targetx86",
+    actual = ":Tools/bin/Hostarm64/x86/cl_wrapper.bat",
+)
+alias(
+    name = "cl_wrapper_hostarm64_targetarm64",
+    actual = ":Tools/bin/Hostarm64/arm64/cl_wrapper.bat",
 )
 
 # Linker

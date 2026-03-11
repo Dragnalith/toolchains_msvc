@@ -1,14 +1,18 @@
 import argparse
+import hashlib
+import itertools
 import json
 import platform
 import subprocess
 import sys
 import threading
 from pathlib import Path
+from typing import NoReturn
 
 DEFAULT_MSVC_VERSIONS = ["14.50", "14.44", "14.40", "14.33"]
 DEFAULT_WINSDK_VERSIONS = ["26100", "22621", "19041"]
 DEFAULT_CLANG_VERSIONS = ["22.1.0", "20.1.0"]
+ALL_COMPILERS = ["msvc", "clang", "clang-cl"]
 
 
 def get_default_hosts() -> list[str]:
@@ -21,7 +25,7 @@ def get_default_hosts() -> list[str]:
     fatal_error(f"Unsupported architecture: {machine}")
 
 
-def fatal_error(msg: str) -> None:
+def fatal_error(msg: str) -> NoReturn:
     """Print error message and exit with failure."""
     print(f"ERROR: {msg}", file=sys.stderr)
     sys.exit(1)
@@ -36,6 +40,54 @@ def check(condition: bool, msg: str) -> None:
 def parse_comma_list(value: str) -> list[str]:
     """Parse comma-separated string into list of stripped values."""
     return [v.strip() for v in value.split(",") if v.strip()]
+
+
+def compute_file_sha256(path: Path) -> str:
+    """Compute SHA256 hash of file contents. File must exist."""
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def collect_project_hashes(workspace_dir: Path, _root: Path | None = None) -> dict[str, str]:
+    """Collect relative_path -> sha256 for all files, skipping dirs whose name starts with 'bazel-'."""
+    if _root is None:
+        _root = workspace_dir
+    result: dict[str, str] = {}
+    for entry in _root.iterdir():
+        if entry.is_symlink():
+            continue
+        if entry.is_dir():
+            if entry.name.startswith("bazel-"):
+                continue
+            result.update(collect_project_hashes(workspace_dir, entry))
+        else:
+            rel = entry.relative_to(workspace_dir)
+            result[str(rel).replace("\\", "/")] = compute_file_sha256(entry)
+    return result
+
+
+def collect_build_artifact_hashes(workspace_dir: Path) -> dict[str, str]:
+    """Collect path_key -> sha256 for bazel-bin artifacts: _objs/hello_world/main.obj, hello_world.exe, hello_world.pdb (if exists)."""
+    result: dict[str, str] = {}
+    bazel_bin = workspace_dir / "bazel-bin"
+    if not bazel_bin.exists():
+        return result
+    artifacts = [
+        "hello_lib/_objs/hello_lib/current_version.obj",
+        "hello_lib/hello_lib.lib",
+        "hello_world/_objs/hello_world/main.obj",
+        "hello_world/hello_world.exe",
+        "hello_world/hello_world.pdb",
+    ]
+    for rel in artifacts:
+        p = bazel_bin / rel
+        if not p.exists():
+            fatal_error(f"Required artifact {rel} not found in {bazel_bin}")
+        result[rel.replace("\\", "/")] = compute_file_sha256(p)
+    return result
 
 
 def run(cmd: list[str], cwd: Path, *, no_stderr_flush: bool = False) -> tuple[int, str]:
@@ -163,6 +215,95 @@ def get_default_targets(host: str) -> list[str]:
     return ["arm64"]
 
 
+def get_compilers_to_test(compilers: list[str] | None) -> list[str]:
+    """Return validated compiler drivers to test."""
+    selected_compilers = compilers or ALL_COMPILERS
+    for compiler in selected_compilers:
+        check(compiler in ALL_COMPILERS, f"Invalid compiler: {compiler} (allowed: {', '.join(ALL_COMPILERS)})")
+    return selected_compilers
+
+
+def select_axis_values(values: list[str], mode: str) -> list[str]:
+    """Select either the full axis or a single representative value."""
+    if mode == "one":
+        return values[:1]
+    return values
+
+
+def iter_host_target_pairs(hosts: list[str], targets: list[str]):
+    """Yield valid host/target pairs from the requested axes."""
+    for host in hosts:
+        supported_targets = set(get_default_targets(host))
+        for target in targets:
+            if target in supported_targets:
+                yield host, target
+
+
+def iter_toolchain_cases(
+    hosts: list[str],
+    targets: list[str],
+    msvc_versions: list[str],
+    winsdk_versions: list[str],
+    clang_versions: list[str],
+    compilers: list[str] | None,
+):
+    """Yield valid toolchain combinations across the requested axes."""
+    selected_compilers = get_compilers_to_test(compilers)
+    for host, target in iter_host_target_pairs(hosts, targets):
+        for msvc_version, winsdk_version in itertools.product(msvc_versions, winsdk_versions):
+            if "msvc" in selected_compilers:
+                yield {
+                    "host": host,
+                    "target": target,
+                    "compiler": "msvc",
+                    "compiler_version": msvc_version,
+                    "msvc_version": msvc_version,
+                    "winsdk_version": winsdk_version,
+                }
+            if host != "x86" and clang_versions:
+                for clang_version in clang_versions:
+                    if "clang" in selected_compilers:
+                        yield {
+                            "host": host,
+                            "target": target,
+                            "compiler": "clang",
+                            "compiler_version": clang_version,
+                            "msvc_version": msvc_version,
+                            "winsdk_version": winsdk_version,
+                        }
+                    if "clang-cl" in selected_compilers:
+                        yield {
+                            "host": host,
+                            "target": target,
+                            "compiler": "clang-cl",
+                            "compiler_version": clang_version,
+                            "msvc_version": msvc_version,
+                            "winsdk_version": winsdk_version,
+                        }
+
+
+def get_extra_toolchain(case: dict[str, str]) -> str:
+    """Build the toolchain target name for a toolchain case."""
+    host = case["host"]
+    target = case["target"]
+    compiler = case["compiler"]
+    compiler_version = case["compiler_version"]
+    msvc_version = case["msvc_version"]
+    winsdk_version = case["winsdk_version"]
+    if compiler == "msvc":
+        return f"msvc{msvc_version}_winsdk{winsdk_version}_host{host}_target{target}"
+    return f"{compiler}{compiler_version}_msvc{msvc_version}_winsdk{winsdk_version}_host{host}_target{target}"
+
+
+def get_expected_compiler_binary(compiler: str) -> str:
+    """Map a compiler driver to the executable name reported by the test."""
+    return {
+        "msvc": "cl.exe",
+        "clang": "clang.exe",
+        "clang-cl": "clang-cl.exe",
+    }[compiler]
+
+
 def run_test(
     workspace_dir: Path,
     test_label: str,
@@ -228,13 +369,17 @@ def run_all_hosts_all_targets(
     msvc_versions: list[str],
     winsdk_versions: list[str],
     clang_versions: list[str] = [],
+    compilers: list[str] | None = None,
     show_progress: bool = False,
     no_stderr_flush: bool = False,
 ) -> None:
     """Run all_hosts_all_targets tests."""
+    compilers = get_compilers_to_test(compilers)
+
     print("DESCRIPTION: Test all toolchains in a workspace configured with every possible toolchain combination.")
     print(f"hosts: {', '.join(hosts)}")
     print(f"targets: {', '.join(targets)}")
+    print(f"compilers: {', '.join(compilers)}")
     print(f"msvc-versions: {', '.join(msvc_versions)}")
     print(f"winsdk-versions: {', '.join(winsdk_versions)}")
     print(f"clang-versions: {', '.join(clang_versions)}")
@@ -243,37 +388,123 @@ def run_all_hosts_all_targets(
     check(workspace_dir.is_dir(), f"Workspace not found: {workspace_dir}")
 
     tests = []
-    for host in hosts:
-        host_targets = [t for t in targets if t in get_default_targets(host)]
-        for target in host_targets:
-            for msvc in msvc_versions:
-                for winsdk in winsdk_versions:
-                    tests.append(dict(
-                        host=host, target=target,
-                        extra_toolchains=f"msvc{msvc}_winsdk{winsdk}_host{host}_target{target}",
-                        expected_target=target, expected_compiler="cl.exe",
-                        expected_compiler_version=msvc, expected_msvc_version=msvc,
-                        expected_winsdk_version=winsdk,
-                    ))
-                    if host != "x86":
-                        for clang_version in clang_versions:
-                            tests.append(dict(
-                                host=host, target=target,
-                                extra_toolchains=f"clang{clang_version}_msvc{msvc}_winsdk{winsdk}_host{host}_target{target}",
-                                expected_target=target, expected_compiler="clang.exe",
-                                expected_compiler_version=clang_version, expected_msvc_version=msvc,
-                                expected_winsdk_version=winsdk,
-                            ))
-                            tests.append(dict(
-                                host=host, target=target,
-                                extra_toolchains=f"clang-cl{clang_version}_msvc{msvc}_winsdk{winsdk}_host{host}_target{target}",
-                                expected_target=target, expected_compiler="clang-cl.exe",
-                                expected_compiler_version=clang_version, expected_msvc_version="",
-                                expected_winsdk_version=winsdk,
-                            ))
+    for case in iter_toolchain_cases(hosts, targets, msvc_versions, winsdk_versions, clang_versions, compilers):
+        tests.append(dict(
+            host=case["host"],
+            target=case["target"],
+            extra_toolchains=get_extra_toolchain(case),
+            expected_target=case["target"],
+            expected_compiler=get_expected_compiler_binary(case["compiler"]),
+            expected_compiler_version=case["compiler_version"],
+            expected_msvc_version=case["msvc_version"] if case["compiler"] != "clang-cl" else "",
+            expected_winsdk_version=case["winsdk_version"],
+        ))
     total = len(tests)
     for current, kwargs in enumerate(tests, 1):
         run_test(workspace_dir, "all_hosts_all_targets", current, total, show_progress=show_progress, no_stderr_flush=no_stderr_flush, **kwargs)
+
+
+def _compare_hashes(
+    first: dict[str, str],
+    second: dict[str, str],
+    label: str,
+) -> None:
+    """Compare two path->sha256 dicts; fatal_error with all differences if any."""
+    only_first = sorted(set(first) - set(second))
+    only_second = sorted(set(second) - set(first))
+    mismatches = [
+        (key, first[key], second[key])
+        for key in sorted(set(first) & set(second))
+        if first[key] != second[key]
+    ]
+    if not (only_first or only_second or mismatches):
+        return
+    lines = [f"Differences in {label}:"]
+    if only_first:
+        lines.append(f"  only in first run: {only_first}")
+    if only_second:
+        lines.append(f"  only in second run: {only_second}")
+    for key, h1, h2 in mismatches:
+        lines.append(f"  SHA256 mismatch {key}: {h1} vs {h2}")
+    fatal_error("\n".join(lines))
+
+
+def run_reproducible_test(
+    script_dir: Path,
+    hosts: list[str],
+    targets: list[str],
+    msvc_versions: list[str],
+    winsdk_versions: list[str],
+    clang_versions: list[str] = [],
+    compilers: list[str] | None = None,
+    show_progress: bool = False,
+    no_stderr_flush: bool = False,
+) -> None:
+    """Run reproducible tests: build once in reproducible_projectA, once in reproducible_projectB (copy), compare hashes."""
+    compilers = get_compilers_to_test(compilers)
+
+    print("DESCRIPTION: Reproducibility test: build //:hello_world in reproducible_projectA and in reproducible_projectB, compare SHA256.")
+    print(f"hosts: {', '.join(hosts)}")
+    print(f"targets: {', '.join(targets)}")
+    print(f"compilers: {', '.join(compilers)}")
+    print(f"msvc-versions: {', '.join(msvc_versions)}")
+    print(f"winsdk-versions: {', '.join(winsdk_versions)}")
+    print(f"clang-versions: {', '.join(clang_versions)}")
+
+    workspace_A = script_dir / "reproducible_projectA"
+    workspace_B = script_dir / "reproducible_projectB"
+    check(workspace_A.is_dir(), f"Workspace not found: {workspace_A}")
+    check(workspace_B.is_dir(), f"Workspace not found: {workspace_B}")
+
+    tests = []
+    for case in iter_toolchain_cases(hosts, targets, msvc_versions, winsdk_versions, clang_versions, compilers):
+        tests.append(dict(
+            host=case["host"],
+            target=case["target"],
+            extra_toolchains=get_extra_toolchain(case),
+        ))
+    total = len(tests)
+    bazel_args_base = [] if show_progress else ["--noshow_progress"]
+
+    for current, kwargs in enumerate(tests, 1):
+        host = kwargs["host"]
+        target = kwargs["target"]
+        extra_toolchains = kwargs["extra_toolchains"]
+        bazel_args = bazel_args_base + [
+            f"--host_platform=//:windows_{host}",
+            f"--platforms=//:windows_{target}",
+            f"--extra_toolchains=@msvc_toolchains//:{extra_toolchains}",
+            "--features=generate_debug_symbols",
+        ]
+        cmd_line = " ".join(["bazel", "build", "//hello_world"] + bazel_args)
+        print(f"[{current}/{total}] REPRODUCIBLE_TEST: {cmd_line}")
+        sys.stdout.flush()
+
+        def build(workspace: Path) -> None:
+            run(["bazel", "clean"], workspace, no_stderr_flush=no_stderr_flush)
+            cmd = ["bazel", "build", "//hello_world"] + bazel_args
+            returncode, _ = run(cmd, workspace, no_stderr_flush=no_stderr_flush)
+            if returncode != 0:
+                fatal_error(f"reproducible_test: bazel build failed in {workspace.name} (exit code {returncode})")
+
+        project_hashes_1 = collect_project_hashes(workspace_A)
+        
+        build(workspace_A)
+        artifact_hashes_1 = collect_build_artifact_hashes(workspace_A)
+        
+        build(workspace_A)
+        artifact_hashes_2 = collect_build_artifact_hashes(workspace_A)
+        _compare_hashes(artifact_hashes_1, artifact_hashes_2, "build artifacts (rebuild two times reproducible_projectA)")
+
+        project_hashes_2 = collect_project_hashes(workspace_B)
+        _compare_hashes(project_hashes_1, project_hashes_2, "project source files (reproducible_projectA vs reproducible_projectB)")
+        build(workspace_B)
+        artifact_hashes_3 = collect_build_artifact_hashes(workspace_B)
+
+        _compare_hashes(artifact_hashes_1, artifact_hashes_3, "build artifacts (reproducible_projectA vs reproducible_projectB)")
+
+        print("PASSED")
+        sys.stdout.flush()
 
 
 def run_one_host_one_target(
@@ -497,16 +728,24 @@ def main() -> None:
 
     show_progress_help = "Show Bazel progress (do not pass --noshow_progress to bazel)"
 
+    matrix_parent = argparse.ArgumentParser(add_help=False)
+    matrix_parent.add_argument("--hosts", type=parse_comma_list, default=None, help="Comma-separated host architectures (default: x86, x64 on AMD64, arm64 on ARM64)")
+    matrix_parent.add_argument("--targets", type=parse_comma_list, default=None, help="Comma-separated target architectures (default: x86, x64 for x64/x86 host, arm64 for arm64 host)")
+    matrix_parent.add_argument("--compilers", type=parse_comma_list, default=None, help="Comma-separated compiler drivers to test: msvc, clang, clang-cl (default: all). Clang/clang-cl only run when --clang_versions is non-empty.")
+    matrix_parent.add_argument("--msvc_versions", type=parse_comma_list, default=DEFAULT_MSVC_VERSIONS, help="Comma-separated MSVC versions (default: 14.33, 14.40, 14.44, 14.50)")
+    matrix_parent.add_argument("--winsdk_versions", type=parse_comma_list, default=DEFAULT_WINSDK_VERSIONS, help="Comma-separated Windows SDK versions (default: 19041, 22621, 26100)")
+    matrix_parent.add_argument("--clang_versions", type=parse_comma_list, default=DEFAULT_CLANG_VERSIONS, help="Comma-separated Clang/LLVM versions to also test; if empty only msvc is tested (default: 20.1.0, 22.1.0)")
+    matrix_mode_group = matrix_parent.add_mutually_exclusive_group()
+    matrix_mode_group.add_argument("--all", dest="axis_mode", action="store_const", const="all", default="all", help="Run the full valid cross-product across the requested axes")
+    matrix_mode_group.add_argument("--one", dest="axis_mode", action="store_const", const="one", help="Run one value per version/architecture axis")
+    matrix_parent.add_argument("--show-progress", action="store_true", dest="show_progress", help=show_progress_help)
+    matrix_parent.add_argument("--no-stderr-flush", action="store_true", dest="no_stderr_flush", help="Do not capture or flush stderr; let it go to the terminal")
+
     # all_hosts_all_targets command
-    all_hosts_all_targets_parser = subparsers.add_parser("all_hosts_all_targets", help="Test all toolchain combinations")
-    all_hosts_all_targets_parser.add_argument("--hosts", type=parse_comma_list, default=None, help="Comma-separated host architectures (default: x86, x64 on AMD64, arm64 on ARM64)")
-    all_hosts_all_targets_parser.add_argument("--targets", type=parse_comma_list, default=None, help="Comma-separated target architectures (default: x86, x64 for x64/x86 host, arm64 for arm64 host)")
-    all_hosts_all_targets_parser.add_argument("--msvc_versions", type=parse_comma_list, default=DEFAULT_MSVC_VERSIONS, help="Comma-separated MSVC versions (default: 14.33, 14.40, 14.44, 14.50)")
-    all_hosts_all_targets_parser.add_argument("--winsdk_versions", type=parse_comma_list, default=DEFAULT_WINSDK_VERSIONS, help="Comma-separated Windows SDK versions (default: 19041, 22621, 26100)")
-    all_hosts_all_targets_parser.add_argument("--clang_versions", type=parse_comma_list, default=DEFAULT_CLANG_VERSIONS, help="Comma-separated Clang/LLVM versions to also test; if empty only msvc is tested (default: 20.1.0, 22.1.0)")
-    all_hosts_all_targets_parser.add_argument("--one-default", action="store_true", help="Run only one value for each axis (overrides other lists)")
-    all_hosts_all_targets_parser.add_argument("--show-progress", action="store_true", dest="show_progress", help=show_progress_help)
-    all_hosts_all_targets_parser.add_argument("--no-stderr-flush", action="store_true", dest="no_stderr_flush", help="Do not capture or flush stderr; let it go to the terminal")
+    all_hosts_all_targets_parser = subparsers.add_parser("all_hosts_all_targets", parents=[matrix_parent], help="Test all toolchain combinations")
+
+    # reproducible_test command (same args as all_hosts_all_targets)
+    reproducible_parser = subparsers.add_parser("reproducible_test", parents=[matrix_parent], help="Two clean builds of //:hello_world, compare SHA256 of project and artifacts")
 
     # one_host_one_target command
     one_host_parser = subparsers.add_parser("one_host_one_target", help="Test workspace with single host and target (fixed 14.44/26100)")
@@ -538,13 +777,19 @@ def main() -> None:
         check(t in ("x64", "x86", "arm64"), f"Invalid target: {t}")
 
     if args.command == "all_hosts_all_targets":
-        if args.one_default:
-            hosts = hosts[:1]
-            targets = targets[:1]
-            args.msvc_versions = args.msvc_versions[:1]
-            args.winsdk_versions = args.winsdk_versions[:1]
-            args.clang_versions = args.clang_versions[:1]
-        run_all_hosts_all_targets(script_dir, hosts, targets, args.msvc_versions, args.winsdk_versions, args.clang_versions, show_progress=args.show_progress, no_stderr_flush=args.no_stderr_flush)
+        hosts = select_axis_values(hosts, args.axis_mode)
+        targets = select_axis_values(targets, args.axis_mode)
+        args.msvc_versions = select_axis_values(args.msvc_versions, args.axis_mode)
+        args.winsdk_versions = select_axis_values(args.winsdk_versions, args.axis_mode)
+        args.clang_versions = select_axis_values(args.clang_versions, args.axis_mode)
+        run_all_hosts_all_targets(script_dir, hosts, targets, args.msvc_versions, args.winsdk_versions, args.clang_versions, compilers=getattr(args, "compilers", None), show_progress=args.show_progress, no_stderr_flush=args.no_stderr_flush)
+    elif args.command == "reproducible_test":
+        hosts = select_axis_values(hosts, args.axis_mode)
+        targets = select_axis_values(targets, args.axis_mode)
+        args.msvc_versions = select_axis_values(args.msvc_versions, args.axis_mode)
+        args.winsdk_versions = select_axis_values(args.winsdk_versions, args.axis_mode)
+        args.clang_versions = select_axis_values(args.clang_versions, args.axis_mode)
+        run_reproducible_test(script_dir, hosts, targets, args.msvc_versions, args.winsdk_versions, args.clang_versions, compilers=getattr(args, "compilers", None), show_progress=args.show_progress, no_stderr_flush=args.no_stderr_flush)
     elif args.command == "one_host_one_target":
         run_one_host_one_target(script_dir, hosts, targets, show_progress=args.show_progress, no_stderr_flush=args.no_stderr_flush)
     elif args.command == "test_default":

@@ -28,6 +28,13 @@ def _llvm_repo_impl(ctx):
         sha256 = digest,
     )
 
+    # Wrapper so lld-link is always invoked from the command line (via cmd when Bazel runs the .bat).
+    lld_link_wrapper_content = """@echo off
+set PATH=%PATH%;%~dp0
+lld-link.exe %*
+"""
+    ctx.file("bin/lld-link_wrapper.bat", lld_link_wrapper_content)
+
     ctx.template(
         "BUILD.bazel",
         ctx.attr.src_build,

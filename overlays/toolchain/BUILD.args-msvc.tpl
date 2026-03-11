@@ -255,7 +255,41 @@ cc_args(
 cc_args(
     name = "includes",
     actions = ["@rules_cc//cc/toolchains/actions:compile_actions"],
-    args = [],
+    nested = [
+        ":quote_include_paths",
+        ":include_paths",
+        ":system_include_paths",
+        ":external_include_paths",
+    ],
+)
+
+cc_nested_args(
+    name = "quote_include_paths",
+    args = ["/I{include_path}"],
+    format = {"include_path": "@rules_cc//cc/toolchains/variables:quote_include_paths"},
+    iterate_over = "@rules_cc//cc/toolchains/variables:quote_include_paths",
+)
+
+cc_nested_args(
+    name = "include_paths",
+    args = ["/I{include_path}"],
+    format = {"include_path": "@rules_cc//cc/toolchains/variables:include_paths"},
+    iterate_over = "@rules_cc//cc/toolchains/variables:include_paths",
+)
+
+cc_nested_args(
+    name = "system_include_paths",
+    args = ["/I{include_path}"],
+    format = {"include_path": "@rules_cc//cc/toolchains/variables:system_include_paths"},
+    iterate_over = "@rules_cc//cc/toolchains/variables:system_include_paths",
+)
+
+cc_nested_args(
+    name = "external_include_paths",
+    args = ["/external:I{include_path}"],
+    format = {"include_path": "@rules_cc//cc/toolchains/variables:external_include_paths"},
+    iterate_over = "@rules_cc//cc/toolchains/variables:external_include_paths",
+    requires_not_none = "@rules_cc//cc/toolchains/variables:external_include_paths",
 )
 
 cc_args(

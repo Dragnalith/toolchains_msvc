@@ -65,6 +65,14 @@ cc_args(
         "-fms-compatibility",
         "-fms-extensions",
         "-fms-compatibility-version={cl_internal_version}",
+        "-nostdinc",
+        "-mno-incremental-linker-compatible",
+        "-fdebug-compilation-dir=.",
+        "-fcoverage-compilation-dir=.",
+        "-resource-dir=.",
+        "-no-canonical-prefixes",
+        "-gno-codeview-command-line",
+        "-fno-ident",
     ],
 )
 
@@ -76,7 +84,10 @@ cc_args(
     args = [
         "/lldignoreenv",
         "/NODEFAULTLIB",
-        "/INCREMENTAL:NO"
+        "/INCREMENTAL:NO",
+        "/PDBALTPATH:%_PDB%",
+        "/Brepro",
+        "/pdbsourcepath:.",
     ],
 )
 
