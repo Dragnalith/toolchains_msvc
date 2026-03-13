@@ -1,0 +1,7 @@
+load("@rules_cc//cc:defs.bzl", "cc_shared_library")
+
+cc_shared_library(
+    name = "hello_dll",
+    visibility = ["//visibility:public"],
+    deps = ["//dyn_hello"],
+)

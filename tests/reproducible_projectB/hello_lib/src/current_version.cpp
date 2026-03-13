@@ -1,5 +1,6 @@
 #include <hello_lib/current_version.h>
 
+#include <dyn_hello/get_winsdk.h>
 #include <sdkddkver.h>
 
 namespace {
@@ -51,22 +52,7 @@ const bool is_arm64 = true;
 #error "Unknown target architecture"
 #endif
 
-const char* get_winsdk_build_string() {
-    unsigned int version_index = NTDDI_VERSION & 0xFF;
 
-    switch (version_index) {
-        case 0x08: return "19041"; // VB
-        case 0x09: return "19645"; // MN
-        case 0x0A: return "20348"; // FE
-        case 0x0B: return "22000"; // CO
-        case 0x0C: return "22621"; // NI
-        case 0x0D: return "25236"; // CU
-        case 0x0E: return "25398"; // ZN
-        case 0x0F: return "25941"; // GA
-        case 0x10: return "26100"; // GE
-        default:   return "unknown";
-    }
-}
 
 } // namespace
 
@@ -86,7 +72,7 @@ VersionInfo get_current_version() {
         info.compiler_version = std::to_string(version_major) + "." + std::to_string(version_minor) + "." + std::to_string(version_patch);
     }
     
-    info.winsdk_version = get_winsdk_build_string();
+    info.winsdk_version = get_winsdk_build_string(NTDDI_VERSION & 0xFF);
 
     (void)(is_clang_cl);
     (void)(is_clang);

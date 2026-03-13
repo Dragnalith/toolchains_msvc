@@ -18,11 +18,12 @@
 - [X] Configuration: Missing _DEBUG with /MTd and /MDd
 - [X] Configuration: Test features
 - [X] Configuration: Build is reproducible
-- [ ] Test: --all test all cross-product, --one test one per axis, except for hosts and targets which use their own default system
-- [ ] Configuration: dependent DLL are copied next to the executable
+- [X] Test: --all test all cross-product, --one test one per axis, except for hosts and targets which use their own default system
+- [X] Configuration: DLL can be compiled
+- [X] Configuration: dependent DLL are copied next to the executable
+- [ ] Configuration: feature to add system libraries
 - [ ] Configuration: module extension API allows overriding default, dbg, fastbuild, and opt flags for compile and link actions
 - [ ] Configuration: module extension API allows specifying features to be enabled by dbg, fastbuild, and opt
-- [ ] Configuration: feature to add system libraries
 - [ ] Multiple toolchain repo
 - [ ] Lock File: Separate toolchains installation into two phase: preparation of a "lock" file, then consuming the lock file for installation.
 - [ ] Lock File: Support lock file using the 'Update pattern'

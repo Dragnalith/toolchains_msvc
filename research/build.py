@@ -6,6 +6,7 @@ import argparse
 import os
 import pathlib
 import subprocess
+from typing import Sequence
 
 # Minimal env for subprocesses: only TMP, TEMP and SYSTEMROOT from current environment
 def _subprocess_env():
@@ -86,8 +87,7 @@ class Environment:
         self.llvm_root = llvm_root
         self.clang_exe = llvm_root / "bin/clang.exe"
         self.clang_cl_exe = llvm_root / "bin/clang-cl.exe"
-        #self.lld_link_exe = llvm_root / "bin/lld-link.exe"
-        self.lld_link_exe = pathlib.Path("lld-link.exe")
+        self.lld_link_exe = llvm_root / "bin/lld-link.exe"
         self.llvm_lib_exe = llvm_root / "bin/llvm-lib.exe"
         self.winsdk_root = winsdk_root
         self.winsdk_ucrt = winsdk_root / f"include/10.0.{winsdk_version}.0/ucrt"
@@ -96,10 +96,11 @@ class Environment:
         self.winsdk_um_lib = winsdk_root / f"lib/10.0.{winsdk_version}.0/um/x64"
         self.winsdk_ucrt_lib = winsdk_root / f"lib/10.0.{winsdk_version}.0/ucrt/x64"
         self.verbose = verbose
-    def _run(self, exe: pathlib.Path, args: list[str|pathlib.Path]):
-        #check(exe.is_file(), f"{exe} is not a file")
+    def _run(self, exe: pathlib.Path, args: Sequence[str | pathlib.Path]):
+        check(exe.is_file(), f"{exe} is not a file")
         run_args = [str(a) for a in [exe, *args]]
-        print(' '.join(run_args))
+        if self.verbose:
+            print(' '.join(run_args))
         env = os.environ.copy()
         llvm_bin = str(self.llvm_root / "bin")
         existing = env.get("PATH", "")
@@ -107,25 +108,25 @@ class Environment:
         result = subprocess.run(run_args, env=env)
         check(result.returncode == 0, f"{exe.name} failed with return code {result.returncode}")
         
-    def cl(self, args: list[str|pathlib.Path]):
+    def cl(self, args: Sequence[str | pathlib.Path]):
         self._run(self.cl_exe, args)
         
-    def lib(self, args: list[str|pathlib.Path]):
+    def lib(self, args: Sequence[str | pathlib.Path]):
         self._run(self.lib_exe, args)
         
-    def link(self, args: list[str|pathlib.Path]):
+    def link(self, args: Sequence[str | pathlib.Path]):
         self._run(self.link_exe, args)
 
-    def clang(self, args: list[str|pathlib.Path]):
+    def clang(self, args: Sequence[str | pathlib.Path]):
         self._run(self.clang_exe, args)
 
-    def clang_cl(self, args: list[str|pathlib.Path]):
+    def clang_cl(self, args: Sequence[str | pathlib.Path]):
         self._run(self.clang_cl_exe, args)
 
-    def lld_link(self, args: list[str|pathlib.Path]):
+    def lld_link(self, args: Sequence[str | pathlib.Path]):
         self._run(self.lld_link_exe, args)
 
-    def llvm_lib(self, args: list[str|pathlib.Path]):
+    def llvm_lib(self, args: Sequence[str | pathlib.Path]):
         self._run(self.llvm_lib_exe, args)
 
 class Project:
@@ -149,30 +150,38 @@ def build_clang(env: Environment, project: Project) -> pathlib.Path | None:
     imd_dir.mkdir(parents=True, exist_ok=True)
 
     private_lib_include = project.root / "my_lib/src"
+    private_dyn_lib_include = project.root / "my_dyn_lib/src"
     lib_include = project.root / "my_lib/include"
+    dyn_lib_include = project.root / "my_dyn_lib/include"
     app_include = project.root / "my_app"
 
-    # COMPILE (clang)
-    print('[1/8] CLANG App.obj')
-    env.clang(compile_flags + system_includes + ['-I', private_lib_include, '-I', lib_include, '-o', imd_dir / 'App.obj', project.root / 'my_lib/src/private/App.cpp'])
-    print('[2/8] CLANG Log.obj')
-    env.clang(compile_flags + system_includes + ['-I', private_lib_include, '-I', lib_include, '-o', imd_dir / 'Log.obj', project.root / 'my_lib/src/private/Log.cpp'])
-    print('[3/8] CLANG InternalStuff.obj')
-    env.clang(compile_flags + system_includes + ['-I', private_lib_include, '-I', lib_include, '-o', imd_dir / 'InternalStuff.obj', project.root / 'my_lib/src/private/InternalStuff.cpp'])
-    print('[4/8] CLANG EventLoop.obj')
-    env.clang(compile_flags + system_includes + ['-I', private_lib_include, '-I', lib_include, '-o', imd_dir / 'EventLoop.obj', project.root / 'my_lib/src/private/EventLoop.cpp'])
-    print('[5/8] CLANG MyApp.obj')
-    env.clang(compile_flags + system_includes + ['-I', app_include, '-I', lib_include, '-o', imd_dir / 'MyApp.obj', project.root / 'my_app/MyApp.cpp'])
-    print('[6/8] CLANG main.obj')
-    env.clang(compile_flags + system_includes + ['-I', app_include, '-I', lib_include, '-o', imd_dir / 'main.obj', project.root / 'my_app/main.cpp'])
+    # COMPILE — dynamic lib (MY_EXPORT for dllexport in header)
+    print('[1/10] CLANG Helpers.obj')
+    env.clang(compile_flags + system_includes + ['-I', private_dyn_lib_include, '-I', dyn_lib_include, '-DMY_EXPORT', '-o', imd_dir / 'Helpers.obj', project.root / 'my_dyn_lib/src/private/Helpers.cpp'])
+    # COMPILE — static lib
+    print('[2/10] CLANG App.obj')
+    env.clang(compile_flags + system_includes + ['-I', private_lib_include, '-I', lib_include, '-I', dyn_lib_include, '-o', imd_dir / 'App.obj', project.root / 'my_lib/src/private/App.cpp'])
+    print('[3/10] CLANG Log.obj')
+    env.clang(compile_flags + system_includes + ['-I', private_lib_include, '-I', lib_include, '-I', dyn_lib_include, '-o', imd_dir / 'Log.obj', project.root / 'my_lib/src/private/Log.cpp'])
+    print('[4/10] CLANG InternalStuff.obj')
+    env.clang(compile_flags + system_includes + ['-I', private_lib_include, '-I', lib_include, '-I', dyn_lib_include, '-o', imd_dir / 'InternalStuff.obj', project.root / 'my_lib/src/private/InternalStuff.cpp'])
+    print('[5/10] CLANG EventLoop.obj')
+    env.clang(compile_flags + system_includes + ['-I', private_lib_include, '-I', lib_include, '-I', dyn_lib_include, '-o', imd_dir / 'EventLoop.obj', project.root / 'my_lib/src/private/EventLoop.cpp'])
+    # COMPILE — app
+    print('[6/10] CLANG MyApp.obj')
+    env.clang(compile_flags + system_includes + ['-I', app_include, '-I', lib_include, '-I', dyn_lib_include, '-o', imd_dir / 'MyApp.obj', project.root / 'my_app/MyApp.cpp'])
+    print('[7/10] CLANG main.obj')
+    env.clang(compile_flags + system_includes + ['-I', app_include, '-I', lib_include, '-I', dyn_lib_include, '-o', imd_dir / 'main.obj', project.root / 'my_app/main.cpp'])
 
-    # ARCHIVE (llvm-lib.exe)
-    print('[7/8] llvm-lib my_lib.lib')
+    # ARCHIVE — static lib
+    print('[8/10] llvm-lib my_lib.lib')
     env.llvm_lib(archive_flags + ['/OUT:{}'.format(imd_dir / 'my_lib.lib'), imd_dir / 'App.obj', imd_dir / 'Log.obj', imd_dir / 'InternalStuff.obj', imd_dir / 'EventLoop.obj'])
 
-    # LINK (lld-link)
-    print('[8/8] lld-link my_app.exe')
-    env.lld_link(link_flags + system_lib_paths + ['/OUT:{}'.format(bin_dir / 'my_app.exe'), '/PDB:{}'.format(bin_dir / 'my_app.pdb'), '/INCREMENTAL', '/ILK:{}'.format(bin_dir / 'my_app.ilk'), imd_dir / 'main.obj', imd_dir / 'MyApp.obj', imd_dir / 'my_lib.lib'])
+    # LINK — dynamic lib, then exe
+    print('[9/10] lld-link my_dyn_lib.dll')
+    env.lld_link(link_flags + system_lib_paths + ['/DLL', '/IMPLIB:{}'.format(imd_dir / 'my_dyn_lib.lib'), '/OUT:{}'.format(bin_dir / 'my_dyn_lib.dll'), '/PDB:{}'.format(bin_dir / 'my_dyn_lib.pdb'), '/INCREMENTAL:NO', imd_dir / 'Helpers.obj'])
+    print('[10/10] lld-link my_app.exe')
+    env.lld_link(link_flags + system_lib_paths + ['/OUT:{}'.format(bin_dir / 'my_app.exe'), '/PDB:{}'.format(bin_dir / 'my_app.pdb'), '/INCREMENTAL', '/ILK:{}'.format(bin_dir / 'my_app.ilk'), imd_dir / 'main.obj', imd_dir / 'MyApp.obj', imd_dir / 'my_lib.lib', imd_dir / 'my_dyn_lib.lib'])
 
     exe = bin_dir / 'my_app.exe'
     print('Build successful: {}'.format(exe))
@@ -183,53 +192,63 @@ def build_msvc(env: Environment, project: Project) -> pathlib.Path:
     archive_flags = ['/nologo']
     link_flags = ['/nologo', '/DEBUG', '/SUBSYSTEM:CONSOLE']
     link_flags += [
-        '/nodefaultlib', 
-        'ucrt.lib', 
-        'msvcrt.lib', 
-        'msvcprt.lib', 
-        'vcruntime.lib', 
-        'kernel32.lib'
+        '/nodefaultlib',
+        'ucrt.lib',
+        'msvcrt.lib',
+        'msvcprt.lib',
+        'vcruntime.lib',
+        'kernel32.lib',
     ]
     bin_dir = project.output / 'msvc/bin'
     imd_dir = project.output / 'msvc/imd'
     system_includes = ['/I', env.msvc_include, '/I', env.winsdk_ucrt, '/I', env.winsdk_um, '/I', env.winsdk_shared]
     system_lib_paths = [f'/LIBPATH:{env.msvc_lib}', f'/LIBPATH:{env.winsdk_ucrt_lib}', f'/LIBPATH:{env.winsdk_um_lib}']
-    
+
     bin_dir.mkdir(parents=True, exist_ok=True)
     imd_dir.mkdir(parents=True, exist_ok=True)
-    
-    private_lib_include = project.root / "my_lib/src"
-    lib_include = project.root / "my_lib/include"
-    app_include = project.root / "my_app"
-    
-    # COMPILE
-    print('[1/8] CL App.obj')
-    env.cl(compile_flags +  system_includes + ['/I', private_lib_include, '/I', lib_include, '/c', project.root / 'my_lib/src/private/App.cpp', f"/Fo:{imd_dir / 'App.obj'}", f'/Fd:{imd_dir / 'App.pdb'}'])
-    print('[2/8] CL Log.obj')
-    env.cl(compile_flags +  system_includes + ['/I', private_lib_include, '/I', lib_include, '/c', project.root / 'my_lib/src/private/Log.cpp', f"/Fo:{imd_dir / 'Log.obj'}", f'/Fd:{imd_dir / 'Log.pdb'}'])
-    print('[3/8] CL InternalStuff.obj')
-    env.cl(compile_flags +  system_includes + ['/I', private_lib_include, '/I', lib_include, '/c', project.root / 'my_lib/src/private/InternalStuff.cpp', f"/Fo:{imd_dir / 'InternalStuff.obj'}", f'/Fd:{imd_dir / 'InternalStuff.pdb'}'])
-    print('[4/8] CL EventLoop.obj')
-    env.cl(compile_flags +  system_includes + ['/I', private_lib_include, '/I', lib_include, '/c', project.root / 'my_lib/src/private/EventLoop.cpp', f"/Fo:{imd_dir / 'EventLoop.obj'}", f'/Fd:{imd_dir / 'EventLoop.pdb'}'])
-    print('[5/8] CL MyApp.obj')
-    env.cl(compile_flags +  system_includes + ['/I', f'"{app_include}"', '/I', lib_include, '/c', project.root / 'my_app/MyApp.cpp', f"/Fo:{imd_dir / 'MyApp.obj'}", f'/Fd:{imd_dir / 'MyApp.pdb'}'])
-    print('[6/8] CL main.obj')
-    env.cl(compile_flags +  system_includes + ['/I', f'"{app_include}"', '/I', lib_include, '/c', project.root / 'my_app/main.cpp', f"/Fo:{imd_dir / 'main.obj'}", f'/Fd:{imd_dir / 'main.pdb'}'])
 
-    # ARCHIVE
-    print('[7/8] LIB my_lib.lib')
-    env.lib(archive_flags + ['/nologo', '/OUT:{}'.format(imd_dir / 'my_lib.lib'), imd_dir / 'App.obj', imd_dir / 'Log.obj', imd_dir / 'InternalStuff.obj', imd_dir / 'EventLoop.obj'] )
-    
-    # LINK
-    print('[8/8] LINK my_app.exe')
-    env.link(link_flags + system_lib_paths +['/nologo', '/OUT:{}'.format(bin_dir / 'my_app.exe'), '/PDB:{}'.format(bin_dir / 'my_app.pdb'), '/INCREMENTAL', '/ILK:{}'.format(bin_dir / 'my_app.ilk'), imd_dir / 'main.obj', imd_dir / 'MyApp.obj', imd_dir / 'my_lib.lib'] )
-    
+    private_lib_include = project.root / "my_lib/src"
+    private_dyn_lib_include = project.root / "my_dyn_lib/src"
+    lib_include = project.root / "my_lib/include"
+    dyn_lib_include = project.root / "my_dyn_lib/include"
+    app_include = project.root / "my_app"
+
+    # COMPILE — dynamic lib
+    print('[1/11] CL Helpers.obj')
+    env.cl(compile_flags + system_includes + ['/D', 'MY_EXPORT', '/I', private_dyn_lib_include, '/I', dyn_lib_include, '/c', project.root / 'my_dyn_lib/src/private/Helpers.cpp', f'/Fo:{imd_dir / "Helpers.obj"}', f'/Fd:{imd_dir / "Helpers.pdb"}'])
+    # COMPILE — static lib
+    print('[2/11] CL App.obj')
+    env.cl(compile_flags + system_includes + ['/I', private_lib_include, '/I', lib_include, '/I', dyn_lib_include, '/c', project.root / 'my_lib/src/private/App.cpp', f'/Fo:{imd_dir / "App.obj"}', f'/Fd:{imd_dir / "App.pdb"}'])
+    print('[3/11] CL Log.obj')
+    env.cl(compile_flags + system_includes + ['/I', private_lib_include, '/I', lib_include, '/I', dyn_lib_include, '/c', project.root / 'my_lib/src/private/Log.cpp', f'/Fo:{imd_dir / "Log.obj"}', f'/Fd:{imd_dir / "Log.pdb"}'])
+    print('[4/11] CL InternalStuff.obj')
+    env.cl(compile_flags + system_includes + ['/I', private_lib_include, '/I', lib_include, '/I', dyn_lib_include, '/c', project.root / 'my_lib/src/private/InternalStuff.cpp', f'/Fo:{imd_dir / "InternalStuff.obj"}', f'/Fd:{imd_dir / "InternalStuff.pdb"}'])
+    print('[5/11] CL EventLoop.obj')
+    env.cl(compile_flags + system_includes + ['/I', private_lib_include, '/I', lib_include, '/I', dyn_lib_include, '/c', project.root / 'my_lib/src/private/EventLoop.cpp', f'/Fo:{imd_dir / "EventLoop.obj"}', f'/Fd:{imd_dir / "EventLoop.pdb"}'])
+    # COMPILE — app
+    print('[6/11] CL MyApp.obj')
+    env.cl(compile_flags + system_includes + ['/I', app_include, '/I', lib_include, '/I', dyn_lib_include, '/c', project.root / 'my_app/MyApp.cpp', f'/Fo:{imd_dir / "MyApp.obj"}', f'/Fd:{imd_dir / "MyApp.pdb"}'])
+    print('[7/11] CL main.obj')
+    env.cl(compile_flags + system_includes + ['/I', app_include, '/I', lib_include, '/I', dyn_lib_include, '/c', project.root / 'my_app/main.cpp', f'/Fo:{imd_dir / "main.obj"}', f'/Fd:{imd_dir / "main.pdb"}'])
+
+    # ARCHIVE — dynamic lib impl, then static lib
+    print('[8/11] LIB my_dyn_lib_impl.lib')
+    env.lib(archive_flags + ['/OUT:{}'.format(imd_dir / 'my_dyn_lib_impl.lib'), imd_dir / 'Helpers.obj'])
+    print('[9/11] LIB my_lib.lib')
+    env.lib(archive_flags + ['/OUT:{}'.format(imd_dir / 'my_lib.lib'), imd_dir / 'App.obj', imd_dir / 'Log.obj', imd_dir / 'InternalStuff.obj', imd_dir / 'EventLoop.obj'])
+
+    # LINK — dynamic lib, then exe
+    print('[10/11] LINK my_dyn_lib.dll')
+    env.link(link_flags + system_lib_paths + ['/DLL', '/IMPLIB:{}'.format(imd_dir / 'my_dyn_lib.lib'), '/OUT:{}'.format(bin_dir / 'my_dyn_lib.dll'), '/PDB:{}'.format(bin_dir / 'my_dyn_lib.pdb'), '/INCREMENTAL:NO', '/WHOLEARCHIVE:{}'.format(imd_dir / 'my_dyn_lib_impl.lib')])
+    print('[11/11] LINK my_app.exe')
+    env.link(link_flags + system_lib_paths + ['/OUT:{}'.format(bin_dir / 'my_app.exe'), '/PDB:{}'.format(bin_dir / 'my_app.pdb'), '/INCREMENTAL:NO', imd_dir / 'main.obj', imd_dir / 'MyApp.obj', imd_dir / 'my_lib.lib', imd_dir / 'my_dyn_lib.lib'])
+
     exe = bin_dir / 'my_app.exe'
     print('Build successful: {}'.format(exe))
     return exe
 
 def build_clang_cl(env: Environment, project: Project) -> pathlib.Path | None:
-    # Same args as build_msvc; use clang-cl.exe and link.exe
+    # MSVC-style flags; clang-cl.exe + link.exe (and lib.exe for archive)
     compile_flags = ['/nologo', '/std:c++20', '/Zi', '/EHsc', '/MD', '-nostdinc']
     archive_flags = ['/nologo']
     link_flags = ['/nologo', '/DEBUG', '/SUBSYSTEM:CONSOLE', '/nodefaultlib',
@@ -243,30 +262,38 @@ def build_clang_cl(env: Environment, project: Project) -> pathlib.Path | None:
     imd_dir.mkdir(parents=True, exist_ok=True)
 
     private_lib_include = project.root / "my_lib/src"
+    private_dyn_lib_include = project.root / "my_dyn_lib/src"
     lib_include = project.root / "my_lib/include"
+    dyn_lib_include = project.root / "my_dyn_lib/include"
     app_include = project.root / "my_app"
 
-    # COMPILE (clang-cl)
-    print('[1/8] CLANG-CL App.obj')
-    env.clang_cl(compile_flags + system_includes + ['/I', private_lib_include, '/I', lib_include, '/c', project.root / 'my_lib/src/private/App.cpp', f"/Fo:{imd_dir / 'App.obj'}", f'/Fd:{imd_dir / 'App.pdb'}'])
-    print('[2/8] CLANG-CL Log.obj')
-    env.clang_cl(compile_flags + system_includes + ['/I', private_lib_include, '/I', lib_include, '/c', project.root / 'my_lib/src/private/Log.cpp', f"/Fo:{imd_dir / 'Log.obj'}", f'/Fd:{imd_dir / 'Log.pdb'}'])
-    print('[3/8] CLANG-CL InternalStuff.obj')
-    env.clang_cl(compile_flags + system_includes + ['/I', private_lib_include, '/I', lib_include, '/c', project.root / 'my_lib/src/private/InternalStuff.cpp', f"/Fo:{imd_dir / 'InternalStuff.obj'}", f'/Fd:{imd_dir / 'InternalStuff.pdb'}'])
-    print('[4/8] CLANG-CL EventLoop.obj')
-    env.clang_cl(compile_flags + system_includes + ['/I', private_lib_include, '/I', lib_include, '/c', project.root / 'my_lib/src/private/EventLoop.cpp', f"/Fo:{imd_dir / 'EventLoop.obj'}", f'/Fd:{imd_dir / 'EventLoop.pdb'}'])
-    print('[5/8] CLANG-CL MyApp.obj')
-    env.clang_cl(compile_flags + system_includes + ['/I', f'"{app_include}"', '/I', lib_include, '/c', project.root / 'my_app/MyApp.cpp', f"/Fo:{imd_dir / 'MyApp.obj'}", f'/Fd:{imd_dir / 'MyApp.pdb'}'])
-    print('[6/8] CLANG-CL main.obj')
-    env.clang_cl(compile_flags + system_includes + ['/I', f'"{app_include}"', '/I', lib_include, '/c', project.root / 'my_app/main.cpp', f"/Fo:{imd_dir / 'main.obj'}", f'/Fd:{imd_dir / 'main.pdb'}'])
+    # COMPILE — dynamic lib
+    print('[1/10] CLANG-CL Helpers.obj')
+    env.clang_cl(compile_flags + system_includes + ['/D', 'MY_EXPORT', '/I', private_dyn_lib_include, '/I', dyn_lib_include, '/c', project.root / 'my_dyn_lib/src/private/Helpers.cpp', f'/Fo:{imd_dir / "Helpers.obj"}', f'/Fd:{imd_dir / "Helpers.pdb"}'])
+    # COMPILE — static lib
+    print('[2/10] CLANG-CL App.obj')
+    env.clang_cl(compile_flags + system_includes + ['/I', private_lib_include, '/I', lib_include, '/I', dyn_lib_include, '/c', project.root / 'my_lib/src/private/App.cpp', f'/Fo:{imd_dir / "App.obj"}', f'/Fd:{imd_dir / "App.pdb"}'])
+    print('[3/10] CLANG-CL Log.obj')
+    env.clang_cl(compile_flags + system_includes + ['/I', private_lib_include, '/I', lib_include, '/I', dyn_lib_include, '/c', project.root / 'my_lib/src/private/Log.cpp', f'/Fo:{imd_dir / "Log.obj"}', f'/Fd:{imd_dir / "Log.pdb"}'])
+    print('[4/10] CLANG-CL InternalStuff.obj')
+    env.clang_cl(compile_flags + system_includes + ['/I', private_lib_include, '/I', lib_include, '/I', dyn_lib_include, '/c', project.root / 'my_lib/src/private/InternalStuff.cpp', f'/Fo:{imd_dir / "InternalStuff.obj"}', f'/Fd:{imd_dir / "InternalStuff.pdb"}'])
+    print('[5/10] CLANG-CL EventLoop.obj')
+    env.clang_cl(compile_flags + system_includes + ['/I', private_lib_include, '/I', lib_include, '/I', dyn_lib_include, '/c', project.root / 'my_lib/src/private/EventLoop.cpp', f'/Fo:{imd_dir / "EventLoop.obj"}', f'/Fd:{imd_dir / "EventLoop.pdb"}'])
+    # COMPILE — app
+    print('[6/10] CLANG-CL MyApp.obj')
+    env.clang_cl(compile_flags + system_includes + ['/I', app_include, '/I', lib_include, '/I', dyn_lib_include, '/c', project.root / 'my_app/MyApp.cpp', f'/Fo:{imd_dir / "MyApp.obj"}', f'/Fd:{imd_dir / "MyApp.pdb"}'])
+    print('[7/10] CLANG-CL main.obj')
+    env.clang_cl(compile_flags + system_includes + ['/I', app_include, '/I', lib_include, '/I', dyn_lib_include, '/c', project.root / 'my_app/main.cpp', f'/Fo:{imd_dir / "main.obj"}', f'/Fd:{imd_dir / "main.pdb"}'])
 
-    # ARCHIVE
-    print('[7/8] LIB my_lib.lib')
-    env.lib(archive_flags + ['/nologo', '/OUT:{}'.format(imd_dir / 'my_lib.lib'), imd_dir / 'App.obj', imd_dir / 'Log.obj', imd_dir / 'InternalStuff.obj', imd_dir / 'EventLoop.obj'])
+    # ARCHIVE — static lib
+    print('[8/10] LIB my_lib.lib')
+    env.lib(archive_flags + ['/OUT:{}'.format(imd_dir / 'my_lib.lib'), imd_dir / 'App.obj', imd_dir / 'Log.obj', imd_dir / 'InternalStuff.obj', imd_dir / 'EventLoop.obj'])
 
-    # LINK (link.exe)
-    print('[8/8] LINK my_app.exe')
-    env.link(link_flags + system_lib_paths + ['/nologo', '/OUT:{}'.format(bin_dir / 'my_app.exe'), '/PDB:{}'.format(bin_dir / 'my_app.pdb'), '/INCREMENTAL', '/ILK:{}'.format(bin_dir / 'my_app.ilk'), imd_dir / 'main.obj', imd_dir / 'MyApp.obj', imd_dir / 'my_lib.lib'])
+    # LINK — dynamic lib, then exe
+    print('[9/10] LINK my_dyn_lib.dll')
+    env.link(link_flags + system_lib_paths + ['/DLL', '/IMPLIB:{}'.format(imd_dir / 'my_dyn_lib.lib'), '/OUT:{}'.format(bin_dir / 'my_dyn_lib.dll'), '/PDB:{}'.format(bin_dir / 'my_dyn_lib.pdb'), '/INCREMENTAL:NO', imd_dir / 'Helpers.obj'])
+    print('[10/10] LINK my_app.exe')
+    env.link(link_flags + system_lib_paths + ['/OUT:{}'.format(bin_dir / 'my_app.exe'), '/PDB:{}'.format(bin_dir / 'my_app.pdb'), '/INCREMENTAL:NO', imd_dir / 'main.obj', imd_dir / 'MyApp.obj', imd_dir / 'my_lib.lib', imd_dir / 'my_dyn_lib.lib'])
 
     exe = bin_dir / 'my_app.exe'
     print('Build successful: {}'.format(exe))

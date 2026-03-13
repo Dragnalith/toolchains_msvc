@@ -3,5 +3,10 @@ load("@rules_cc//cc:defs.bzl", "cc_binary")
 cc_binary(
     name = "hello_world",
     srcs = ["src/main.cpp"],
-    deps = ["//hello_lib"],
+    dynamic_deps = [
+        "//hello_dll",
+    ],
+    deps = [
+        "//hello_lib",
+    ],
 )

@@ -76,6 +76,12 @@ def collect_build_artifact_hashes(workspace_dir: Path) -> dict[str, str]:
     if not bazel_bin.exists():
         return result
     artifacts = [
+        "dyn_hello/_objs/dyn_hello/dyn_hello.obj",
+        "dyn_hello/dyn_hello.lo.lib",
+        "dyn_hello/_objs/dyn_hello/dyn_hello.obj",
+        "hello_dll/hello_dll.dll",
+        "hello_dll/hello_dll.lib",
+        "hello_dll/hello_dll.pdb",
         "hello_lib/_objs/hello_lib/current_version.obj",
         "hello_lib/hello_lib.lib",
         "hello_world/_objs/hello_world/main.obj",

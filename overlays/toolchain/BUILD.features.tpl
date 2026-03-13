@@ -20,6 +20,16 @@ cc_feature_set(
         ":archiver_output",
         ":strip_input",
         ":strip_output",
+
+        # DLL
+        ":interface_library_output_flags",
+        ":has_configured_linker_path",
+        ":shared_flag",
+        ":supports_interface_shared_libraries",
+        ":targets_windows",
+        ":copy_dynamic_libraries_to_binary",
+    
+        # Header Dependencies
         ":parse_showincludes",
         ":no_dotd_file",
         ":dependency_file",
@@ -72,6 +82,14 @@ cc_feature_set(
         ":archiver_output",
         ":strip_input",
         ":strip_output",
+
+        # DLL
+        ":interface_library_output_flags",
+        ":has_configured_linker_path",
+        ":shared_flag",
+        ":supports_interface_shared_libraries",
+        ":targets_windows",
+        ":copy_dynamic_libraries_to_binary",
 
         # Toolchain Policy Defaults
         ":default_flags",
@@ -150,6 +168,40 @@ cc_feature(
     name = "strip_output",
     args = ["//{COMPILER_KIND}/args:strip_output"],
     feature_name = "strip_output",
+)
+
+# DLL
+
+cc_feature(
+    name = "copy_dynamic_libraries_to_binary",
+    feature_name = "copy_dynamic_libraries_to_binary",
+)
+
+cc_feature(
+    name = "interface_library_output_flags",
+    args = ["//{COMPILER_KIND}/args:interface_library_output_flags"],
+    feature_name = "interface_library_output_flags",
+)
+
+cc_feature(
+    name = "has_configured_linker_path",
+    feature_name = "has_configured_linker_path",
+)
+
+cc_feature(
+    name = "shared_flag",
+    args = ["//{COMPILER_KIND}/args:shared_flag"],
+    overrides = "@rules_cc//cc/toolchains/features/legacy:shared_flag",
+)
+
+cc_feature(
+    name = "supports_interface_shared_libraries",
+    feature_name = "supports_interface_shared_libraries",
+)
+
+cc_feature(
+    name = "targets_windows",
+    feature_name = "targets_windows",
 )
 
 # Header Dependency Discovery

@@ -72,10 +72,26 @@ cc_nested_args(
 
 cc_nested_args(
     name = "link_static_library",
-    args = ["{library}"],
-    format = {"library": "@rules_cc//cc/toolchains/variables:libraries_to_link.name"},
     requires_equal = "@rules_cc//cc/toolchains/variables:libraries_to_link.type",
     requires_equal_value = "static_library",
+    nested = [
+        ":link_static_library_regular",
+        ":link_static_library_whole_archive",
+    ],
+)
+
+cc_nested_args(
+    name = "link_static_library_regular",
+    args = ["{library}"],
+    format = {"library": "@rules_cc//cc/toolchains/variables:libraries_to_link.name"},
+    requires_false = "@rules_cc//cc/toolchains/variables:libraries_to_link.is_whole_archive",
+)
+
+cc_nested_args(
+    name = "link_static_library_whole_archive",
+    args = ["/WHOLEARCHIVE:{library}"],
+    format = {"library": "@rules_cc//cc/toolchains/variables:libraries_to_link.name"},
+    requires_true = "@rules_cc//cc/toolchains/variables:libraries_to_link.is_whole_archive",
 )
 
 cc_nested_args(
@@ -92,6 +108,14 @@ cc_args(
     args = ["/OUT:{output_execpath}"],
     format = {"output_execpath": "@rules_cc//cc/toolchains/variables:output_execpath"},
     requires_not_none = "@rules_cc//cc/toolchains/variables:output_execpath",
+)
+
+cc_args(
+    name = "interface_library_output_flags",
+    actions = ["@rules_cc//cc/toolchains/actions:dynamic_library_link_actions"],
+    args = ["/IMPLIB:{interface_library_output_path}"],
+    format = {"interface_library_output_path": "@rules_cc//cc/toolchains/variables:interface_library_output_path"},
+    requires_not_none = "@rules_cc//cc/toolchains/variables:interface_library_output_path",
 )
 
 cc_args(
@@ -156,6 +180,12 @@ cc_args(
     name = "strip_output",
     actions = ["@rules_cc//cc/toolchains/actions:strip"],
     args = [],
+)
+
+cc_args(
+    name = "shared_flag",
+    actions = ["@rules_cc//cc/toolchains/actions:dynamic_library_link_actions"],
+    args = ["/DLL"],
 )
 
 # === Header Dependency Discovery ===

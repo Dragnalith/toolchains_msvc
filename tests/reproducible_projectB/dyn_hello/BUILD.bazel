@@ -1,0 +1,11 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+
+cc_library(
+    name = "dyn_hello",
+    srcs = ["src/dyn_hello.cpp"],
+    hdrs = ["include/dyn_hello/get_winsdk.h"],
+    includes = ["include"],
+    local_defines = ["HELLO_EXPORTS"],
+    visibility = ["//visibility:public"],
+    alwayslink = True,
+)
