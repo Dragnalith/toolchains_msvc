@@ -427,7 +427,7 @@ cc_args(
     args = [
         "-fms-runtime-lib=dll",
     ],
-    requires_any_of = ["//{COMPILER_KIND}/features:no_static_no_debug_constraint"],
+    requires_any_of = ["//features/{COMPILER_KIND}:no_static_no_debug_constraint"],
 )
 
 cc_args(
@@ -441,7 +441,7 @@ cc_args(
         "vcruntime.lib",
         "msvcprt.lib",
     ],
-    requires_any_of = ["//{COMPILER_KIND}/features:no_static_no_debug_constraint"],
+    requires_any_of = ["//features/{COMPILER_KIND}:no_static_no_debug_constraint"],
 )
 
 cc_args(
@@ -453,7 +453,7 @@ cc_args(
     args = [
         "-fms-runtime-lib=static",
     ],
-    requires_any_of = ["//{COMPILER_KIND}/features:static_no_debug_constraint"],
+    requires_any_of = ["//features/{COMPILER_KIND}:static_no_debug_constraint"],
 )
 
 cc_args(
@@ -467,7 +467,7 @@ cc_args(
         "libcmt.lib",
         "libcpmt.lib",
     ],
-    requires_any_of = ["//{COMPILER_KIND}/features:static_no_debug_constraint"],
+    requires_any_of = ["//features/{COMPILER_KIND}:static_no_debug_constraint"],
 )
 
 cc_args(
@@ -480,7 +480,7 @@ cc_args(
         "-fms-runtime-lib=dll_dbg",
         "-D_DEBUG",
     ],
-    requires_any_of = ["//{COMPILER_KIND}/features:no_static_debug_constraint"],
+    requires_any_of = ["//features/{COMPILER_KIND}:no_static_debug_constraint"],
 )
 
 cc_args(
@@ -494,7 +494,7 @@ cc_args(
         "vcruntimed.lib",
         "msvcprtd.lib",
     ],
-    requires_any_of = ["//{COMPILER_KIND}/features:no_static_debug_constraint"],
+    requires_any_of = ["//features/{COMPILER_KIND}:no_static_debug_constraint"],
 )
 
 cc_args(
@@ -507,7 +507,7 @@ cc_args(
         "-fms-runtime-lib=static_dbg",
         "-D_DEBUG",
     ],
-    requires_any_of = ["//{COMPILER_KIND}/features:static_debug_constraint"],
+    requires_any_of = ["//features/{COMPILER_KIND}:static_debug_constraint"],
 )
 
 cc_args(
@@ -521,20 +521,20 @@ cc_args(
         "libcmtd.lib",
         "libcpmtd.lib",
     ],
-    requires_any_of = ["//{COMPILER_KIND}/features:static_debug_constraint"],
+    requires_any_of = ["//features/{COMPILER_KIND}:static_debug_constraint"],
 )
 
 cc_args(
     name = "window_subsystem",
     actions = ["@rules_cc//cc/toolchains/actions:link_actions"],
-    requires_any_of = ["//{COMPILER_KIND}/features:window_subsystem"],
+    requires_any_of = ["//features/{COMPILER_KIND}:window_subsystem"],
     args = ["/SUBSYSTEM:WINDOWS"],
 )
 
 cc_args(
     name = "console_subsystem",
     actions = ["@rules_cc//cc/toolchains/actions:link_actions"],
-    requires_any_of = ["//{COMPILER_KIND}/features:no_subsystem_constraint"],
+    requires_any_of = ["//features/{COMPILER_KIND}:no_subsystem_constraint"],
     args = ["/SUBSYSTEM:CONSOLE"],
 )
 

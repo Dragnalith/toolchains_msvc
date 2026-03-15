@@ -66,6 +66,10 @@ def _extension_impl(module_ctx):
     targets_set = {}
     hosts_set = {}
     msvc_lld_link_version = None
+    default_msvc = None
+    default_clang = None
+    default_windows_sdk = None
+    default_compiler = None
 
     for mod in module_ctx.modules:
         for tag in mod.tags.clang_compiler:
@@ -82,6 +86,15 @@ def _extension_impl(module_ctx):
             fail("Multiple msvc_lld_link_version tags are not allowed.")
         for tag in mod.tags.msvc_lld_link_version:
             msvc_lld_link_version = tag.version
+        # Default tags: last occurrence wins (so root module can override)
+        for tag in mod.tags.default_msvc:
+            default_msvc = tag.version
+        for tag in mod.tags.default_clang:
+            default_clang = tag.version
+        for tag in mod.tags.default_windows_sdk:
+            default_windows_sdk = tag.version
+        for tag in mod.tags.default_compiler:
+            default_compiler = tag.compiler
 
     clang_versions = clang_versions_set.keys()
     msvc_versions = msvc_versions_set.keys()
@@ -99,6 +112,15 @@ def _extension_impl(module_ctx):
 
     targets = targets_set.keys()
     hosts = hosts_set.keys()
+
+    if default_msvc == None:
+        default_msvc = msvc_versions[0] if msvc_versions else "unknown"
+    if default_windows_sdk == None:
+        default_windows_sdk = winsdk_versions[0] if winsdk_versions else "unknown"
+    if default_compiler == None:
+        default_compiler = "msvc-cl"
+    if default_clang == None and clang_versions:
+        default_clang = clang_versions[0]
 
     env_hosts = module_ctx.os.environ.get("BAZEL_TOOLCHAINS_MSVC_HOSTS", "").strip()
     if hosts and env_hosts != "":
@@ -238,6 +260,10 @@ def _extension_impl(module_ctx):
         winsdk_versions = winsdk_versions,
         targets = targets,
         hosts = hosts,
+        default_msvc = default_msvc,
+        default_clang = default_clang,
+        default_windows_sdk = default_windows_sdk,
+        default_compiler = default_compiler,
     )
 
     return module_ctx.extension_metadata(
@@ -252,6 +278,10 @@ msvc_lld_link_version_tag = tag_class(attrs = {"version": attr.string(mandatory 
 windows_sdk_tag = tag_class(attrs = {"version": attr.string(mandatory = True)})
 target_tag = tag_class(attrs = {"arch": attr.string(mandatory = True)})
 host_tag = tag_class(attrs = {"arch": attr.string(mandatory = True)})
+default_msvc_tag = tag_class(attrs = {"version": attr.string(mandatory = True)})
+default_clang_tag = tag_class(attrs = {"version": attr.string(mandatory = True)})
+default_windows_sdk_tag = tag_class(attrs = {"version": attr.string(mandatory = True)})
+default_compiler_tag = tag_class(attrs = {"compiler": attr.string(mandatory = True)})
 
 toolchain = module_extension(
     implementation = _extension_impl,
@@ -262,6 +292,10 @@ toolchain = module_extension(
         "windows_sdk": windows_sdk_tag,
         "target": target_tag,
         "host": host_tag,
+        "default_msvc": default_msvc_tag,
+        "default_clang": default_clang_tag,
+        "default_windows_sdk": default_windows_sdk_tag,
+        "default_compiler": default_compiler_tag,
     },
     environ = [
         "BAZEL_TOOLCHAINS_MSVC_HOSTS",

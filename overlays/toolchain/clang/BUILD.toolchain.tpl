@@ -163,11 +163,11 @@ cc_toolchain(
         "//artifacts:interface_library",
     ],
     enabled_features = [
-        "//clang/features:default_features",
-        "//clang/features:dependency_file",
+        "//features/clang:default_features",
+        "//features/clang:dependency_file",
     ],
     known_features = [
-        "//clang/features:all_known_features",
+        "//features/clang:all_known_features",
     ],
     tool_map = ":all_tools",
 )

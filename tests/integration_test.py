@@ -288,17 +288,21 @@ def iter_toolchain_cases(
                         }
 
 
-def get_extra_toolchain(case: dict[str, str]) -> str:
-    """Build the toolchain target name for a toolchain case."""
-    host = case["host"]
-    target = case["target"]
-    compiler = case["compiler"]
-    compiler_version = case["compiler_version"]
+def get_toolchain_flag_args(case: dict[str, str]) -> list[str]:
+    """Build Bazel flag args for toolchain selection (--@msvc_toolchains//msvc=, etc.)."""
     msvc_version = case["msvc_version"]
     winsdk_version = case["winsdk_version"]
-    if compiler == "msvc":
-        return f"msvc{msvc_version}_winsdk{winsdk_version}_host{host}_target{target}"
-    return f"{compiler}{compiler_version}_msvc{msvc_version}_winsdk{winsdk_version}_host{host}_target{target}"
+    compiler = case["compiler"]
+    compiler_version = case["compiler_version"]
+    compiler_flag_value = {"msvc": "msvc-cl", "clang": "clang", "clang-cl": "clang-cl"}[compiler]
+    flags = [
+        f"--@msvc_toolchains//msvc:msvc={msvc_version}",
+        f"--@msvc_toolchains//winsdk:winsdk={winsdk_version}",
+        f"--@msvc_toolchains//compiler:compiler={compiler_flag_value}",
+    ]
+    if compiler in ("clang", "clang-cl"):
+        flags.append(f"--@msvc_toolchains//llvm:llvm={compiler_version}")
+    return flags
 
 
 def get_expected_compiler_binary(compiler: str) -> str:
@@ -320,7 +324,7 @@ def run_test(
     no_stderr_flush: bool = False,
     host: str | None = None,
     target: str | None = None,
-    extra_toolchains: str | None = None,
+    toolchain_flags: list[str] | None = None,
     msvc_hosts_env: str | None = None,
     msvc_targets_env: str | None = None,
     expected_target: str,
@@ -335,8 +339,8 @@ def run_test(
         bazel_args.append(f"--host_platform=//:windows_{host}")
     if target is not None:
         bazel_args.append(f"--platforms=//:windows_{target}")
-    if extra_toolchains is not None:
-        bazel_args.append(f"--extra_toolchains=@msvc_toolchains//:{extra_toolchains}")
+    if toolchain_flags is not None:
+        bazel_args.extend(toolchain_flags)
     if msvc_hosts_env is not None:
         bazel_args.append(f"--repo_env=BAZEL_TOOLCHAINS_MSVC_HOSTS={msvc_hosts_env}")
     if msvc_targets_env is not None:
@@ -398,7 +402,7 @@ def run_all_hosts_all_targets(
         tests.append(dict(
             host=case["host"],
             target=case["target"],
-            extra_toolchains=get_extra_toolchain(case),
+            toolchain_flags=get_toolchain_flag_args(case),
             expected_target=case["target"],
             expected_compiler=get_expected_compiler_binary(case["compiler"]),
             expected_compiler_version=case["compiler_version"],
@@ -467,7 +471,7 @@ def run_reproducible_test(
         tests.append(dict(
             host=case["host"],
             target=case["target"],
-            extra_toolchains=get_extra_toolchain(case),
+            toolchain_flags=get_toolchain_flag_args(case),
         ))
     total = len(tests)
     bazel_args_base = [] if show_progress else ["--noshow_progress"]
@@ -475,13 +479,12 @@ def run_reproducible_test(
     for current, kwargs in enumerate(tests, 1):
         host = kwargs["host"]
         target = kwargs["target"]
-        extra_toolchains = kwargs["extra_toolchains"]
+        toolchain_flags = kwargs["toolchain_flags"]
         bazel_args = bazel_args_base + [
             f"--host_platform=//:windows_{host}",
             f"--platforms=//:windows_{target}",
-            f"--extra_toolchains=@msvc_toolchains//:{extra_toolchains}",
             "--features=generate_debug_symbols",
-        ]
+        ] + toolchain_flags
         cmd_line = " ".join(["bazel", "build", "//hello_world"] + bazel_args)
         print(f"[{current}/{total}] REPRODUCIBLE_TEST: {cmd_line}")
         sys.stdout.flush()
@@ -650,11 +653,12 @@ def run_test_features(
     target = targets[0]
     
     # Define toolchains to test: msvc (cl.exe), clang, clang-cl
-    toolchains = [
-        ("msvc", f"msvc{msvc_version}_winsdk{winsdk_version}_host{host}_target{target}"),
-        ("clang", f"clang{clang_version}_msvc{msvc_version}_winsdk{winsdk_version}_host{host}_target{target}"),
-        ("clang-cl", f"clang-cl{clang_version}_msvc{msvc_version}_winsdk{winsdk_version}_host{host}_target{target}"),
+    toolchain_cases = [
+        {"compiler": "msvc", "compiler_version": msvc_version, "msvc_version": msvc_version, "winsdk_version": winsdk_version, "host": host, "target": target},
+        {"compiler": "clang", "compiler_version": clang_version, "msvc_version": msvc_version, "winsdk_version": winsdk_version, "host": host, "target": target},
+        {"compiler": "clang-cl", "compiler_version": clang_version, "msvc_version": msvc_version, "winsdk_version": winsdk_version, "host": host, "target": target},
     ]
+    toolchains = [(c["compiler"], c) for c in toolchain_cases]
     
     # Feature tests should not run on x86 host (clang toolchains not supported)
     check(host != "x86", "Feature tests should not use x86 host")
@@ -662,7 +666,8 @@ def run_test_features(
     total_tests = len(FEATURE_TESTS) * len(toolchains)
     test_counter = 0
     
-    for toolchain_name, toolchain_id in toolchains:
+    for toolchain_name, case in toolchains:
+        toolchain_flags = get_toolchain_flag_args(case)
         for feature_test in FEATURE_TESTS:
             test_counter += 1
             features_str = ",".join(feature_test.features_list) if feature_test.features_list else "default"
@@ -671,10 +676,9 @@ def run_test_features(
                 "bazel", "aquery", 
                 'mnemonic("CppLink|CppCompile",//:hello_world)', 
                 "--output=jsonproto",
-                f"--extra_toolchains=@msvc_toolchains//:{toolchain_id}",
                 f"--host_platform=//:windows_{host}",
                 f"--platforms=//:windows_{target}",
-            ]
+            ] + toolchain_flags
             if feature_test.features_list:
                 for feature in feature_test.features_list:
                     cmd.append(f"--features={feature}")

@@ -157,12 +157,12 @@ cc_toolchain(
         "//artifacts:interface_library",
     ],
     enabled_features = [
-        "//msvc/features:default_features",
-        "//msvc/features:no_dotd_file",
-        "//msvc/features:parse_showincludes",
+        "//features/msvc:default_features",
+        "//features/msvc:no_dotd_file",
+        "//features/msvc:parse_showincludes",
     ],
     known_features = [
-        "//msvc/features:all_known_features",
+        "//features/msvc:all_known_features",
     ],
     tool_map = ":all_tools",
 )

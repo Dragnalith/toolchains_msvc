@@ -4,9 +4,9 @@ cc_binary(
     name = "hello_world",
     srcs = ["main.cpp"],
     defines = select({
-        "@rules_cc//cc/compiler:clang": ["COMPILER_IS_CLANG"],
-        "@rules_cc//cc/compiler:clang-cl": ["COMPILER_IS_CLANG_CL"],
-        "@rules_cc//cc/compiler:msvc-cl": ["COMPILER_IS_CL"],
+        "@msvc_toolchains//compiler:clang": ["COMPILER_IS_CLANG"],
+        "@msvc_toolchains//compiler:clang-cl": ["COMPILER_IS_CLANG_CL"],
+        "@msvc_toolchains//compiler:msvc-cl": ["COMPILER_IS_CL"],
         "//conditions:default": [],
     }),
 )
