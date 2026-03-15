@@ -9,6 +9,7 @@ cc_binary(
         "@msvc_toolchains//compiler:msvc-cl": ["COMPILER_IS_CL"],
         "//conditions:default": [],
     }),
+    deps = ["@msvc_toolchains//lib:kernel32"],
 )
 
 platform(

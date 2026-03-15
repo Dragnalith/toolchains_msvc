@@ -7,5 +7,6 @@ cc_library(
     includes = ["include"],
     local_defines = ["HELLO_EXPORTS"],
     visibility = ["//visibility:public"],
+    deps = ["@msvc_toolchains//lib:kernel32"],
     alwayslink = True,
 )

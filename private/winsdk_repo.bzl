@@ -26,6 +26,23 @@ def _get_cabs_from_msi(ctx, local_msi_path):
             cabs.append(item)
     return cabs
 
+def _normalize_lib_filenames(ctx):
+    """Normalizes all filenames under Lib/ to lowercase."""
+    lib_root = str(ctx.path("Lib")).replace("/", "\\")
+    script_path = str(ctx.path(ctx.attr.src_normalize_lib_names))
+    result = ctx.execute([
+        "powershell",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        script_path,
+        "-LibRoot",
+        lib_root,
+    ], quiet = True)
+    if result.return_code != 0:
+        fail("Normalizing WinSDK lib filenames failed (exit {code})".format(code = result.return_code))
+
 def _winsdk_repo_impl(ctx):
     """Implementation of the winsdk_repo rule."""
     packages = json.decode(ctx.attr.packages)
@@ -105,6 +122,9 @@ def _winsdk_repo_impl(ctx):
             child_name,
         ])
 
+    ctx.report_progress("Normalizing WinSDK lib filenames")
+    _normalize_lib_filenames(ctx)
+
     ctx.delete("tmp")
 
     ctx.file(
@@ -127,6 +147,7 @@ winsdk_repo = repository_rule(
         "packages": attr.string(doc = "JSON string containing cab and msi payload maps"),
         "targets": attr.string_list(doc = "Target architectures (currently unused)"),
         "src_list_msi_cabs": attr.label(default = Label("//tools:List-MsiCabs.ps1"), doc = "Label to List-MsiCabs.ps1"),
+        "src_normalize_lib_names": attr.label(default = Label("//tools:Normalize-WinSdkLibNames.ps1"), doc = "Label to Normalize-WinSdkLibNames.ps1"),
         "src_build": attr.label(default = Label("//overlays/winsdk:BUILD.root.tpl"), allow_single_file = True, doc = "Label to BUILD.root.tpl"),
     },
 )

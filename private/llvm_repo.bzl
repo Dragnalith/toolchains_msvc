@@ -47,6 +47,6 @@ llvm_repo = repository_rule(
         "host": attr.string(mandatory = True, doc = "Host architecture"),
         "url": attr.string(mandatory = True, doc = "URL to the LLVM package (from list_clang_version)"),
         "digest": attr.string(default = "", doc = "SHA256 hex digest from manifest (sha256:<hex>) for download verification"),
-        "src_build": attr.label(default = Label("//overlays/clang:BUILD.root.tpl"), allow_single_file = True, doc = "Label to BUILD.root.tpl"),
+        "src_build": attr.label(default = Label("//overlays/llvm:BUILD.root.tpl"), allow_single_file = True, doc = "Label to BUILD.root.tpl"),
     },
 )

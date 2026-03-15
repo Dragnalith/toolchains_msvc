@@ -332,125 +332,57 @@ subdirectory(
 
 filegroup(
     name = "msvc_all_includes",
-    srcs = glob(
-        ["Tools/include/**"],
-        allow_empty = True,
-    ),
-)
-
-# Lib Dir
-subdirectory(
-    name = "lib_dir_x64",
-    parent = ":msvc_tree",
-    path = "Tools/lib/x64",
-)
-
-filegroup(
-    name = "msvc_all_libs_x64",
-    srcs = glob(
-        ["Tools/lib/x64/**"],
-        allow_empty = True,
-    ),
-)
-
-subdirectory(
-    name = "lib_dir_x86",
-    parent = ":msvc_tree",
-    path = "Tools/lib/x86",
-)
-
-filegroup(
-    name = "msvc_all_libs_x86",
-    srcs = glob(
-        ["Tools/lib/x86/**"],
-        allow_empty = True,
-    ),
-)
-
-subdirectory(
-    name = "lib_dir_arm64",
-    parent = ":msvc_tree",
-    path = "Tools/lib/arm64",
-)
-
-filegroup(
-    name = "msvc_all_libs_arm64",
-    srcs = glob(
-        ["Tools/lib/arm64/**"],
-        allow_empty = True,
-    ),
+    srcs = glob(["**/*.h", "**/*.hpp"]) + glob(["**/*"], exclude = ["**/*.*"], exclude_directories = 1)
 )
 
 # Binaries
 filegroup(
     name = "msvc_all_binaries_hostx64_targetx64",
-    srcs = glob(
-        ["Tools/bin/Hostx64/x64/**"],
-        allow_empty = True,
-    ),
+    srcs = glob(["Tools/bin/Hostx64/x64/**"], allow_empty = True),
 )
 
 filegroup(
     name = "msvc_all_binaries_hostx64_targetx86",
-    srcs = glob(
-        ["Tools/bin/Hostx64/x86/**"],
-        allow_empty = True,
-    ),
+    srcs = glob(["Tools/bin/Hostx64/x86/**"], allow_empty = True),
 )
 
 filegroup(
     name = "msvc_all_binaries_hostx64_targetarm64",
-    srcs = glob(
-        ["Tools/bin/Hostx64/arm64/**"],
-        allow_empty = True,
-    ),
+    srcs = glob(["Tools/bin/Hostx64/arm64/**"], allow_empty = True),
 )
 
 filegroup(
     name = "msvc_all_binaries_hostx86_targetx64",
-    srcs = glob(
-        ["Tools/bin/Hostx86/x64/**"],
-        allow_empty = True,
-    ),
+    srcs = glob(["Tools/bin/Hostx86/x64/**"], allow_empty = True),
 )
 
 filegroup(
     name = "msvc_all_binaries_hostx86_targetx86",
-    srcs = glob(
-        ["Tools/bin/Hostx86/x86/**"],
-        allow_empty = True,
-    ),
+    srcs = glob(["Tools/bin/Hostx86/x86/**"], allow_empty = True),
 )
 
 filegroup(
     name = "msvc_all_binaries_hostx86_targetarm64",
-    srcs = glob(
-        ["Tools/bin/Hostx86/arm64/**"],
-        allow_empty = True,
-    ),
+    srcs = glob(["Tools/bin/Hostx86/arm64/**"], allow_empty = True),
 )
 
 filegroup(
     name = "msvc_all_binaries_hostarm64_targetx64",
-    srcs = glob(
-        ["Tools/bin/Hostarm64/x64/**"],
-        allow_empty = True,
-    ),
+    srcs = glob(["Tools/bin/Hostarm64/x64/**"], allow_empty = True),
 )
 
 filegroup(
     name = "msvc_all_binaries_hostarm64_targetx86",
-    srcs = glob(
-        ["Tools/bin/Hostarm64/x86/**"],
-        allow_empty = True,
-    ),
+    srcs = glob(["Tools/bin/Hostarm64/x86/**"], allow_empty = True),
 )
 
 filegroup(
     name = "msvc_all_binaries_hostarm64_targetarm64",
-    srcs = glob(
-        ["Tools/bin/Hostarm64/arm64/**"],
-        allow_empty = True,
-    ),
+    srcs = glob(["Tools/bin/Hostarm64/arm64/**"], allow_empty = True),
+)
+
+exports_files(
+    glob(["**/*"]),  # or narrower patterns
+    visibility = ["//visibility:public"],
 )
 

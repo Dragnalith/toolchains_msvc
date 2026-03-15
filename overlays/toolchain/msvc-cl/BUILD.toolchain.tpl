@@ -115,26 +115,188 @@ cc_args(
     },
 )
 
+filegroup(
+    name = "file_ucrt",
+    srcs = ["@{winsdk_repo}//:Lib/10.0.{winsdk_version}.0/ucrt/{target}/ucrt.lib"],
+)
+
+filegroup(
+    name = "file_msvcrt",
+    srcs = ["@{msvc_repo}//:Tools/lib/{target}/msvcrt.lib"],
+)
+
+filegroup(
+    name = "file_vcruntime",
+    srcs = ["@{msvc_repo}//:Tools/lib/{target}/vcruntime.lib"],
+)
+
+filegroup(
+    name = "file_msvcprt",
+    srcs = ["@{msvc_repo}//:Tools/lib/{target}/msvcprt.lib"],
+)
+
+filegroup(
+    name = "file_libucrt",
+    srcs = ["@{winsdk_repo}//:Lib/10.0.{winsdk_version}.0/ucrt/{target}/libucrt.lib"],
+)
+
+filegroup(
+    name = "file_libvcruntime",
+    srcs = ["@{msvc_repo}//:Tools/lib/{target}/libvcruntime.lib"],
+)
+
+filegroup(
+    name = "file_libcmt",
+    srcs = ["@{msvc_repo}//:Tools/lib/{target}/libcmt.lib"],
+)
+
+filegroup(
+    name = "file_libcpmt",
+    srcs = ["@{msvc_repo}//:Tools/lib/{target}/libcpmt.lib"],
+)
+
+filegroup(
+    name = "file_ucrtd",
+    srcs = ["@{winsdk_repo}//:Lib/10.0.{winsdk_version}.0/ucrt/{target}/ucrtd.lib"],
+)
+
+filegroup(
+    name = "file_msvcrtd",
+    srcs = ["@{msvc_repo}//:Tools/lib/{target}/msvcrtd.lib"],
+)
+
+filegroup(
+    name = "file_vcruntimed",
+    srcs = ["@{msvc_repo}//:Tools/lib/{target}/vcruntimed.lib"],
+)
+
+filegroup(
+    name = "file_msvcprtd",
+    srcs = ["@{msvc_repo}//:Tools/lib/{target}/msvcprtd.lib"],
+)
+
+filegroup(
+    name = "file_libucrtd",
+    srcs = ["@{winsdk_repo}//:Lib/10.0.{winsdk_version}.0/ucrt/{target}/libucrtd.lib"],
+)
+
+filegroup(
+    name = "file_libvcruntimed",
+    srcs = ["@{msvc_repo}//:Tools/lib/{target}/libvcruntimed.lib"],
+)
+
+filegroup(
+    name = "file_libcmtd",
+    srcs = ["@{msvc_repo}//:Tools/lib/{target}/libcmtd.lib"],
+)
+
+filegroup(
+    name = "file_libcpmtd",
+    srcs = ["@{msvc_repo}//:Tools/lib/{target}/libcpmtd.lib"],
+)
+
 cc_args(
-    name = "lib_paths",
+    name = "release_dynamic_runtime_link",
     actions = [
         "@rules_cc//cc/toolchains/actions:link_actions",
     ],
     args = [
-        "/LIBPATH:{msvc_lib}",
-        "/LIBPATH:{winsdk_um_lib}",
-        "/LIBPATH:{winsdk_ucrt_lib}",
+        "{ucrt}",
+        "{msvcrt}",
+        "{vcruntime}",
+        "{msvcprt}",
     ],
     data = [
-        "@{msvc_repo}//:msvc_all_libs_x64",
-        "@{winsdk_repo}//:ucrt_lib_dir_files_x64",
-        "@{winsdk_repo}//:um_lib_dir_files_x64",
+        ":file_ucrt",
+        ":file_msvcrt",
+        ":file_vcruntime",
+        ":file_msvcprt",
     ],
     format = {
-        "msvc_lib": "@{msvc_repo}//:lib_dir_{target}",
-        "winsdk_um_lib": "@{winsdk_repo}//:um_lib_dir_{target}",
-        "winsdk_ucrt_lib": "@{winsdk_repo}//:ucrt_lib_dir_{target}",
+        "ucrt": ":file_ucrt",
+        "msvcrt": ":file_msvcrt",
+        "vcruntime": ":file_vcruntime",
+        "msvcprt": ":file_msvcprt",
     },
+    requires_any_of = ["//features/msvc:no_static_no_debug_constraint"],
+)
+
+cc_args(
+    name = "release_static_runtime_link",
+    actions = [
+        "@rules_cc//cc/toolchains/actions:link_actions",
+    ],
+    args = [
+        "{libucrt}",
+        "{libvcruntime}",
+        "{libcmt}",
+        "{libcpmt}",
+    ],
+    data = [
+        ":file_libucrt",
+        ":file_libvcruntime",
+        ":file_libcmt",
+        ":file_libcpmt",
+    ],
+    format = {
+        "libucrt": ":file_libucrt",
+        "libvcruntime": ":file_libvcruntime",
+        "libcmt": ":file_libcmt",
+        "libcpmt": ":file_libcpmt",
+    },
+    requires_any_of = ["//features/msvc:static_no_debug_constraint"],
+)
+
+cc_args(
+    name = "debug_dynamic_runtime_link",
+    actions = [
+        "@rules_cc//cc/toolchains/actions:link_actions",
+    ],
+    args = [
+        "{ucrtd}",
+        "{msvcrtd}",
+        "{vcruntimed}",
+        "{msvcprtd}",
+    ],
+    data = [
+        ":file_ucrtd",
+        ":file_msvcrtd",
+        ":file_vcruntimed",
+        ":file_msvcprtd",
+    ],
+    format = {
+        "ucrtd": ":file_ucrtd",
+        "msvcrtd": ":file_msvcrtd",
+        "vcruntimed": ":file_vcruntimed",
+        "msvcprtd": ":file_msvcprtd",
+    },
+    requires_any_of = ["//features/msvc:no_static_debug_constraint"],
+)
+
+cc_args(
+    name = "debug_static_runtime_link",
+    actions = [
+        "@rules_cc//cc/toolchains/actions:link_actions",
+    ],
+    args = [
+        "{libucrtd}",
+        "{libvcruntimed}",
+        "{libcmtd}",
+        "{libcpmtd}",
+    ],
+    data = [
+        ":file_libucrtd",
+        ":file_libvcruntimed",
+        ":file_libcmtd",
+        ":file_libcpmtd",
+    ],
+    format = {
+        "libucrtd": ":file_libucrtd",
+        "libvcruntimed": ":file_libvcruntimed",
+        "libcmtd": ":file_libcmtd",
+        "libcpmtd": ":file_libcpmtd",
+    },
+    requires_any_of = ["//features/msvc:static_debug_constraint"],
 )
 
 cc_toolchain(
@@ -146,7 +308,10 @@ cc_toolchain(
         "base_link_flags",
         "base_ar_flags",
         "include_paths",
-        "lib_paths",
+        "release_dynamic_runtime_link",
+        "release_static_runtime_link",
+        "debug_dynamic_runtime_link",
+        "debug_static_runtime_link",
     ],
     artifact_name_patterns = [
         "//artifacts:executable",

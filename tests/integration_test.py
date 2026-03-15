@@ -57,6 +57,8 @@ def collect_project_hashes(workspace_dir: Path, _root: Path | None = None) -> di
         _root = workspace_dir
     result: dict[str, str] = {}
     for entry in _root.iterdir():
+        if entry.name == "MODULE.bazel.lock":
+            continue
         if entry.is_symlink():
             continue
         if entry.is_dir():
@@ -76,20 +78,21 @@ def collect_build_artifact_hashes(workspace_dir: Path) -> dict[str, str]:
     if not bazel_bin.exists():
         return result
     artifacts = [
-        "dyn_hello/_objs/dyn_hello/dyn_hello.obj",
-        "dyn_hello/dyn_hello.lo.lib",
-        "dyn_hello/_objs/dyn_hello/dyn_hello.obj",
-        "hello_dll/hello_dll.dll",
-        "hello_dll/hello_dll.lib",
-        "hello_dll/hello_dll.pdb",
-        "hello_lib/_objs/hello_lib/current_version.obj",
-        "hello_lib/hello_lib.lib",
-        "hello_world/_objs/hello_world/main.obj",
-        "hello_world/hello_world.exe",
-        "hello_world/hello_world.pdb",
+        "bazel-bin/dyn_hello/_objs/dyn_hello/dyn_hello.obj",
+        "bazel-bin/dyn_hello/dyn_hello.lo.lib",
+        "bazel-bin/dyn_hello/_objs/dyn_hello/dyn_hello.obj",
+        "bazel-bin/hello_dll/hello_dll.dll",
+        "bazel-bin/hello_dll/hello_dll.lib",
+        "bazel-bin/hello_dll/hello_dll.pdb",
+        "bazel-bin/hello_lib/_objs/hello_lib/current_version.obj",
+        "bazel-bin/hello_lib/hello_lib.lib",
+        "bazel-bin/hello_world/_objs/hello_world/main.obj",
+        "bazel-bin/hello_world/hello_world.exe",
+        "bazel-bin/hello_world/hello_world.pdb",
+        "MODULE.bazel.lock",
     ]
     for rel in artifacts:
-        p = bazel_bin / rel
+        p = workspace_dir / rel
         if not p.exists():
             fatal_error(f"Required artifact {rel} not found in {bazel_bin}")
         result[rel.replace("\\", "/")] = compute_file_sha256(p)

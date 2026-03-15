@@ -31,7 +31,10 @@ subdirectory(
 filegroup(
     name = "ucrt_include_files",
     srcs = glob(
-        ["Include/10.0.{winsdk_version}.0/ucrt/**"],
+        [
+            "Include/10.0.{winsdk_version}.0/ucrt/**/*.h",
+            "Include/10.0.{winsdk_version}.0/ucrt/**/*.hpp",
+        ],
         allow_empty = True,
     ),
 )
@@ -45,7 +48,10 @@ subdirectory(
 filegroup(
     name = "um_include_files",
     srcs = glob(
-        ["Include/10.0.{winsdk_version}.0/um/**"],
+        [
+            "Include/10.0.{winsdk_version}.0/um/**/*.h",
+            "Include/10.0.{winsdk_version}.0/um/**/*.hpp",
+        ],
         allow_empty = True,
     ),
 )
@@ -59,93 +65,16 @@ subdirectory(
 filegroup(
     name = "shared_include_files",
     srcs = glob(
-        ["Include/10.0.{winsdk_version}.0/shared/**"],
+        [
+            "Include/10.0.{winsdk_version}.0/shared/**/*.h",
+            "Include/10.0.{winsdk_version}.0/shared/**/*.hpp",
+        ],
         allow_empty = True,
     ),
 )
 
-# Lib Dirs
-subdirectory(
-    name = "um_lib_dir_x64",
-    parent = ":winsdk_tree",
-    path = "Lib/10.0.{winsdk_version}.0/um/x64",
-)
-
-filegroup(
-    name = "um_lib_dir_files_x64",
-    srcs = glob(
-        ["Lib/10.0.{winsdk_version}.0/um/x64/**"],
-        allow_empty = True,
-    ),
-)
-
-subdirectory(
-    name = "ucrt_lib_dir_x64",
-    parent = ":winsdk_tree",
-    path = "Lib/10.0.{winsdk_version}.0/ucrt/x64",
-)
-
-filegroup(
-    name = "ucrt_lib_dir_files_x64",
-    srcs = glob(
-        ["Lib/10.0.{winsdk_version}.0/ucrt/x64/**"],
-        allow_empty = True,
-    ),
-)
-
-subdirectory(
-    name = "um_lib_dir_x86",
-    parent = ":winsdk_tree",
-    path = "Lib/10.0.{winsdk_version}.0/um/x86",
-)
-
-filegroup(
-    name = "um_lib_dir_files_x86",
-    srcs = glob(
-        ["Lib/10.0.{winsdk_version}.0/um/x86/**"],
-        allow_empty = True,
-    ),
-)
-
-subdirectory(
-    name = "ucrt_lib_dir_x86",
-    parent = ":winsdk_tree",
-    path = "Lib/10.0.{winsdk_version}.0/ucrt/x86",
-)
-
-filegroup(
-    name = "ucrt_lib_dir_files_x86",
-    srcs = glob(
-        ["Lib/10.0.{winsdk_version}.0/ucrt/x86/**"],
-        allow_empty = True,
-    ),
-)
-
-subdirectory(
-    name = "um_lib_dir_arm64",
-    parent = ":winsdk_tree",
-    path = "Lib/10.0.{winsdk_version}.0/um/arm64",
-)
-
-filegroup(
-    name = "um_lib_dir_files_arm64",
-    srcs = glob(
-        ["Lib/10.0.{winsdk_version}.0/um/arm64/**"],
-        allow_empty = True,
-    ),
-)
-
-subdirectory(
-    name = "ucrt_lib_dir_arm64",
-    parent = ":winsdk_tree",
-    path = "Lib/10.0.{winsdk_version}.0/ucrt/arm64",
-)
-
-filegroup(
-    name = "ucrt_lib_dir_files_arm64",
-    srcs = glob(
-        ["Lib/10.0.{winsdk_version}.0/ucrt/arm64/**"],
-        allow_empty = True,
-    ),
+exports_files(
+    glob(["**/*"]),  # or narrower patterns
+    visibility = ["//visibility:public"],
 )
 

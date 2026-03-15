@@ -360,13 +360,9 @@ cc_feature(
     name = "all_runtime_flags",
     args = [
         "//args/{COMPILER_KIND}:debug_dynamic_runtime_compile",
-        "//args/{COMPILER_KIND}:debug_dynamic_runtime_link",
         "//args/{COMPILER_KIND}:debug_static_runtime_compile",
-        "//args/{COMPILER_KIND}:debug_static_runtime_link",
         "//args/{COMPILER_KIND}:release_dynamic_runtime_compile",
-        "//args/{COMPILER_KIND}:release_dynamic_runtime_link",
         "//args/{COMPILER_KIND}:release_static_runtime_compile",
-        "//args/{COMPILER_KIND}:release_static_runtime_link",
     ],
     feature_name = "all_runtime_flags",
 )

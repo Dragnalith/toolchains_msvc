@@ -246,9 +246,7 @@ cc_args(
 cc_args(
     name = "default_link_flags",
     actions = ["@rules_cc//cc/toolchains/actions:link_actions"],
-    args = [
-        "kernel32.lib",
-    ],
+    args = [],
 )
 
 cc_args(
@@ -411,20 +409,6 @@ cc_args(
 )
 
 cc_args(
-    name = "release_dynamic_runtime_link",
-    actions = [
-        "@rules_cc//cc/toolchains/actions:link_actions",
-    ],
-    args = [
-        "ucrt.lib",
-        "msvcrt.lib",
-        "vcruntime.lib",
-        "msvcprt.lib",
-    ],
-    requires_any_of = ["//features/{COMPILER_KIND}:no_static_no_debug_constraint"],
-)
-
-cc_args(
     name = "release_static_runtime_compile",
     actions = [
         "@rules_cc//cc/toolchains/actions:c_compile",
@@ -432,20 +416,6 @@ cc_args(
     ],
     args = [
         "/MT",
-    ],
-    requires_any_of = ["//features/{COMPILER_KIND}:static_no_debug_constraint"],
-)
-
-cc_args(
-    name = "release_static_runtime_link",
-    actions = [
-        "@rules_cc//cc/toolchains/actions:link_actions",
-    ],
-    args = [
-        "libucrt.lib",
-        "libvcruntime.lib",
-        "libcmt.lib",
-        "libcpmt.lib",
     ],
     requires_any_of = ["//features/{COMPILER_KIND}:static_no_debug_constraint"],
 )
@@ -464,20 +434,6 @@ cc_args(
 )
 
 cc_args(
-    name = "debug_dynamic_runtime_link",
-    actions = [
-        "@rules_cc//cc/toolchains/actions:link_actions",
-    ],
-    args = [
-        "ucrtd.lib",
-        "msvcrtd.lib",
-        "vcruntimed.lib",
-        "msvcprtd.lib",
-    ],
-    requires_any_of = ["//features/{COMPILER_KIND}:no_static_debug_constraint"],
-)
-
-cc_args(
     name = "debug_static_runtime_compile",
     actions = [
         "@rules_cc//cc/toolchains/actions:c_compile",
@@ -486,20 +442,6 @@ cc_args(
     args = [
         "/MTd",
         "/D_DEBUG",
-    ],
-    requires_any_of = ["//features/{COMPILER_KIND}:static_debug_constraint"],
-)
-
-cc_args(
-    name = "debug_static_runtime_link",
-    actions = [
-        "@rules_cc//cc/toolchains/actions:link_actions",
-    ],
-    args = [
-        "libucrtd.lib",
-        "libvcruntimed.lib",
-        "libcmtd.lib",
-        "libcpmtd.lib",
     ],
     requires_any_of = ["//features/{COMPILER_KIND}:static_debug_constraint"],
 )

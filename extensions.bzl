@@ -168,7 +168,7 @@ def _extension_impl(module_ctx):
                     host = host,
                     url = url,
                     digest = digest,
-                    src_build = Label("//overlays/clang:BUILD.root.tpl"),
+                    src_build = Label("//overlays/llvm:BUILD.root.tpl"),
                 )
 
     # 3. Construct all msvc repos

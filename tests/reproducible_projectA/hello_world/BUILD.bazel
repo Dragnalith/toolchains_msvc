@@ -8,5 +8,6 @@ cc_binary(
     ],
     deps = [
         "//hello_lib",
+        "@msvc_toolchains//lib:kernel32",
     ],
 )

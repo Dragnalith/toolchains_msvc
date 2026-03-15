@@ -1,6 +1,26 @@
 """Repository rule to define MSVC toolchains."""
 
+load("//private:libs.bzl", "msvc_lib", "ucrt_lib", "um_lib")
 load("//private:utils.bzl", "convert_msvc_arch_to_bazel_arch", "convert_msvc_arch_to_clang_target", "msvc_version_to_cl_internal_version")
+
+def _normalize_lib_name(lib_name):
+    """Returns lowercase name without .lib extension."""
+    name = lib_name.lower()
+    if name.endswith(".lib"):
+        return name[:-4]
+    return name
+
+def _add_lib_variant(lib_map, lib_name, config_name, label):
+    variants = lib_map.get(lib_name)
+    if variants == None:
+        variants = {}
+        lib_map[lib_name] = variants
+
+    existing = variants.get(config_name)
+    if existing != None and existing != label:
+        fail("Library '{}' has conflicting variants for '{}': '{}' and '{}'".format(lib_name, config_name, existing, label))
+
+    variants[config_name] = label
 
 def _msvc_toolchains_repo_impl(ctx):
     # This repo will just contain the BUILD file defining the toolchains.
@@ -83,8 +103,7 @@ def _msvc_toolchains_repo_impl(ctx):
     name = "link",
     src = "@{llvm_repo}//:lld-link_host{host}_target{target}",
     data = [
-        "@{llvm_repo}//:clang_all_binaries_host{host}_target{target}",
-        "@{msvc_repo}//:msvc_all_libs_{target}",
+        "@{llvm_repo}//:lld_link_exe_only_host{host}_target{target}",
     ],
 )""".format(llvm_repo = lld_link_llvm_repo, msvc_repo = msvc_repo, host = host, target = target)
                         base_link_flags = """base_link_flags = [
@@ -97,13 +116,11 @@ def _msvc_toolchains_repo_impl(ctx):
 ]"""
 
                     else:
-                        lld_link_llvm_repo = None
                         link_cc_tool = """cc_tool(
     name = "link",
     src = "@{msvc_repo}//:link_host{host}_target{target}",
     data = [
         "@{msvc_repo}//:msvc_all_binaries_host{host}_target{target}",
-        "@{msvc_repo}//:msvc_all_libs_{target}",
     ],
 )""".format(msvc_repo = msvc_repo, host = host, target = target)
                         base_link_flags = """base_link_flags = [
@@ -369,6 +386,127 @@ toolchain(
     """.format(clang_version = clang_version, msvc_version = msvc_version, winsdk_version = winsdk_version, host = host, target = target, target_arch = target_arch, host_arch = host_arch)
 
     ctx.file("BUILD.bazel", root_build_file_content)
+
+    # Generate lib/BUILD.bazel with cc_import targets
+    lib_build_file_content = """load("@rules_cc//cc:defs.bzl", "cc_import")
+
+package(default_visibility = ["//visibility:public"])
+
+"""
+
+    # 1. Define config_settings for WinSDK and MSVC library selection.
+    for winsdk_version in winsdk_versions:
+        for target in targets:
+            target_arch = convert_msvc_arch_to_bazel_arch(target)
+            lib_build_file_content += """
+config_setting(
+    name = "winsdk{winsdk_version}_{target}",
+    flag_values = {{
+        "//winsdk:winsdk": "{winsdk_version}",
+    }},
+    constraint_values = ["@platforms//cpu:{target_arch}"],
+)
+""".format(
+                winsdk_version = winsdk_version,
+                target = target,
+                target_arch = target_arch,
+            )
+
+    for msvc_version in msvc_versions:
+        for target in targets:
+            target_arch = convert_msvc_arch_to_bazel_arch(target)
+            lib_build_file_content += """
+config_setting(
+    name = "msvc{msvc_version}_{target}",
+    flag_values = {{
+        "//msvc:msvc": "{msvc_version}",
+    }},
+    constraint_values = ["@platforms//cpu:{target_arch}"],
+)
+""".format(
+                msvc_version = msvc_version,
+                target = target,
+                target_arch = target_arch,
+            )
+
+    msvc_libs = {}
+    winsdk_libs = {}
+
+    # 2. Build lib maps from predefined lists in libs.bzl.
+    for winsdk_version in winsdk_versions:
+        for target in targets:
+            config_name = ":winsdk{winsdk_version}_{target}".format(
+                winsdk_version = winsdk_version,
+                target = target,
+            )
+
+            for lib_name in ucrt_lib:
+                lib_path = "Lib/10.0.{winsdk_version}.0/ucrt/{target}/{lib_name}".format(
+                    winsdk_version = winsdk_version,
+                    target = target,
+                    lib_name = lib_name.lower(),
+                )
+                _add_lib_variant(
+                    winsdk_libs,
+                    _normalize_lib_name(lib_name),
+                    config_name,
+                    "@winsdk_{}//:{}".format(winsdk_version, lib_path),
+                )
+
+            for lib_name in um_lib:
+                lib_path = "Lib/10.0.{winsdk_version}.0/um/{target}/{lib_name}".format(
+                    winsdk_version = winsdk_version,
+                    target = target,
+                    lib_name = lib_name.lower(),
+                )
+                _add_lib_variant(
+                    winsdk_libs,
+                    _normalize_lib_name(lib_name),
+                    config_name,
+                    "@winsdk_{}//:{}".format(winsdk_version, lib_path),
+                )
+
+    for msvc_version in msvc_versions:
+        for target in targets:
+            config_name = ":msvc{msvc_version}_{target}".format(
+                msvc_version = msvc_version,
+                target = target,
+            )
+
+            for lib_name in msvc_lib:
+                lib_path = "Tools/lib/{target}/{lib_name}".format(
+                    target = target,
+                    lib_name = lib_name.lower(),
+                )
+                _add_lib_variant(
+                    msvc_libs,
+                    _normalize_lib_name(lib_name),
+                    config_name,
+                    "@msvc_{}//:{}".format(msvc_version, lib_path),
+                )
+
+    # 3. Emit cc_import targets for all discovered libraries.
+    all_lib_names = {}
+    for lib_name in winsdk_libs.keys():
+        all_lib_names[lib_name] = "winsdk"
+    for lib_name in msvc_libs.keys():
+        existing_origin = all_lib_names.get(lib_name)
+        if existing_origin != None and existing_origin != "msvc":
+            fail("Library '{}' exists in both WinSDK and MSVC repos; disambiguated target names are required".format(lib_name))
+        all_lib_names[lib_name] = "msvc"
+
+    for lib_name in sorted(all_lib_names.keys()):
+        if lib_name in winsdk_libs:
+            variants = winsdk_libs[lib_name]
+        else:
+            variants = msvc_libs[lib_name]
+
+        lib_build_file_content += "\ncc_import(\n    name = \"{}\",\n    interface_library = select({{\n".format(lib_name)
+        for config_name in sorted(variants.keys()):
+            lib_build_file_content += "        \"{}\": \"{}\",\n".format(config_name, variants[config_name])
+        lib_build_file_content += "    }),\n    system_provided = True,\n)\n"
+
+    ctx.file("lib/BUILD.bazel", lib_build_file_content)
 
 msvc_toolchains_repo = repository_rule(
     implementation = _msvc_toolchains_repo_impl,
