@@ -1,1 +1,4 @@
-exports_files(["vs_channel_manifest.bzl"])
+exports_files([
+    "flags.bzl",
+    "vs_channel_manifest.bzl",
+])

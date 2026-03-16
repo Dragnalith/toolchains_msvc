@@ -1,5 +1,19 @@
 load("@rules_cc//cc/toolchains:args.bzl", "cc_args")
 load("@rules_cc//cc/toolchains:nested_args.bzl", "cc_nested_args")
+load(":flags.bzl",
+    "default_c_compile_flags",
+    "default_cxx_compile_flags",
+    "default_link_flags",
+    "dbg_c_compile_flags",
+    "dbg_cxx_compile_flags",
+    "dbg_link_flags",
+    "fastbuild_c_compile_flags",
+    "fastbuild_cxx_compile_flags",
+    "fastbuild_link_flags",
+    "opt_c_compile_flags",
+    "opt_cxx_compile_flags",
+    "opt_link_flags",
+)
 
 package(default_visibility = ["//visibility:public"])
 
@@ -225,13 +239,13 @@ cc_args(
 cc_args(
     name = "default_cxx_compile_flags",
     actions = ["@rules_cc//cc/toolchains/actions:cpp_compile_actions"],
-    args = [],
+    args = default_cxx_compile_flags,
 )
 
 cc_args(
     name = "default_c_compile_flags",
     actions = ["@rules_cc//cc/toolchains/actions:c_compile"],
-    args = [],
+    args = default_c_compile_flags,
 )
 
 cc_args(
@@ -243,7 +257,7 @@ cc_args(
 cc_args(
     name = "default_link_flags",
     actions = ["@rules_cc//cc/toolchains/actions:link_actions"],
-    args = [],
+    args = default_link_flags,
 )
 
 cc_args(
@@ -349,48 +363,57 @@ cc_args(
 # === Configuration (Mode-Driven) ===
 
 cc_args(
-    name = "dbg_compile_flags",
-    actions = [
-        "@rules_cc//cc/toolchains/actions:c_compile",
-        "@rules_cc//cc/toolchains/actions:cpp_compile_actions",
-    ],
-    args = [],
+    name = "dbg_c_compile_flags",
+    actions = ["@rules_cc//cc/toolchains/actions:c_compile"],
+    args = dbg_c_compile_flags,
 )
 
 cc_args(
-    name = "fastbuild_compile_flags",
-    actions = [
-        "@rules_cc//cc/toolchains/actions:c_compile",
-        "@rules_cc//cc/toolchains/actions:cpp_compile_actions",
-    ],
-    args = [],
+    name = "dbg_cxx_compile_flags",
+    actions = ["@rules_cc//cc/toolchains/actions:cpp_compile_actions"],
+    args = dbg_cxx_compile_flags,
 )
 
 cc_args(
-    name = "opt_compile_flags",
-    actions = [
-        "@rules_cc//cc/toolchains/actions:c_compile",
-        "@rules_cc//cc/toolchains/actions:cpp_compile_actions",
-    ],
-    args = [],
+    name = "fastbuild_c_compile_flags",
+    actions = ["@rules_cc//cc/toolchains/actions:c_compile"],
+    args = fastbuild_c_compile_flags,
+)
+
+cc_args(
+    name = "fastbuild_cxx_compile_flags",
+    actions = ["@rules_cc//cc/toolchains/actions:cpp_compile_actions"],
+    args = fastbuild_cxx_compile_flags,
+)
+
+cc_args(
+    name = "opt_c_compile_flags",
+    actions = ["@rules_cc//cc/toolchains/actions:c_compile"],
+    args = opt_c_compile_flags,
+)
+
+cc_args(
+    name = "opt_cxx_compile_flags",
+    actions = ["@rules_cc//cc/toolchains/actions:cpp_compile_actions"],
+    args = opt_cxx_compile_flags,
 )
 
 cc_args(
     name = "dbg_link_flags",
     actions = ["@rules_cc//cc/toolchains/actions:link_actions"],
-    args = [],
+    args = dbg_link_flags,
 )
 
 cc_args(
     name = "fastbuild_link_flags",
     actions = ["@rules_cc//cc/toolchains/actions:link_actions"],
-    args = [],
+    args = fastbuild_link_flags,
 )
 
 cc_args(
     name = "opt_link_flags",
     actions = ["@rules_cc//cc/toolchains/actions:link_actions"],
-    args = [],
+    args = opt_link_flags,
 )
 
 # === Semantic Option Features ===

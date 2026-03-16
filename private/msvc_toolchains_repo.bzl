@@ -22,6 +22,16 @@ def _add_lib_variant(lib_map, lib_name, config_name, label):
 
     variants[config_name] = label
 
+def _append_list_line(content, var_name, values, item_prefix = ""):
+    """Appends 'var_name = [item_prefix"v1", item_prefix"v2", ...]' for generated .bzl files."""
+    if not values:
+        s = "[]"
+    else:
+        # Escape so generated Starlark is valid if a value contains backslash or quote
+        escaped = ["\"" + item_prefix + str(x).replace("\\", "\\\\").replace("\"", "\\\"") + "\"" for x in values]
+        s = "[" + ", ".join(escaped) + "]"
+    return content + var_name + " = " + s + "\n"
+
 def _msvc_toolchains_repo_impl(ctx):
     # This repo will just contain the BUILD file defining the toolchains.
     # It assumes the compiler repo is available as external repo.
@@ -30,16 +40,16 @@ def _msvc_toolchains_repo_impl(ctx):
     ctx.template("common.bzl", ctx.attr.src_common, {})
 
     msvc_versions = ctx.attr.msvc_versions
-    msvc_lld_link_version = ctx.attr.msvc_lld_link_version
-    clang_versions = ctx.attr.clang_versions
+    cl_with_lld_version = ctx.attr.cl_with_lld_version
+    llvm_versions = ctx.attr.llvm_versions
     winsdk_versions = ctx.attr.winsdk_versions
     targets = ctx.attr.targets
     hosts = ctx.attr.hosts
 
     # Defaults are now resolved in the module extension
-    default_msvc_value = ctx.attr.default_msvc
-    default_winsdk_value = ctx.attr.default_windows_sdk
-    default_llvm_value = ctx.attr.default_clang if ctx.attr.default_clang else "unknown"
+    default_msvc_value = ctx.attr.default_msvc_version
+    default_winsdk_value = ctx.attr.default_windows_sdk_version
+    default_llvm_value = ctx.attr.default_clang_version if ctx.attr.default_clang_version else "unknown"
     default_compiler_value = ctx.attr.default_compiler
 
     # Install shared features
@@ -58,6 +68,47 @@ def _msvc_toolchains_repo_impl(ctx):
             "{COMPILER_KIND}": "clang",
         },
     )
+
+    # Install resolved flags (computed in the module extension) into args packages
+    msvc_flags_content = ""
+    msvc_flags_content = _append_list_line(msvc_flags_content, "default_c_compile_flags", ctx.attr.msvc_default_c_compile_flags)
+    msvc_flags_content = _append_list_line(msvc_flags_content, "default_cxx_compile_flags", ctx.attr.msvc_default_cxx_compile_flags)
+    msvc_flags_content = _append_list_line(msvc_flags_content, "default_link_flags", ctx.attr.msvc_default_link_flags)
+    msvc_flags_content = _append_list_line(msvc_flags_content, "dbg_c_compile_flags", ctx.attr.msvc_dbg_c_compile_flags)
+    msvc_flags_content = _append_list_line(msvc_flags_content, "dbg_cxx_compile_flags", ctx.attr.msvc_dbg_cxx_compile_flags)
+    msvc_flags_content = _append_list_line(msvc_flags_content, "dbg_link_flags", ctx.attr.msvc_dbg_link_flags)
+    msvc_flags_content = _append_list_line(msvc_flags_content, "fastbuild_c_compile_flags", ctx.attr.msvc_fastbuild_c_compile_flags)
+    msvc_flags_content = _append_list_line(msvc_flags_content, "fastbuild_cxx_compile_flags", ctx.attr.msvc_fastbuild_cxx_compile_flags)
+    msvc_flags_content = _append_list_line(msvc_flags_content, "fastbuild_link_flags", ctx.attr.msvc_fastbuild_link_flags)
+    msvc_flags_content = _append_list_line(msvc_flags_content, "opt_c_compile_flags", ctx.attr.msvc_opt_c_compile_flags)
+    msvc_flags_content = _append_list_line(msvc_flags_content, "opt_cxx_compile_flags", ctx.attr.msvc_opt_cxx_compile_flags)
+    msvc_flags_content = _append_list_line(msvc_flags_content, "opt_link_flags", ctx.attr.msvc_opt_link_flags)
+    ctx.file("args/msvc/flags.bzl", msvc_flags_content)
+
+    clang_flags_content = ""
+    clang_flags_content = _append_list_line(clang_flags_content, "default_c_compile_flags", ctx.attr.clang_default_c_compile_flags)
+    clang_flags_content = _append_list_line(clang_flags_content, "default_cxx_compile_flags", ctx.attr.clang_default_cxx_compile_flags)
+    clang_flags_content = _append_list_line(clang_flags_content, "default_link_flags", ctx.attr.clang_default_link_flags)
+    clang_flags_content = _append_list_line(clang_flags_content, "dbg_c_compile_flags", ctx.attr.clang_dbg_c_compile_flags)
+    clang_flags_content = _append_list_line(clang_flags_content, "dbg_cxx_compile_flags", ctx.attr.clang_dbg_cxx_compile_flags)
+    clang_flags_content = _append_list_line(clang_flags_content, "dbg_link_flags", ctx.attr.clang_dbg_link_flags)
+    clang_flags_content = _append_list_line(clang_flags_content, "fastbuild_c_compile_flags", ctx.attr.clang_fastbuild_c_compile_flags)
+    clang_flags_content = _append_list_line(clang_flags_content, "fastbuild_cxx_compile_flags", ctx.attr.clang_fastbuild_cxx_compile_flags)
+    clang_flags_content = _append_list_line(clang_flags_content, "fastbuild_link_flags", ctx.attr.clang_fastbuild_link_flags)
+    clang_flags_content = _append_list_line(clang_flags_content, "opt_c_compile_flags", ctx.attr.clang_opt_c_compile_flags)
+    clang_flags_content = _append_list_line(clang_flags_content, "opt_cxx_compile_flags", ctx.attr.clang_opt_cxx_compile_flags)
+    clang_flags_content = _append_list_line(clang_flags_content, "opt_link_flags", ctx.attr.clang_opt_link_flags)
+    ctx.file("args/clang/flags.bzl", clang_flags_content)
+
+    # Install features/features.bzl (default and mode-specific implies for dbg/fastbuild/opt)
+    features_content = ""
+    features_content = _append_list_line(features_content, "default_implied_features", ctx.attr.default_features, item_prefix = ":")
+    features_content = _append_list_line(features_content, "dbg_implied_features", ctx.attr.dbg_implies_features, item_prefix = ":")
+    features_content = _append_list_line(features_content, "fastbuild_implied_features", ctx.attr.fastbuild_implies_features, item_prefix = ":")
+    features_content = _append_list_line(features_content, "opt_implied_features", ctx.attr.opt_implies_features, item_prefix = ":")
+    ctx.file("features/features.bzl", features_content)
+    ctx.file("features/BUILD.bazel", """package(default_visibility = ["//visibility:public"])
+""")
 
     # Install shared args
     ctx.template(
@@ -95,10 +146,10 @@ def _msvc_toolchains_repo_impl(ctx):
                     )
 
                     msvc_repo = "msvc_{}".format(msvc_version)
-                    if msvc_lld_link_version:
-                        if msvc_lld_link_version not in clang_versions:
-                            fail("msvc_lld_link_version must be in clang_versions")
-                        lld_link_llvm_repo = "llvm_{}_{}".format(clang_versions[0], host)
+                    if cl_with_lld_version:
+                        if cl_with_lld_version not in llvm_versions:
+                            fail("cl_with_lld_version must be in llvm_versions")
+                        lld_link_llvm_repo = "llvm_{}_{}".format(llvm_versions[0], host)
                         link_cc_tool = """cc_tool(
     name = "link",
     src = "@{llvm_repo}//:lld-link_host{host}_target{target}",
@@ -150,14 +201,14 @@ def _msvc_toolchains_repo_impl(ctx):
                         },
                     )
 
-                    for clang_version in clang_versions:
+                    for llvm_version in llvm_versions:
                         if host == "x86":
                             continue  # LLVM does not provide x86 Windows binaries
                         clang_target = convert_msvc_arch_to_clang_target(target)
                         compatibility_version = msvc_version_to_cl_internal_version(msvc_version)
 
                         clang_toolchain_name = "clang{clang_version}_msvc{msvc_version}_winsdk{winsdk_version}_host{host}_target{target}".format(
-                            clang_version = clang_version,
+                            clang_version = llvm_version,
                             msvc_version = msvc_version,
                             winsdk_version = winsdk_version,
                             host = host,
@@ -171,10 +222,10 @@ def _msvc_toolchains_repo_impl(ctx):
                             substitutions = {
                                 "{toolchain_name}": clang_toolchain_name,
                                 "{compiler}": "clang",
-                                "{llvm_repo}": "llvm_{}_{}".format(clang_version, host),
+                                "{llvm_repo}": "llvm_{}_{}".format(llvm_version, host),
                                 "{msvc_repo}": "msvc_{}".format(msvc_version),
                                 "{winsdk_repo}": "winsdk_{}".format(winsdk_version),
-                                "{clang_version}": clang_version,
+                                "{clang_version}": llvm_version,
                                 "{msvc_version}": msvc_version,
                                 "{winsdk_version}": winsdk_version,
                                 "{clang_target}": clang_target,
@@ -185,7 +236,7 @@ def _msvc_toolchains_repo_impl(ctx):
                         )
 
                         clang_cl_toolchain_name = "clang-cl{clang_version}_msvc{msvc_version}_winsdk{winsdk_version}_host{host}_target{target}".format(
-                            clang_version = clang_version,
+                            clang_version = llvm_version,
                             msvc_version = msvc_version,
                             winsdk_version = winsdk_version,
                             host = host,
@@ -199,7 +250,7 @@ def _msvc_toolchains_repo_impl(ctx):
                             substitutions = {
                                 "{toolchain_name}": clang_cl_toolchain_name,
                                 "{compiler}": "clang-cl",
-                                "{llvm_repo}": "llvm_{}_{}".format(clang_version, host),
+                                "{llvm_repo}": "llvm_{}_{}".format(llvm_version, host),
                                 "{msvc_repo}": "msvc_{}".format(msvc_version),
                                 "{winsdk_repo}": "winsdk_{}".format(winsdk_version),
                                 "{clang_target}": clang_target,
@@ -275,13 +326,13 @@ string_enum_flag(
 {config_settings}
 """.format(
         default_llvm = default_llvm_value,
-        allowed_llvm = clang_versions,
+        allowed_llvm = llvm_versions,
         config_settings = "\n".join([
             """config_setting(
     name = "{v}",
     flag_values = {{":llvm": "{v}"}},
 )""".format(v = v)
-            for v in clang_versions
+            for v in llvm_versions
         ]),
     ))
 
@@ -339,7 +390,7 @@ toolchain(
 
     """.format(msvc_version = msvc_version, winsdk_version = winsdk_version, host = host, target = target, target_arch = target_arch, host_arch = host_arch)
 
-                    for clang_version in clang_versions:
+                    for llvm_version in llvm_versions:
                         if host == "x86":
                             continue  # LLVM does not provide x86 Windows binaries
                         root_build_file_content += """
@@ -383,7 +434,7 @@ toolchain(
     toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
 )
 
-    """.format(clang_version = clang_version, msvc_version = msvc_version, winsdk_version = winsdk_version, host = host, target = target, target_arch = target_arch, host_arch = host_arch)
+    """.format(clang_version = llvm_version, msvc_version = msvc_version, winsdk_version = winsdk_version, host = host, target = target, target_arch = target_arch, host_arch = host_arch)
 
     ctx.file("BUILD.bazel", root_build_file_content)
 
@@ -512,15 +563,45 @@ msvc_toolchains_repo = repository_rule(
     implementation = _msvc_toolchains_repo_impl,
     attrs = {
         "msvc_versions": attr.string_list(mandatory = True),
-        "msvc_lld_link_version": attr.string(mandatory = False),
-        "clang_versions": attr.string_list(mandatory = True),
+        "cl_with_lld_version": attr.string(mandatory = False),
+        "llvm_versions": attr.string_list(mandatory = True),
         "winsdk_versions": attr.string_list(mandatory = True),
         "targets": attr.string_list(mandatory = True),
         "hosts": attr.string_list(mandatory = True),
-        "default_msvc": attr.string(mandatory = True),
-        "default_clang": attr.string(mandatory = False),
-        "default_windows_sdk": attr.string(mandatory = True),
+        "default_msvc_version": attr.string(mandatory = True),
+        "default_clang_version": attr.string(mandatory = False),
+        "default_windows_sdk_version": attr.string(mandatory = True),
         "default_compiler": attr.string(mandatory = True),
+        # Resolved flags (merged in the module extension)
+        "msvc_default_c_compile_flags": attr.string_list(default = []),
+        "msvc_default_cxx_compile_flags": attr.string_list(default = []),
+        "msvc_default_link_flags": attr.string_list(default = []),
+        "msvc_dbg_c_compile_flags": attr.string_list(default = []),
+        "msvc_dbg_cxx_compile_flags": attr.string_list(default = []),
+        "msvc_dbg_link_flags": attr.string_list(default = []),
+        "msvc_fastbuild_c_compile_flags": attr.string_list(default = []),
+        "msvc_fastbuild_cxx_compile_flags": attr.string_list(default = []),
+        "msvc_fastbuild_link_flags": attr.string_list(default = []),
+        "msvc_opt_c_compile_flags": attr.string_list(default = []),
+        "msvc_opt_cxx_compile_flags": attr.string_list(default = []),
+        "msvc_opt_link_flags": attr.string_list(default = []),
+        "clang_default_c_compile_flags": attr.string_list(default = []),
+        "clang_default_cxx_compile_flags": attr.string_list(default = []),
+        "clang_default_link_flags": attr.string_list(default = []),
+        "clang_dbg_c_compile_flags": attr.string_list(default = []),
+        "clang_dbg_cxx_compile_flags": attr.string_list(default = []),
+        "clang_dbg_link_flags": attr.string_list(default = []),
+        "clang_fastbuild_c_compile_flags": attr.string_list(default = []),
+        "clang_fastbuild_cxx_compile_flags": attr.string_list(default = []),
+        "clang_fastbuild_link_flags": attr.string_list(default = []),
+        "clang_opt_c_compile_flags": attr.string_list(default = []),
+        "clang_opt_cxx_compile_flags": attr.string_list(default = []),
+        "clang_opt_link_flags": attr.string_list(default = []),
+        # Feature implies (from add_group features / dbg_features / fastbuild_features / opt_features)
+        "default_features": attr.string_list(default = []),
+        "dbg_implies_features": attr.string_list(default = []),
+        "fastbuild_implies_features": attr.string_list(default = []),
+        "opt_implies_features": attr.string_list(default = []),
         "src_features": attr.label(default = Label("//overlays/toolchain:BUILD.features.tpl"), allow_single_file = True),
         "src_artifacts": attr.label(default = Label("//overlays/toolchain:BUILD.artifacts.bazel"), allow_single_file = True),
         "src_args_msvc": attr.label(default = Label("//overlays/toolchain:BUILD.args-msvc.tpl"), allow_single_file = True),

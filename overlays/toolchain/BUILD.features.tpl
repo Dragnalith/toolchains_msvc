@@ -2,6 +2,12 @@ load("@rules_cc//cc/toolchains:feature.bzl", "cc_feature")
 load("@rules_cc//cc/toolchains:feature_constraint.bzl", "cc_feature_constraint")
 load("@rules_cc//cc/toolchains:feature_set.bzl", "cc_feature_set")
 load("@rules_cc//cc/toolchains:mutually_exclusive_category.bzl", "cc_mutually_exclusive_category")
+load("//features:features.bzl",
+    "default_implied_features",
+    "dbg_implied_features",
+    "fastbuild_implied_features",
+    "opt_implied_features",
+)
 
 package(default_visibility = ["//visibility:public"])
 
@@ -46,6 +52,7 @@ cc_feature_set(
         ":user_link_flags",
 
         # Configuration (Mode-Driven)
+        ":default",
         ":dbg",
         ":fastbuild",
         ":opt",
@@ -101,6 +108,9 @@ cc_feature_set(
         ":user_compile_defines",
         ":includes",
         ":user_link_flags",
+
+        # Default implied features (from add_group "features")
+        ":default",
     ],
 )
 
@@ -264,6 +274,13 @@ cc_feature(
 
 # Configuration (Mode-Driven)
 
+## Default features to be implied (from add_group "features")
+cc_feature(
+    name = "default",
+    feature_name = "default",
+    implies = default_implied_features,
+)
+
 ## Umbrella Mode Features
 cc_mutually_exclusive_category(name = "compilation_mode")
 
@@ -271,8 +288,10 @@ cc_feature(
     name = "dbg",
     mutually_exclusive = [":compilation_mode"],
     overrides = "@rules_cc//cc/toolchains/features:dbg",
+    implies = dbg_implied_features,
     args = [
-        "//args/{COMPILER_KIND}:dbg_compile_flags",
+        "//args/{COMPILER_KIND}:dbg_c_compile_flags",
+        "//args/{COMPILER_KIND}:dbg_cxx_compile_flags",
         "//args/{COMPILER_KIND}:dbg_link_flags",
     ],
 )
@@ -281,8 +300,10 @@ cc_feature(
     name = "fastbuild",
     mutually_exclusive = [":compilation_mode"],
     overrides = "@rules_cc//cc/toolchains/features:fastbuild",
+    implies = fastbuild_implied_features,
     args = [
-        "//args/{COMPILER_KIND}:fastbuild_compile_flags",
+        "//args/{COMPILER_KIND}:fastbuild_c_compile_flags",
+        "//args/{COMPILER_KIND}:fastbuild_cxx_compile_flags",
         "//args/{COMPILER_KIND}:fastbuild_link_flags",
     ],
 )
@@ -291,8 +312,10 @@ cc_feature(
     name = "opt",
     mutually_exclusive = [":compilation_mode"],
     overrides = "@rules_cc//cc/toolchains/features:opt",
+    implies = opt_implied_features,
     args = [
-        "//args/{COMPILER_KIND}:opt_compile_flags",
+        "//args/{COMPILER_KIND}:opt_c_compile_flags",
+        "//args/{COMPILER_KIND}:opt_cxx_compile_flags",
         "//args/{COMPILER_KIND}:opt_link_flags",
     ],
 )

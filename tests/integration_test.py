@@ -486,7 +486,6 @@ def run_reproducible_test(
         bazel_args = bazel_args_base + [
             f"--host_platform=//:windows_{host}",
             f"--platforms=//:windows_{target}",
-            "--features=generate_debug_symbols",
         ] + toolchain_flags
         cmd_line = " ".join(["bazel", "build", "//hello_world"] + bazel_args)
         print(f"[{current}/{total}] REPRODUCIBLE_TEST: {cmd_line}")
