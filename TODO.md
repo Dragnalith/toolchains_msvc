@@ -25,7 +25,7 @@
 - [X] Configuration: feature to add system libraries
 - [X] Configuration: module extension API allows overriding default, dbg, fastbuild, and opt flags for compile and link actions
 - [X] Configuration: module extension API allows specifying features to be enabled by dbg, fastbuild, and opt
-- [ ] Multiple toolchain group
+- [X] Multiple toolchain set
 - [ ] Lock File: Repo is reproducible
 - [ ] Lock File: Separate toolchains installation into two phase: preparation of a "lock" file, then consuming the lock file for installation.
 - [ ] Lock File: Support lock file using the 'Update pattern'

@@ -13,16 +13,16 @@ local_path_override(
 
 toolchain = use_extension("@toolchains_msvc//:extensions.bzl", "toolchain")
 toolchain.repo_name(name = "msvc_toolchains")
-toolchain.add_group(
+toolchain.toolchain_set(
     name = "default",
     targets = ["x86", "x64", "arm64"],
     hosts = ["x86", "x64", "arm64"],
-    msvc_version = ["14.50", "14.44", "14.40", "14.33"],
+    msvc_versions = ["14.50", "14.44", "14.40", "14.33"],
     default_msvc_version = "14.44",
     cl_with_lld_version = "22.1.0",
-    llvm_version = ["22.1.0", "20.1.0"],
+    llvm_versions = ["22.1.0", "20.1.0"],
     default_llvm_version = "22.1.0",
-    winsdk_version = ["26100", "22621", "19041"],
+    winsdk_versions = ["26100", "22621", "19041"],
     default_winsdk_version = "26100",
 
     features = ["generate_debug_symbols"],

@@ -15,9 +15,10 @@ toolchain = use_extension("@toolchains_msvc//:extensions.bzl", "toolchain")
 
 # using BAZEL_TOOLCHAINS_MSVC_HOSTS and BAZEL_TOOLCHAINS_MSVC_TARGETS envvars
 # hosts and targets are not specified here. They will be specified
-toolchain.add_group(
-    msvc_version = ["14.44"],
-    winsdk_version = ["26100"],
+toolchain.toolchain_set(
+    name = "default",
+    msvc_versions = ["14.44"],
+    winsdk_versions = ["26100"],
 )
 use_repo(toolchain, "msvc_toolchains")
 

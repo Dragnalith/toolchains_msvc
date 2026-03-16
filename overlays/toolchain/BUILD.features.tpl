@@ -2,7 +2,7 @@ load("@rules_cc//cc/toolchains:feature.bzl", "cc_feature")
 load("@rules_cc//cc/toolchains:feature_constraint.bzl", "cc_feature_constraint")
 load("@rules_cc//cc/toolchains:feature_set.bzl", "cc_feature_set")
 load("@rules_cc//cc/toolchains:mutually_exclusive_category.bzl", "cc_mutually_exclusive_category")
-load("//features:features.bzl",
+load("{features_package}:features.bzl",
     "default_implied_features",
     "dbg_implied_features",
     "fastbuild_implied_features",
@@ -122,61 +122,61 @@ cc_feature(
 
 cc_feature(
     name = "linker_param_file",
-    args = ["//args/{COMPILER_KIND}:param_file_args"],
+    args = ["{args_package}/{COMPILER_KIND}:param_file_args"],
     overrides = "@rules_cc//cc/toolchains/features/legacy:linker_param_file",
 )
 
 cc_feature(
     name = "archive_param_file",
-    args = ["//args/{COMPILER_KIND}:param_file_args"],
+    args = ["{args_package}/{COMPILER_KIND}:param_file_args"],
     feature_name = "archive_param_file",
 )
 
 cc_feature(
     name = "compiler_input_flags",
-    args = ["//args/{COMPILER_KIND}:compiler_input_flags"],
+    args = ["{args_package}/{COMPILER_KIND}:compiler_input_flags"],
     overrides = "@rules_cc//cc/toolchains/features/legacy:compiler_input_flags",
 )
 
 cc_feature(
     name = "compiler_output_flags",
-    args = ["//args/{COMPILER_KIND}:compiler_output_flags"],
+    args = ["{args_package}/{COMPILER_KIND}:compiler_output_flags"],
     overrides = "@rules_cc//cc/toolchains/features/legacy:compiler_output_flags",
 )
 
 cc_feature(
     name = "linker_input",
-    args = ["//args/{COMPILER_KIND}:linker_input"],
+    args = ["{args_package}/{COMPILER_KIND}:linker_input"],
     feature_name = "linker_input",
 )
 
 cc_feature(
     name = "output_execpath_flags",
-    args = ["//args/{COMPILER_KIND}:output_execpath_flags"],
+    args = ["{args_package}/{COMPILER_KIND}:output_execpath_flags"],
     overrides = "@rules_cc//cc/toolchains/features/legacy:output_execpath_flags",
 )
 
 cc_feature(
     name = "archiver_input",
-    args = ["//args/{COMPILER_KIND}:archiver_input"],
+    args = ["{args_package}/{COMPILER_KIND}:archiver_input"],
     feature_name = "archiver_input",
 )
 
 cc_feature(
     name = "archiver_output",
-    args = ["//args/{COMPILER_KIND}:archiver_output"],
+    args = ["{args_package}/{COMPILER_KIND}:archiver_output"],
     feature_name = "archiver_output",
 )
 
 cc_feature(
     name = "strip_input",
-    args = ["//args/{COMPILER_KIND}:strip_input"],
+    args = ["{args_package}/{COMPILER_KIND}:strip_input"],
     feature_name = "strip_input",
 )
 
 cc_feature(
     name = "strip_output",
-    args = ["//args/{COMPILER_KIND}:strip_output"],
+    args = ["{args_package}/{COMPILER_KIND}:strip_output"],
     feature_name = "strip_output",
 )
 
@@ -189,7 +189,7 @@ cc_feature(
 
 cc_feature(
     name = "interface_library_output_flags",
-    args = ["//args/{COMPILER_KIND}:interface_library_output_flags"],
+    args = ["{args_package}/{COMPILER_KIND}:interface_library_output_flags"],
     feature_name = "interface_library_output_flags",
 )
 
@@ -200,7 +200,7 @@ cc_feature(
 
 cc_feature(
     name = "shared_flag",
-    args = ["//args/{COMPILER_KIND}:shared_flag"],
+    args = ["{args_package}/{COMPILER_KIND}:shared_flag"],
     overrides = "@rules_cc//cc/toolchains/features/legacy:shared_flag",
 )
 
@@ -217,7 +217,7 @@ cc_feature(
 # Header Dependency Discovery
 cc_feature(
     name = "parse_showincludes",
-    args = ["//args/{COMPILER_KIND}:parse_showincludes"],
+    args = ["{args_package}/{COMPILER_KIND}:parse_showincludes"],
     feature_name = "parse_showincludes",
 )
 
@@ -228,7 +228,7 @@ cc_feature(
 
 cc_feature(
     name = "dependency_file",
-    args = ["//args/{COMPILER_KIND}:dependency_file"],
+    args = ["{args_package}/{COMPILER_KIND}:dependency_file"],
     overrides = "@rules_cc//cc/toolchains/features/legacy:dependency_file",
 )
 
@@ -237,12 +237,12 @@ cc_feature(
 cc_feature(
     name = "default_flags",
     args = [
-        "//args/{COMPILER_KIND}:default_cxx_compile_flags",
-        "//args/{COMPILER_KIND}:default_c_compile_flags",
-        "//args/{COMPILER_KIND}:default_assemble_flags",
-        "//args/{COMPILER_KIND}:default_link_flags",
-        "//args/{COMPILER_KIND}:default_archive_flags",
-        "//args/{COMPILER_KIND}:default_strip_flags",
+        "{args_package}/{COMPILER_KIND}:default_cxx_compile_flags",
+        "{args_package}/{COMPILER_KIND}:default_c_compile_flags",
+        "{args_package}/{COMPILER_KIND}:default_assemble_flags",
+        "{args_package}/{COMPILER_KIND}:default_link_flags",
+        "{args_package}/{COMPILER_KIND}:default_archive_flags",
+        "{args_package}/{COMPILER_KIND}:default_strip_flags",
     ],
     feature_name = "default_flags",
 )
@@ -250,31 +250,31 @@ cc_feature(
 # Rule-Level Passthrough
 cc_feature(
     name = "user_compile_flags",
-    args = ["//args/{COMPILER_KIND}:user_compile_flags"],
+    args = ["{args_package}/{COMPILER_KIND}:user_compile_flags"],
     overrides = "@rules_cc//cc/toolchains/features/legacy:user_compile_flags",
 )
 
 cc_feature(
     name = "user_compile_defines",
-    args = ["//args/{COMPILER_KIND}:user_compile_defines"],
+    args = ["{args_package}/{COMPILER_KIND}:user_compile_defines"],
     feature_name = "user_compile_defines",
 )
 
 cc_feature(
     name = "includes",
-    args = ["//args/{COMPILER_KIND}:includes"],
+    args = ["{args_package}/{COMPILER_KIND}:includes"],
     overrides = "@rules_cc//cc/toolchains/features/legacy:includes",
 )
 
 cc_feature(
     name = "user_link_flags",
-    args = ["//args/{COMPILER_KIND}:user_link_flags"],
+    args = ["{args_package}/{COMPILER_KIND}:user_link_flags"],
     overrides = "@rules_cc//cc/toolchains/features/legacy:user_link_flags",
 )
 
 # Configuration (Mode-Driven)
 
-## Default features to be implied (from add_group "features")
+## Default features to be implied (from toolchain_set "features")
 cc_feature(
     name = "default",
     feature_name = "default",
@@ -290,9 +290,9 @@ cc_feature(
     overrides = "@rules_cc//cc/toolchains/features:dbg",
     implies = dbg_implied_features,
     args = [
-        "//args/{COMPILER_KIND}:dbg_c_compile_flags",
-        "//args/{COMPILER_KIND}:dbg_cxx_compile_flags",
-        "//args/{COMPILER_KIND}:dbg_link_flags",
+        "{args_package}/{COMPILER_KIND}:dbg_c_compile_flags",
+        "{args_package}/{COMPILER_KIND}:dbg_cxx_compile_flags",
+        "{args_package}/{COMPILER_KIND}:dbg_link_flags",
     ],
 )
 
@@ -302,9 +302,9 @@ cc_feature(
     overrides = "@rules_cc//cc/toolchains/features:fastbuild",
     implies = fastbuild_implied_features,
     args = [
-        "//args/{COMPILER_KIND}:fastbuild_c_compile_flags",
-        "//args/{COMPILER_KIND}:fastbuild_cxx_compile_flags",
-        "//args/{COMPILER_KIND}:fastbuild_link_flags",
+        "{args_package}/{COMPILER_KIND}:fastbuild_c_compile_flags",
+        "{args_package}/{COMPILER_KIND}:fastbuild_cxx_compile_flags",
+        "{args_package}/{COMPILER_KIND}:fastbuild_link_flags",
     ],
 )
 
@@ -314,9 +314,9 @@ cc_feature(
     overrides = "@rules_cc//cc/toolchains/features:opt",
     implies = opt_implied_features,
     args = [
-        "//args/{COMPILER_KIND}:opt_c_compile_flags",
-        "//args/{COMPILER_KIND}:opt_cxx_compile_flags",
-        "//args/{COMPILER_KIND}:opt_link_flags",
+        "{args_package}/{COMPILER_KIND}:opt_c_compile_flags",
+        "{args_package}/{COMPILER_KIND}:opt_cxx_compile_flags",
+        "{args_package}/{COMPILER_KIND}:opt_link_flags",
     ],
 )
 
@@ -325,7 +325,7 @@ cc_feature(
 ## Diagnostics
 cc_feature(
     name = "treat_warnings_as_errors",
-    args = ["//args/{COMPILER_KIND}:treat_warnings_as_errors"],
+    args = ["{args_package}/{COMPILER_KIND}:treat_warnings_as_errors"],
     feature_name = "treat_warnings_as_errors",
 )
 
@@ -333,8 +333,8 @@ cc_feature(
 cc_feature(
     name = "generate_debug_symbols",
     args = [
-        "//args/{COMPILER_KIND}:generate_debug_symbols_compile",
-        "//args/{COMPILER_KIND}:generate_debug_symbols_link",
+        "{args_package}/{COMPILER_KIND}:generate_debug_symbols_compile",
+        "{args_package}/{COMPILER_KIND}:generate_debug_symbols_link",
     ],
     feature_name = "generate_debug_symbols",
     implies = [":generate_pdb_file"],
@@ -382,10 +382,10 @@ cc_feature_set(
 cc_feature(
     name = "all_runtime_flags",
     args = [
-        "//args/{COMPILER_KIND}:debug_dynamic_runtime_compile",
-        "//args/{COMPILER_KIND}:debug_static_runtime_compile",
-        "//args/{COMPILER_KIND}:release_dynamic_runtime_compile",
-        "//args/{COMPILER_KIND}:release_static_runtime_compile",
+        "{args_package}/{COMPILER_KIND}:debug_dynamic_runtime_compile",
+        "{args_package}/{COMPILER_KIND}:debug_static_runtime_compile",
+        "{args_package}/{COMPILER_KIND}:release_dynamic_runtime_compile",
+        "{args_package}/{COMPILER_KIND}:release_static_runtime_compile",
     ],
     feature_name = "all_runtime_flags",
 )
@@ -398,8 +398,8 @@ cc_mutually_exclusive_category(
 cc_feature(
     name = "all_subsystem_flags",
     args = [
-        "//args/{COMPILER_KIND}:window_subsystem",
-        "//args/{COMPILER_KIND}:console_subsystem",
+        "{args_package}/{COMPILER_KIND}:window_subsystem",
+        "{args_package}/{COMPILER_KIND}:console_subsystem",
     ],
     feature_name = "all_subsystem_flags",
 )
@@ -427,8 +427,8 @@ cc_mutually_exclusive_category(name = "lto")
 cc_feature(
     name = "thinlto",
     args = [
-        "//args/{COMPILER_KIND}:thin_lto_compile",
-        "//args/{COMPILER_KIND}:thin_lto_link",
+        "{args_package}/{COMPILER_KIND}:thin_lto_compile",
+        "{args_package}/{COMPILER_KIND}:thin_lto_link",
     ],
     feature_name = "thinlto",
     mutually_exclusive = [":lto"],
@@ -437,8 +437,8 @@ cc_feature(
 cc_feature(
     name = "fulllto",
     args = [
-        "//args/{COMPILER_KIND}:full_lto_compile",
-        "//args/{COMPILER_KIND}:full_lto_link",
+        "{args_package}/{COMPILER_KIND}:full_lto_compile",
+        "{args_package}/{COMPILER_KIND}:full_lto_link",
     ],
     feature_name = "fulllto",
     mutually_exclusive = [":lto"],
@@ -449,42 +449,42 @@ cc_mutually_exclusive_category(name = "cxx_standard")
 
 cc_feature(
     name = "cxx_standard_14",
-    args = ["//args/{COMPILER_KIND}:cxx_standard_14"],
+    args = ["{args_package}/{COMPILER_KIND}:cxx_standard_14"],
     feature_name = "cxx_standard_14",
     mutually_exclusive = [":cxx_standard"],
 )
 
 cc_feature(
     name = "cxx_standard_17",
-    args = ["//args/{COMPILER_KIND}:cxx_standard_17"],
+    args = ["{args_package}/{COMPILER_KIND}:cxx_standard_17"],
     feature_name = "cxx_standard_17",
     mutually_exclusive = [":cxx_standard"],
 )
 
 cc_feature(
     name = "cxx_standard_20",
-    args = ["//args/{COMPILER_KIND}:cxx_standard_20"],
+    args = ["{args_package}/{COMPILER_KIND}:cxx_standard_20"],
     feature_name = "cxx_standard_20",
     mutually_exclusive = [":cxx_standard"],
 )
 
 cc_feature(
     name = "cxx_standard_23",
-    args = ["//args/{COMPILER_KIND}:cxx_standard_23"],
+    args = ["{args_package}/{COMPILER_KIND}:cxx_standard_23"],
     feature_name = "cxx_standard_23",
     mutually_exclusive = [":cxx_standard"],
 )
 
 cc_feature(
     name = "cxx_standard_26",
-    args = ["//args/{COMPILER_KIND}:cxx_standard_26"],
+    args = ["{args_package}/{COMPILER_KIND}:cxx_standard_26"],
     feature_name = "cxx_standard_26",
     mutually_exclusive = [":cxx_standard"],
 )
 
 cc_feature(
     name = "cxx_standard_latest",
-    args = ["//args/{COMPILER_KIND}:cxx_standard_latest"],
+    args = ["{args_package}/{COMPILER_KIND}:cxx_standard_latest"],
     feature_name = "cxx_standard_latest",
     mutually_exclusive = [":cxx_standard"],
 )

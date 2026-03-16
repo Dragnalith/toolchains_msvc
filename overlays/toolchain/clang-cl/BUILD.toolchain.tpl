@@ -223,7 +223,7 @@ cc_args(
         "vcruntime": ":file_vcruntime",
         "msvcprt": ":file_msvcprt",
     },
-    requires_any_of = ["//features/msvc:no_static_no_debug_constraint"],
+    requires_any_of = ["{features_package}/msvc:no_static_no_debug_constraint"],
 )
 
 cc_args(
@@ -249,7 +249,7 @@ cc_args(
         "libcmt": ":file_libcmt",
         "libcpmt": ":file_libcpmt",
     },
-    requires_any_of = ["//features/msvc:static_no_debug_constraint"],
+    requires_any_of = ["{features_package}/msvc:static_no_debug_constraint"],
 )
 
 cc_args(
@@ -275,7 +275,7 @@ cc_args(
         "vcruntimed": ":file_vcruntimed",
         "msvcprtd": ":file_msvcprtd",
     },
-    requires_any_of = ["//features/msvc:no_static_debug_constraint"],
+    requires_any_of = ["{features_package}/msvc:no_static_debug_constraint"],
 )
 
 cc_args(
@@ -301,7 +301,7 @@ cc_args(
         "libcmtd": ":file_libcmtd",
         "libcpmtd": ":file_libcpmtd",
     },
-    requires_any_of = ["//features/msvc:static_debug_constraint"],
+    requires_any_of = ["{features_package}/msvc:static_debug_constraint"],
 )
 
 cc_toolchain(
@@ -318,20 +318,20 @@ cc_toolchain(
         ":debug_static_runtime_link",
     ],
     artifact_name_patterns = [
-        "//artifacts:executable",
-        "//artifacts:object_file",
-        "//artifacts:static_library",
-        "//artifacts:alwayslink_static_library",
-        "//artifacts:dynamic_library",
-        "//artifacts:interface_library",
+        "{artifacts_package}:executable",
+        "{artifacts_package}:object_file",
+        "{artifacts_package}:static_library",
+        "{artifacts_package}:alwayslink_static_library",
+        "{artifacts_package}:dynamic_library",
+        "{artifacts_package}:interface_library",
     ],
     enabled_features = [
-        "//features/msvc:default_features",
-        "//features/msvc:no_dotd_file",
-        "//features/msvc:parse_showincludes",
+        "{features_package}/msvc:default_features",
+        "{features_package}/msvc:no_dotd_file",
+        "{features_package}/msvc:parse_showincludes",
     ],
     known_features = [
-        "//features/msvc:all_known_features",
+        "{features_package}/msvc:all_known_features",
     ],
     tool_map = ":all_tools",
 )

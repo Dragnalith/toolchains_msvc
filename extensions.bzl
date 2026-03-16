@@ -51,7 +51,10 @@ def _find_closest_redist_version(msvc_version, redist_versions_dict):
         if is_greater_or_equal:
             diff_0 = v[0] - target_v[0]
             diff_1 = v[1] - target_v[1]
-            if closest_diff == None or diff_0 < closest_diff[0] or (diff_0 == closest_diff[0] and diff_1 < closest_diff[1]):
+            if closest_diff == None:
+                closest_diff = (diff_0, diff_1)
+                closest_redist = rv
+            elif diff_0 < closest_diff[0] or (diff_0 == closest_diff[0] and diff_1 < closest_diff[1]):
                 closest_diff = (diff_0, diff_1)
                 closest_redist = rv
 
@@ -64,6 +67,39 @@ def _find_closest_redist_version(msvc_version, redist_versions_dict):
 
     return (closest_redist, redist_versions_dict[closest_redist])
 
+def _unique_values(values):
+    """Returns values without duplicates while preserving order."""
+    seen = {}
+    result = []
+    for value in values:
+        if value not in seen:
+            seen[value] = True
+            result.append(value)
+    return result
+
+def _env_list(module_ctx, env_var):
+    value = module_ctx.os.environ.get(env_var, "").strip()
+    if not value:
+        return []
+    return _unique_values([item.strip() for item in value.split(",") if item.strip()])
+
+def _resolve_group_axis(module_ctx, explicit_values, env_var, fallback):
+    """Returns explicit values, env override values, or fallback values."""
+    if explicit_values:
+        return _unique_values(explicit_values)
+    env_values = _env_list(module_ctx, env_var)
+    if env_values:
+        return env_values
+    return fallback
+
+def _validate_toolchain_set_name(name):
+    """Ensures toolchain_set names can be used as labels and folder names."""
+    if not name:
+        fail("toolchain_set name must not be empty.")
+    for invalid_char in ["/", "\\", ":", "@", " "]:
+        if invalid_char in name:
+            fail("Invalid toolchain_set name '{}': must not contain '{}'.".format(name, invalid_char))
+
 def _extension_impl(module_ctx):
     # 1. Download manifest and map for each channel
     packages_maps = {}
@@ -71,98 +107,182 @@ def _extension_impl(module_ctx):
         packages_maps[package_map_key] = download_and_map(module_ctx, channel_url)
 
     repo_name_value = "msvc_toolchains"
-    group = None  # last add_group
+    toolchain_sets = []
+    default_toolchain_set_name = None
 
     for mod in module_ctx.modules:
         for tag in mod.tags.repo_name:
             repo_name_value = tag.name
-        for tag in mod.tags.add_group:
-            group = tag
+        for tag in mod.tags.toolchain_set:
+            toolchain_sets.append(tag)
+        for tag in mod.tags.default_toolchain_set:
+            default_toolchain_set_name = tag.name
 
-    if group == None:
-        fail("At least one toolchain.add_group(...) is required.")
-
-    targets_set = {a: True for a in group.targets} if group.targets else {}
-    hosts_set = {a: True for a in group.hosts} if group.hosts else {}
-    msvc_versions_set = {v: True for v in group.msvc_version} if group.msvc_version else {}
-    llvm_versions_set = {v: True for v in group.llvm_version} if group.llvm_version else {}
-    winsdk_versions_set = {v: True for v in group.winsdk_version} if group.winsdk_version else {}
-
-    # Default targets from env or single x64 when not specified in add_group
-    if not targets_set:
-        env_targets = module_ctx.os.environ.get("BAZEL_TOOLCHAINS_MSVC_TARGETS", "").strip()
-        if env_targets:
-            targets_set = {a: True for a in [x.strip() for x in env_targets.split(",") if x.strip()]}
-        else:
-            targets_set = {"x64": True}
-    # Default hosts from env or single x64 when not specified in add_group
-    if not hosts_set:
-        env_hosts = module_ctx.os.environ.get("BAZEL_TOOLCHAINS_MSVC_HOSTS", "").strip()
-        if env_hosts:
-            hosts_set = {a: True for a in [x.strip() for x in env_hosts.split(",") if x.strip()]}
-        else:
-            hosts_set = {"x64": True}
-
-    if not msvc_versions_set or not winsdk_versions_set:
-        fail("add_group must specify msvc_version and winsdk_version.")
-
-    default_msvc_version = group.default_msvc_version if group.default_msvc_version else None
-    default_clang_version = group.default_llvm_version if group.default_llvm_version else None
-    default_windows_sdk_version = group.default_winsdk_version if group.default_winsdk_version else None
-    cl_with_lld_version = group.cl_with_lld_version if group.cl_with_lld_version else None
-    default_compiler = "msvc-cl"
-
-    llvm_versions = llvm_versions_set.keys()
-    msvc_versions = msvc_versions_set.keys()
-    winsdk_versions = winsdk_versions_set.keys()
-    targets = targets_set.keys()
-    hosts = hosts_set.keys()
+    if not toolchain_sets:
+        fail("At least one toolchain.toolchain_set(...) is required.")
 
     msvc_versions_dict = list_msvc_version(packages_maps)
-    for msvc_version in msvc_versions:
-        if msvc_version not in msvc_versions_dict:
-            fail("Invalid MSVC version '{}'. Valid versions are: {}".format(msvc_version, msvc_versions_dict.keys()))
-
     winsdk_versions_dict = list_winsdk_version(packages_maps)
-    for winsdk_version in winsdk_versions:
-        if winsdk_version not in winsdk_versions_dict:
-            fail("Invalid Windows SDK version '{}'. Valid versions are: {}".format(winsdk_version, winsdk_versions_dict.keys()))
-
-    if default_msvc_version == None:
-        default_msvc_version = msvc_versions[0] if msvc_versions else "unknown"
-    if default_windows_sdk_version == None:
-        default_windows_sdk_version = winsdk_versions[0] if winsdk_versions else "unknown"
-    if default_compiler == None:
-        default_compiler = "msvc-cl"
-    if default_clang_version == None and llvm_versions:
-        default_clang_version = llvm_versions[0]
-
-    # Validate that default versions are in the declared version lists
-    if msvc_versions and default_msvc_version not in msvc_versions:
-        fail("default_msvc_version '{}' is not in msvc_version list: {}".format(default_msvc_version, msvc_versions))
-    if winsdk_versions and default_windows_sdk_version not in winsdk_versions:
-        fail("default_winsdk_version '{}' is not in winsdk_version list: {}".format(default_windows_sdk_version, winsdk_versions))
-    if llvm_versions and default_clang_version != None and default_clang_version not in llvm_versions:
-        fail("default_llvm_version '{}' is not in llvm_version list: {}".format(default_clang_version, llvm_versions))
-
-    for h in hosts:
-        if h not in VALID_MSVC_HOSTS:
-            fail("Invalid host '{}', must be one of: {}".format(h, VALID_MSVC_HOSTS))
-    for t in targets:
-        if t not in VALID_MSVC_TARGETS:
-            fail("Invalid target '{}', must be one of: {}".format(t, VALID_MSVC_TARGETS))
-
     redist_versions_dict = list_msvc_redist_version(packages_maps)
+    clang_versions_dict = None
+
+    group_configs = []
+    group_names = []
+    group_names_set = {}
+    all_targets = []
+    all_hosts = []
+    all_msvc_versions = []
+    all_llvm_versions = []
+    all_winsdk_versions = []
+
+    for group in toolchain_sets:
+        group_name = group.name
+        _validate_toolchain_set_name(group_name)
+        if group_name in group_names_set:
+            fail("Duplicate toolchain_set name '{}'.".format(group_name))
+        group_names_set[group_name] = True
+        group_names.append(group_name)
+
+        targets = _resolve_group_axis(module_ctx, group.targets, "BAZEL_TOOLCHAINS_MSVC_TARGETS", ["x64"])
+        hosts = _resolve_group_axis(module_ctx, group.hosts, "BAZEL_TOOLCHAINS_MSVC_HOSTS", ["x64"])
+        msvc_versions = _unique_values(group.msvc_versions)
+        llvm_versions = _unique_values(group.llvm_versions)
+        cl_with_lld_version = group.cl_with_lld_version if group.cl_with_lld_version else ""
+        winsdk_versions = _unique_values(group.winsdk_versions)
+        llvm_repo_versions = _unique_values(llvm_versions + ([cl_with_lld_version] if cl_with_lld_version else []))
+
+        if not msvc_versions or not winsdk_versions:
+            fail("toolchain_set '{}' must specify msvc_versions and winsdk_versions.".format(group_name))
+
+        default_msvc_version = group.default_msvc_version if group.default_msvc_version else msvc_versions[0]
+        default_clang_version = group.default_llvm_version if group.default_llvm_version else (llvm_versions[0] if llvm_versions else "")
+        default_windows_sdk_version = group.default_winsdk_version if group.default_winsdk_version else winsdk_versions[0]
+        default_compiler = "msvc-cl"
+
+        for msvc_version in msvc_versions:
+            if msvc_version not in msvc_versions_dict:
+                fail("Invalid MSVC version '{}' in toolchain_set '{}'. Valid versions are: {}".format(msvc_version, group_name, msvc_versions_dict.keys()))
+        for winsdk_version in winsdk_versions:
+            if winsdk_version not in winsdk_versions_dict:
+                fail("Invalid Windows SDK version '{}' in toolchain_set '{}'. Valid versions are: {}".format(winsdk_version, group_name, winsdk_versions_dict.keys()))
+
+        if default_msvc_version not in msvc_versions:
+            fail("toolchain_set '{}': default_msvc_version '{}' is not in msvc_versions list: {}".format(group_name, default_msvc_version, msvc_versions))
+        if default_windows_sdk_version not in winsdk_versions:
+            fail("toolchain_set '{}': default_winsdk_version '{}' is not in winsdk_versions list: {}".format(group_name, default_windows_sdk_version, winsdk_versions))
+
+        if llvm_repo_versions:
+            if clang_versions_dict == None:
+                clang_versions_dict = list_clang_version(module_ctx)
+            for llvm_version in llvm_repo_versions:
+                if llvm_version not in clang_versions_dict:
+                    fail("Invalid Clang/LLVM version '{}' in toolchain_set '{}'. Valid versions are: {}".format(llvm_version, group_name, clang_versions_dict.keys()))
+        if llvm_versions:
+            if default_clang_version and default_clang_version not in llvm_versions:
+                fail("toolchain_set '{}': default_llvm_version '{}' is not in llvm_versions list: {}".format(group_name, default_clang_version, llvm_versions))
+        elif default_clang_version:
+            fail("toolchain_set '{}': default_llvm_version requires llvm_versions to be set.".format(group_name))
+
+        for h in hosts:
+            if h not in VALID_MSVC_HOSTS:
+                fail("Invalid host '{}' in toolchain_set '{}', must be one of: {}".format(h, group_name, VALID_MSVC_HOSTS))
+        for t in targets:
+            if t not in VALID_MSVC_TARGETS:
+                fail("Invalid target '{}' in toolchain_set '{}', must be one of: {}".format(t, group_name, VALID_MSVC_TARGETS))
+
+        all_targets = _unique_values(all_targets + targets)
+        all_hosts = _unique_values(all_hosts + hosts)
+        all_msvc_versions = _unique_values(all_msvc_versions + msvc_versions)
+        all_llvm_versions = _unique_values(all_llvm_versions + llvm_repo_versions)
+        all_winsdk_versions = _unique_values(all_winsdk_versions + winsdk_versions)
+
+        # Resolve flags (merge defaults with replace/add from each toolchain_set) in the extension.
+        msvc_default_c_compile_flags = merge_flags(CL_C_COMPILE_FLAGS_DEFAULT, group.cl_copt, group.add_cl_copt)
+        msvc_default_cxx_compile_flags = merge_flags(CL_CXX_COMPILE_FLAGS_DEFAULT, group.cl_cxxopt, group.add_cl_cxxopt)
+        msvc_default_link_flags = merge_flags(CL_LINK_FLAGS_DEFAULT, group.cl_linkopt, group.add_cl_linkopt)
+        msvc_dbg_c_compile_flags = merge_flags(CL_DBG_C_COMPILE_FLAGS_DEFAULT, group.cl_dbg_copt, group.add_cl_dbg_copt)
+        msvc_dbg_cxx_compile_flags = merge_flags(CL_DBG_CXX_COMPILE_FLAGS_DEFAULT, group.cl_dbg_cxxopt, group.add_cl_dbg_cxxopt)
+        msvc_dbg_link_flags = merge_flags(CL_DBG_LINK_FLAGS_DEFAULT, group.cl_dbg_linkopt, group.add_cl_dbg_linkopt)
+        msvc_fastbuild_c_compile_flags = merge_flags(CL_FASTBUILD_C_COMPILE_FLAGS_DEFAULT, group.cl_fastbuild_copt, group.add_cl_fastbuild_copt)
+        msvc_fastbuild_cxx_compile_flags = merge_flags(CL_FASTBUILD_CXX_COMPILE_FLAGS_DEFAULT, group.cl_fastbuild_cxxopt, group.add_cl_fastbuild_cxxopt)
+        msvc_fastbuild_link_flags = merge_flags(CL_FASTBUILD_LINK_FLAGS_DEFAULT, group.cl_fastbuild_linkopt, group.add_cl_fastbuild_linkopt)
+        msvc_opt_c_compile_flags = merge_flags(CL_OPT_C_COMPILE_FLAGS_DEFAULT, group.cl_opt_copt, group.add_cl_opt_copt)
+        msvc_opt_cxx_compile_flags = merge_flags(CL_OPT_CXX_COMPILE_FLAGS_DEFAULT, group.cl_opt_cxxopt, group.add_cl_opt_cxxopt)
+        msvc_opt_link_flags = merge_flags(CL_OPT_LINK_FLAGS_DEFAULT, group.cl_opt_linkopt, group.add_cl_opt_linkopt)
+
+        clang_default_c_compile_flags = merge_flags(CLANG_C_COMPILE_FLAGS_DEFAULT, group.clang_copt, group.add_clang_copt)
+        clang_default_cxx_compile_flags = merge_flags(CLANG_CXX_COMPILE_FLAGS_DEFAULT, group.clang_cxxopt, group.add_clang_cxxopt)
+        clang_default_link_flags = merge_flags(CLANG_LINK_FLAGS_DEFAULT, group.clang_linkopt, group.add_clang_linkopt)
+        clang_dbg_c_compile_flags = merge_flags(CLANG_DBG_C_COMPILE_FLAGS_DEFAULT, group.clang_dbg_copt, group.add_clang_dbg_copt)
+        clang_dbg_cxx_compile_flags = merge_flags(CLANG_DBG_CXX_COMPILE_FLAGS_DEFAULT, group.clang_dbg_cxxopt, group.add_clang_dbg_cxxopt)
+        clang_dbg_link_flags = merge_flags(CLANG_DBG_LINK_FLAGS_DEFAULT, group.clang_dbg_linkopt, group.add_clang_dbg_linkopt)
+        clang_fastbuild_c_compile_flags = merge_flags(CLANG_FASTBUILD_C_COMPILE_FLAGS_DEFAULT, group.clang_fastbuild_copt, group.add_clang_fastbuild_copt)
+        clang_fastbuild_cxx_compile_flags = merge_flags(CLANG_FASTBUILD_CXX_COMPILE_FLAGS_DEFAULT, group.clang_fastbuild_cxxopt, group.add_clang_fastbuild_cxxopt)
+        clang_fastbuild_link_flags = merge_flags(CLANG_FASTBUILD_LINK_FLAGS_DEFAULT, group.clang_fastbuild_linkopt, group.add_clang_fastbuild_linkopt)
+        clang_opt_c_compile_flags = merge_flags(CLANG_OPT_C_COMPILE_FLAGS_DEFAULT, group.clang_opt_copt, group.add_clang_opt_copt)
+        clang_opt_cxx_compile_flags = merge_flags(CLANG_OPT_CXX_COMPILE_FLAGS_DEFAULT, group.clang_opt_cxxopt, group.add_clang_opt_cxxopt)
+        clang_opt_link_flags = merge_flags(CLANG_OPT_LINK_FLAGS_DEFAULT, group.clang_opt_linkopt, group.add_clang_opt_linkopt)
+
+        group_configs.append({
+            "name": group_name,
+            "targets": targets,
+            "hosts": hosts,
+            "msvc_versions": msvc_versions,
+            "llvm_versions": llvm_versions,
+            "winsdk_versions": winsdk_versions,
+            "default_msvc_version": default_msvc_version,
+            "default_clang_version": default_clang_version,
+            "default_windows_sdk_version": default_windows_sdk_version,
+            "default_compiler": default_compiler,
+            "cl_with_lld_version": cl_with_lld_version,
+            "msvc_default_c_compile_flags": msvc_default_c_compile_flags,
+            "msvc_default_cxx_compile_flags": msvc_default_cxx_compile_flags,
+            "msvc_default_link_flags": msvc_default_link_flags,
+            "msvc_dbg_c_compile_flags": msvc_dbg_c_compile_flags,
+            "msvc_dbg_cxx_compile_flags": msvc_dbg_cxx_compile_flags,
+            "msvc_dbg_link_flags": msvc_dbg_link_flags,
+            "msvc_fastbuild_c_compile_flags": msvc_fastbuild_c_compile_flags,
+            "msvc_fastbuild_cxx_compile_flags": msvc_fastbuild_cxx_compile_flags,
+            "msvc_fastbuild_link_flags": msvc_fastbuild_link_flags,
+            "msvc_opt_c_compile_flags": msvc_opt_c_compile_flags,
+            "msvc_opt_cxx_compile_flags": msvc_opt_cxx_compile_flags,
+            "msvc_opt_link_flags": msvc_opt_link_flags,
+            "clang_default_c_compile_flags": clang_default_c_compile_flags,
+            "clang_default_cxx_compile_flags": clang_default_cxx_compile_flags,
+            "clang_default_link_flags": clang_default_link_flags,
+            "clang_dbg_c_compile_flags": clang_dbg_c_compile_flags,
+            "clang_dbg_cxx_compile_flags": clang_dbg_cxx_compile_flags,
+            "clang_dbg_link_flags": clang_dbg_link_flags,
+            "clang_fastbuild_c_compile_flags": clang_fastbuild_c_compile_flags,
+            "clang_fastbuild_cxx_compile_flags": clang_fastbuild_cxx_compile_flags,
+            "clang_fastbuild_link_flags": clang_fastbuild_link_flags,
+            "clang_opt_c_compile_flags": clang_opt_c_compile_flags,
+            "clang_opt_cxx_compile_flags": clang_opt_cxx_compile_flags,
+            "clang_opt_link_flags": clang_opt_link_flags,
+            "default_features": group.features,
+            "dbg_implies_features": group.dbg_features,
+            "fastbuild_implies_features": group.fastbuild_features,
+            "opt_implies_features": group.opt_features,
+        })
+
+    if default_toolchain_set_name == None:
+        default_toolchain_set_name = group_names[0]
+    elif default_toolchain_set_name not in group_names_set:
+        fail("default_toolchain_set '{}' does not match any declared toolchain_set. Available values: {}".format(default_toolchain_set_name, group_names))
+
+    default_group = None
+    for group_config in group_configs:
+        if group_config["name"] == default_toolchain_set_name:
+            default_group = group_config
+            break
+    if default_group == None:
+        fail("Internal error: failed to resolve default toolchain_set '{}'.".format(default_toolchain_set_name))
 
     # 2. Construct all clang repos (only if clang versions are defined)
-    if llvm_versions:
-        clang_versions_dict = list_clang_version(module_ctx)
-        for llvm_version in llvm_versions:
-            if llvm_version not in clang_versions_dict:
-                fail("Invalid Clang/LLVM version '{}'. Valid versions are: {}".format(llvm_version, clang_versions_dict.keys()))
-        for llvm_version in llvm_versions:
+    if all_llvm_versions:
+        for llvm_version in all_llvm_versions:
             entry = clang_versions_dict[llvm_version]
-            for host in hosts:
+            for host in all_hosts:
                 if host == "x86":
                     continue  # LLVM does not provide x86 Windows binaries
                 url = entry["x64"] if host == "x64" else entry["arm64"]
@@ -177,14 +297,14 @@ def _extension_impl(module_ctx):
                 )
 
     # 3. Construct all msvc repos
-    for msvc_version in msvc_versions:
+    for msvc_version in all_msvc_versions:
         msvc_package_map_key = msvc_versions_dict[msvc_version]
         msvc_packages_map = packages_maps[msvc_package_map_key]
-        deps = get_msvc_package_ids(msvc_packages_map, msvc_version, hosts = hosts, targets = targets)
+        deps = get_msvc_package_ids(msvc_packages_map, msvc_version, hosts = all_hosts, targets = all_targets)
 
         closest_redist, redist_package_map_key = _find_closest_redist_version(msvc_version, redist_versions_dict)
         redist_packages_map = packages_maps[redist_package_map_key]
-        redist_deps = get_msvc_redist_package_ids(redist_packages_map, closest_redist, targets = targets)
+        redist_deps = get_msvc_redist_package_ids(redist_packages_map, closest_redist, targets = all_targets)
         deps.extend(redist_deps)
 
         deps = sorted(deps)
@@ -206,18 +326,18 @@ def _extension_impl(module_ctx):
 
         msvc_repo(
             name = "msvc_{}".format(msvc_version),
-            hosts = hosts,
-            targets = targets,
+            hosts = all_hosts,
+            targets = all_targets,
             packages = json.encode(packages_list),
             src_build = Label("//overlays/msvc:BUILD.root.tpl"),
         )
 
     # 4. Construct all winsdk repos
-    for winsdk_version in winsdk_versions:
+    for winsdk_version in all_winsdk_versions:
         winsdk_package_map_key = winsdk_versions_dict[winsdk_version]
         winsdk_packages_map = packages_maps[winsdk_package_map_key]
         id = get_winsdk_package_id(winsdk_version)
-        required_msi_files = get_winsdk_msi_list(targets)
+        required_msi_files = get_winsdk_msi_list(all_targets)
 
         cab_list = {}
         msi_list = []
@@ -251,80 +371,30 @@ def _extension_impl(module_ctx):
 
         winsdk_repo(
             name = "winsdk_{}".format(winsdk_version),
-            targets = targets,
+            targets = all_targets,
             packages = json.encode(packages_list),
             winsdk_version = winsdk_version,
         )
 
-    # 5. Resolve flags (merge defaults with replace/add from group) in the extension
-    _g = group
-    msvc_default_c_compile_flags = merge_flags(CL_C_COMPILE_FLAGS_DEFAULT, _g.cl_copt, _g.add_cl_copt)
-    msvc_default_cxx_compile_flags = merge_flags(CL_CXX_COMPILE_FLAGS_DEFAULT, _g.cl_cxxopt, _g.add_cl_cxxopt)
-    msvc_default_link_flags = merge_flags(CL_LINK_FLAGS_DEFAULT, _g.cl_linkopt, _g.add_cl_linkopt)
-    msvc_dbg_c_compile_flags = merge_flags(CL_DBG_C_COMPILE_FLAGS_DEFAULT, _g.cl_dbg_copt, _g.add_cl_dbg_copt)
-    msvc_dbg_cxx_compile_flags = merge_flags(CL_DBG_CXX_COMPILE_FLAGS_DEFAULT, _g.cl_dbg_cxxopt, _g.add_cl_dbg_cxxopt)
-    msvc_dbg_link_flags = merge_flags(CL_DBG_LINK_FLAGS_DEFAULT, _g.cl_dbg_linkopt, _g.add_cl_dbg_linkopt)
-    msvc_fastbuild_c_compile_flags = merge_flags(CL_FASTBUILD_C_COMPILE_FLAGS_DEFAULT, _g.cl_fastbuild_copt, _g.add_cl_fastbuild_copt)
-    msvc_fastbuild_cxx_compile_flags = merge_flags(CL_FASTBUILD_CXX_COMPILE_FLAGS_DEFAULT, _g.cl_fastbuild_cxxopt, _g.add_cl_fastbuild_cxxopt)
-    msvc_fastbuild_link_flags = merge_flags(CL_FASTBUILD_LINK_FLAGS_DEFAULT, _g.cl_fastbuild_linkopt, _g.add_cl_fastbuild_linkopt)
-    msvc_opt_c_compile_flags = merge_flags(CL_OPT_C_COMPILE_FLAGS_DEFAULT, _g.cl_opt_copt, _g.add_cl_opt_copt)
-    msvc_opt_cxx_compile_flags = merge_flags(CL_OPT_CXX_COMPILE_FLAGS_DEFAULT, _g.cl_opt_cxxopt, _g.add_cl_opt_cxxopt)
-    msvc_opt_link_flags = merge_flags(CL_OPT_LINK_FLAGS_DEFAULT, _g.cl_opt_linkopt, _g.add_cl_opt_linkopt)
+    default_repo_llvm_version = default_group["default_clang_version"]
+    if not default_repo_llvm_version and default_group["cl_with_lld_version"]:
+        default_repo_llvm_version = default_group["cl_with_lld_version"]
 
-    clang_default_c_compile_flags = merge_flags(CLANG_C_COMPILE_FLAGS_DEFAULT, _g.clang_copt, _g.add_clang_copt)
-    clang_default_cxx_compile_flags = merge_flags(CLANG_CXX_COMPILE_FLAGS_DEFAULT, _g.clang_cxxopt, _g.add_clang_cxxopt)
-    clang_default_link_flags = merge_flags(CLANG_LINK_FLAGS_DEFAULT, _g.clang_linkopt, _g.add_clang_linkopt)
-    clang_dbg_c_compile_flags = merge_flags(CLANG_DBG_C_COMPILE_FLAGS_DEFAULT, _g.clang_dbg_copt, _g.add_clang_dbg_copt)
-    clang_dbg_cxx_compile_flags = merge_flags(CLANG_DBG_CXX_COMPILE_FLAGS_DEFAULT, _g.clang_dbg_cxxopt, _g.add_clang_dbg_cxxopt)
-    clang_dbg_link_flags = merge_flags(CLANG_DBG_LINK_FLAGS_DEFAULT, _g.clang_dbg_linkopt, _g.add_clang_dbg_linkopt)
-    clang_fastbuild_c_compile_flags = merge_flags(CLANG_FASTBUILD_C_COMPILE_FLAGS_DEFAULT, _g.clang_fastbuild_copt, _g.add_clang_fastbuild_copt)
-    clang_fastbuild_cxx_compile_flags = merge_flags(CLANG_FASTBUILD_CXX_COMPILE_FLAGS_DEFAULT, _g.clang_fastbuild_cxxopt, _g.add_clang_fastbuild_cxxopt)
-    clang_fastbuild_link_flags = merge_flags(CLANG_FASTBUILD_LINK_FLAGS_DEFAULT, _g.clang_fastbuild_linkopt, _g.add_clang_fastbuild_linkopt)
-    clang_opt_c_compile_flags = merge_flags(CLANG_OPT_C_COMPILE_FLAGS_DEFAULT, _g.clang_opt_copt, _g.add_clang_opt_copt)
-    clang_opt_cxx_compile_flags = merge_flags(CLANG_OPT_CXX_COMPILE_FLAGS_DEFAULT, _g.clang_opt_cxxopt, _g.add_clang_opt_cxxopt)
-    clang_opt_link_flags = merge_flags(CLANG_OPT_LINK_FLAGS_DEFAULT, _g.clang_opt_linkopt, _g.add_clang_opt_linkopt)
-
-    # 6. Instantiate toolchains repo with resolved flags
+    # 5. Instantiate toolchains repo with resolved toolchain_set configs.
     msvc_toolchains_repo(
         name = repo_name_value,
-        llvm_versions = llvm_versions,
-        msvc_versions = msvc_versions,
-        cl_with_lld_version = cl_with_lld_version,
-        winsdk_versions = winsdk_versions,
-        targets = targets,
-        hosts = hosts,
-        default_msvc_version = default_msvc_version,
-        default_clang_version = default_clang_version,
-        default_windows_sdk_version = default_windows_sdk_version,
-        default_compiler = default_compiler,
-        msvc_default_c_compile_flags = msvc_default_c_compile_flags,
-        msvc_default_cxx_compile_flags = msvc_default_cxx_compile_flags,
-        msvc_default_link_flags = msvc_default_link_flags,
-        msvc_dbg_c_compile_flags = msvc_dbg_c_compile_flags,
-        msvc_dbg_cxx_compile_flags = msvc_dbg_cxx_compile_flags,
-        msvc_dbg_link_flags = msvc_dbg_link_flags,
-        msvc_fastbuild_c_compile_flags = msvc_fastbuild_c_compile_flags,
-        msvc_fastbuild_cxx_compile_flags = msvc_fastbuild_cxx_compile_flags,
-        msvc_fastbuild_link_flags = msvc_fastbuild_link_flags,
-        msvc_opt_c_compile_flags = msvc_opt_c_compile_flags,
-        msvc_opt_cxx_compile_flags = msvc_opt_cxx_compile_flags,
-        msvc_opt_link_flags = msvc_opt_link_flags,
-        clang_default_c_compile_flags = clang_default_c_compile_flags,
-        clang_default_cxx_compile_flags = clang_default_cxx_compile_flags,
-        clang_default_link_flags = clang_default_link_flags,
-        clang_dbg_c_compile_flags = clang_dbg_c_compile_flags,
-        clang_dbg_cxx_compile_flags = clang_dbg_cxx_compile_flags,
-        clang_dbg_link_flags = clang_dbg_link_flags,
-        clang_fastbuild_c_compile_flags = clang_fastbuild_c_compile_flags,
-        clang_fastbuild_cxx_compile_flags = clang_fastbuild_cxx_compile_flags,
-        clang_fastbuild_link_flags = clang_fastbuild_link_flags,
-        clang_opt_c_compile_flags = clang_opt_c_compile_flags,
-        clang_opt_cxx_compile_flags = clang_opt_cxx_compile_flags,
-        clang_opt_link_flags = clang_opt_link_flags,
-        default_features = group.features,
-        dbg_implies_features = group.dbg_features,
-        fastbuild_implies_features = group.fastbuild_features,
-        opt_implies_features = group.opt_features,
+        group_configs = json.encode(group_configs),
+        toolchain_sets = group_names,
+        default_toolchain_set = default_toolchain_set_name,
+        llvm_versions = all_llvm_versions,
+        msvc_versions = all_msvc_versions,
+        winsdk_versions = all_winsdk_versions,
+        targets = all_targets,
+        hosts = all_hosts,
+        default_msvc_version = default_group["default_msvc_version"],
+        default_clang_version = default_repo_llvm_version,
+        default_windows_sdk_version = default_group["default_windows_sdk_version"],
+        default_compiler = default_group["default_compiler"],
     )
 
     return module_ctx.extension_metadata(
@@ -335,17 +405,17 @@ def _extension_impl(module_ctx):
 
 repo_name_tag = tag_class(attrs = {"name": attr.string(mandatory = True)})
 
-add_group_tag = tag_class(
+toolchain_set_tag = tag_class(
     attrs = {
-        "name": attr.string(default = "default"),  # ignored for now
+        "name": attr.string(mandatory = True),
         "targets": attr.string_list(default = []),
         "hosts": attr.string_list(default = []),
-        "msvc_version": attr.string_list(default = []),
+        "msvc_versions": attr.string_list(default = []),
         "default_msvc_version": attr.string(default = ""),
         "cl_with_lld_version": attr.string(default = ""),
-        "llvm_version": attr.string_list(default = []),
+        "llvm_versions": attr.string_list(default = []),
         "default_llvm_version": attr.string(default = ""),
-        "winsdk_version": attr.string_list(default = []),
+        "winsdk_versions": attr.string_list(default = []),
         "default_winsdk_version": attr.string(default = ""),
         "features": attr.string_list(default = []),
         "dbg_features": attr.string_list(default = []),
@@ -402,11 +472,18 @@ add_group_tag = tag_class(
     },
 )
 
+default_toolchain_set_tag = tag_class(
+    attrs = {
+        "name": attr.string(mandatory = True),
+    },
+)
+
 toolchain = module_extension(
     implementation = _extension_impl,
     tag_classes = {
         "repo_name": repo_name_tag,
-        "add_group": add_group_tag,
+        "toolchain_set": toolchain_set_tag,
+        "default_toolchain_set": default_toolchain_set_tag,
     },
     environ = [
         "BAZEL_TOOLCHAINS_MSVC_HOSTS",
