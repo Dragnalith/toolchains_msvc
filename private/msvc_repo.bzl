@@ -1,19 +1,29 @@
 """Repository rule for downloading MSVC compiler artifacts."""
 
+def _package_url(package_urls, pkg):
+    sha256 = pkg.get("sha256")
+    url = package_urls.get(sha256)
+    if not url:
+        fail("Missing URL for MSVC package '{}' ({})".format(pkg.get("filename"), sha256))
+    return url
+
 def _msvc_repo_impl(ctx):
     """Implementation of the msvc_repo rule."""
+    if ctx.attr.error:
+        fail(ctx.attr.error)
+
     packages = json.decode(ctx.attr.packages)
+    package_urls = json.decode(ctx.attr.package_urls)
     extracted_package_filenames = []
 
     for pkg in packages:
-        url = pkg.get("url")
         sha256 = pkg.get("sha256")
         filename = pkg.get("filename")
 
         ctx.report_progress("Downloading and Extracting {}".format(filename))
 
         ctx.download_and_extract(
-            url = url,
+            url = _package_url(package_urls, pkg),
             sha256 = sha256,
             output = "tmp",
             type = "zip",
@@ -56,7 +66,9 @@ set EXECROOT=%CD%
 msvc_repo = repository_rule(
     implementation = _msvc_repo_impl,
     attrs = {
-        "packages": attr.string(doc = "JSON string list of package dicts"),
+        "packages": attr.string(mandatory = True, doc = "JSON string list of package dicts"),
+        "package_urls": attr.string(mandatory = True, doc = "JSON string map from sha256 to URL"),
+        "error": attr.string(mandatory = True),
         "hosts": attr.string_list(doc = "Host architectures"),
         "targets": attr.string_list(doc = "Target architectures"),
         "src_build": attr.label(default = Label("//overlays/msvc:BUILD.root.tpl"), allow_single_file = True, doc = "Label to BUILD.root.tpl"),

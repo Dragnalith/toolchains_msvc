@@ -428,7 +428,8 @@ def list_clang_version(ctx):
                 url = asset.get("browser_download_url")
                 if url:
                     digest = asset.get("digest", "")
-                    asset_data[aname] = {"url": url, "digest": digest}
+                    if digest and digest != "":
+                        asset_data[aname] = {"url": url, "digest": digest}
 
     # Parse versions: loop only on x64 assets, expect arm64 exists for each
     result = {}

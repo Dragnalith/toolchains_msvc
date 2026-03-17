@@ -1,3 +1,5 @@
-*.bazel.lock
+/MODULE.bazel.lock
+tests/all_hosts_all_targets/MODULE.bazel.lock
+tests/one_host_one_target/MODULE.bazel.lock
 bazel-*
 research/minimal_cpp_project/_build

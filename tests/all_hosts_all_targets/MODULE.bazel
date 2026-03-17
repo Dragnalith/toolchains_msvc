@@ -19,7 +19,7 @@ toolchain.toolchain_set(
     hosts = ["x86", "x64", "arm64"],
     msvc_versions = ["14.50", "14.44", "14.40", "14.33"],
     default_msvc_version = "14.44",
-    llvm_versions = ["22.1.0", "20.1.0"],
+    llvm_versions = ["22.1.0", "20.1.7"],
     default_llvm_version = "22.1.0",
     winsdk_versions = ["26100", "22621", "19041"],
     default_winsdk_version = "26100",

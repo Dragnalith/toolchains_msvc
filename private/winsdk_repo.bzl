@@ -1,5 +1,12 @@
 """Repository rule for downloading and extracting Windows SDK artifacts."""
 
+def _package_url(package_urls, pkg):
+    sha256 = pkg.get("sha256")
+    url = package_urls.get(sha256)
+    if not url:
+        fail("Missing URL for WinSDK package '{}' ({})".format(pkg.get("filename"), sha256))
+    return url
+
 def _get_cabs_from_msi(ctx, local_msi_path):
     """Returns cabinet file names referenced by an MSI."""
     script_path = str(ctx.path(ctx.attr.src_list_msi_cabs))
@@ -45,9 +52,23 @@ def _normalize_lib_filenames(ctx):
 
 def _winsdk_repo_impl(ctx):
     """Implementation of the winsdk_repo rule."""
+    if ctx.attr.error:
+        fail(ctx.attr.error)
+
     packages = json.decode(ctx.attr.packages)
-    cab_list = packages.get("cab", {})
-    msi_list = packages.get("msi", [])
+    package_urls = json.decode(ctx.attr.package_urls)
+    cab_list = {}
+    msi_list = []
+    for pkg in packages:
+        filename = pkg.get("filename")
+        if not filename:
+            fail("Each WinSDK package entry must contain 'filename'")
+        if filename.lower().endswith(".msi"):
+            msi_list.append(pkg)
+        elif filename.lower().endswith(".cab"):
+            cab_list[filename] = pkg
+        else:
+            fail("Unsupported WinSDK package '{}': expected .msi or .cab".format(filename))
 
     if not msi_list:
         fail("No MSI payloads provided to winsdk_repo")
@@ -60,7 +81,7 @@ def _winsdk_repo_impl(ctx):
 
         ctx.report_progress("Downloading '{}'".format(filename))
         ctx.download(
-            url = msi.get("url"),
+            url = _package_url(package_urls, msi),
             sha256 = msi.get("sha256"),
             output = "tmp/{}".format(filename),
         )
@@ -71,19 +92,13 @@ def _winsdk_repo_impl(ctx):
         for cab_name in _get_cabs_from_msi(ctx, "tmp/{}".format(filename)):
             required_cabs[cab_name] = True
 
-    cab_filenames = []
-    for cab_payload in cab_list.values():
-        cab_filename = cab_payload.get("filename")
-        if cab_filename:
-            cab_filenames.append(cab_filename)
-
     msi_filenames = []
     for msi in msi_list:
         msi_filename = msi.get("filename")
         if msi_filename:
             msi_filenames.append(msi_filename)
 
-    for cab_name in required_cabs.keys():
+    for cab_name in sorted(required_cabs.keys()):
         if cab_name not in cab_list:
             fail("Required cab '{}' not found in provided package payload list".format(cab_name))
 
@@ -92,7 +107,7 @@ def _winsdk_repo_impl(ctx):
         cab_filename = cab_payload.get("filename")
         ctx.report_progress("Downloading {}".format(cab_filename))
         ctx.download(
-            url = cab_payload.get("url"),
+            url = _package_url(package_urls, cab_payload),
             sha256 = cab_payload.get("sha256"),
             output = "tmp/{}".format(cab_filename),
         )
@@ -144,7 +159,9 @@ winsdk_repo = repository_rule(
     implementation = _winsdk_repo_impl,
     attrs = {
         "winsdk_version": attr.string(mandatory = True),
-        "packages": attr.string(doc = "JSON string containing cab and msi payload maps"),
+        "packages": attr.string(mandatory = True, doc = "JSON string list of WinSDK package dicts"),
+        "package_urls": attr.string(mandatory = True, doc = "JSON string map from sha256 to URL"),
+        "error": attr.string(mandatory = True),
         "targets": attr.string_list(doc = "Target architectures (currently unused)"),
         "src_list_msi_cabs": attr.label(default = Label("//tools:List-MsiCabs.ps1"), doc = "Label to List-MsiCabs.ps1"),
         "src_normalize_lib_names": attr.label(default = Label("//tools:Normalize-WinSdkLibNames.ps1"), doc = "Label to Normalize-WinSdkLibNames.ps1"),

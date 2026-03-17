@@ -26,9 +26,9 @@
 - [X] Configuration: module extension API allows overriding default, dbg, fastbuild, and opt flags for compile and link actions
 - [X] Configuration: module extension API allows specifying features to be enabled by dbg, fastbuild, and opt
 - [X] Multiple toolchain set
-- [ ] Lock File: Repo is reproducible
-- [ ] Lock File: Separate toolchains installation into two phase: preparation of a "lock" file, then consuming the lock file for installation.
-- [ ] Lock File: Support lock file using the 'Update pattern'
+- [X] Lock File: Repo is reproducible
+- [X] Lock File: Separate toolchains installation into two phase: preparation of a "lock" file, then consuming the lock file for installation.
+- [X] Lock File: Support lock file using the 'Update pattern'
 - [ ] Enforce Visual Studio's EULA agreement: require a BAZEL_TOOLCHAINS_MSVC_AGREE_WITH_VS_EULA envvar. If does not exist, installation fails with the url pointing to EULA gotten from the channel manifest
 - [ ] Feature: ASAN (design: one cc_feature and one alias on cc_import selecting asan runtime for the current toolchain)
 - [ ] Test: Display test result using Github "Check API"

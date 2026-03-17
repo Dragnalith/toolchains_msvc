@@ -1,16 +1,35 @@
 """Toolchains extension for toolchains_msvc."""
 
-load("//private:flags.bzl", "merge_flags",
-    "CL_C_COMPILE_FLAGS_DEFAULT", "CL_CXX_COMPILE_FLAGS_DEFAULT", "CL_LINK_FLAGS_DEFAULT",
-    "CL_DBG_C_COMPILE_FLAGS_DEFAULT", "CL_DBG_CXX_COMPILE_FLAGS_DEFAULT", "CL_DBG_LINK_FLAGS_DEFAULT",
-    "CL_FASTBUILD_C_COMPILE_FLAGS_DEFAULT", "CL_FASTBUILD_CXX_COMPILE_FLAGS_DEFAULT", "CL_FASTBUILD_LINK_FLAGS_DEFAULT",
-    "CL_OPT_C_COMPILE_FLAGS_DEFAULT", "CL_OPT_CXX_COMPILE_FLAGS_DEFAULT", "CL_OPT_LINK_FLAGS_DEFAULT",
-    "CLANG_C_COMPILE_FLAGS_DEFAULT", "CLANG_CXX_COMPILE_FLAGS_DEFAULT", "CLANG_LINK_FLAGS_DEFAULT",
-    "CLANG_DBG_C_COMPILE_FLAGS_DEFAULT", "CLANG_DBG_CXX_COMPILE_FLAGS_DEFAULT", "CLANG_DBG_LINK_FLAGS_DEFAULT",
-    "CLANG_FASTBUILD_C_COMPILE_FLAGS_DEFAULT", "CLANG_FASTBUILD_CXX_COMPILE_FLAGS_DEFAULT", "CLANG_FASTBUILD_LINK_FLAGS_DEFAULT",
-    "CLANG_OPT_C_COMPILE_FLAGS_DEFAULT", "CLANG_OPT_CXX_COMPILE_FLAGS_DEFAULT", "CLANG_OPT_LINK_FLAGS_DEFAULT",
+load(
+    "//private:flags.bzl",
+    "CLANG_CXX_COMPILE_FLAGS_DEFAULT",
+    "CLANG_C_COMPILE_FLAGS_DEFAULT",
+    "CLANG_DBG_CXX_COMPILE_FLAGS_DEFAULT",
+    "CLANG_DBG_C_COMPILE_FLAGS_DEFAULT",
+    "CLANG_DBG_LINK_FLAGS_DEFAULT",
+    "CLANG_FASTBUILD_CXX_COMPILE_FLAGS_DEFAULT",
+    "CLANG_FASTBUILD_C_COMPILE_FLAGS_DEFAULT",
+    "CLANG_FASTBUILD_LINK_FLAGS_DEFAULT",
+    "CLANG_LINK_FLAGS_DEFAULT",
+    "CLANG_OPT_CXX_COMPILE_FLAGS_DEFAULT",
+    "CLANG_OPT_C_COMPILE_FLAGS_DEFAULT",
+    "CLANG_OPT_LINK_FLAGS_DEFAULT",
+    "CL_CXX_COMPILE_FLAGS_DEFAULT",
+    "CL_C_COMPILE_FLAGS_DEFAULT",
+    "CL_DBG_CXX_COMPILE_FLAGS_DEFAULT",
+    "CL_DBG_C_COMPILE_FLAGS_DEFAULT",
+    "CL_DBG_LINK_FLAGS_DEFAULT",
+    "CL_FASTBUILD_CXX_COMPILE_FLAGS_DEFAULT",
+    "CL_FASTBUILD_C_COMPILE_FLAGS_DEFAULT",
+    "CL_FASTBUILD_LINK_FLAGS_DEFAULT",
+    "CL_LINK_FLAGS_DEFAULT",
+    "CL_OPT_CXX_COMPILE_FLAGS_DEFAULT",
+    "CL_OPT_C_COMPILE_FLAGS_DEFAULT",
+    "CL_OPT_LINK_FLAGS_DEFAULT",
+    "merge_flags",
 )
 load("//private:llvm_repo.bzl", "llvm_repo")
+load("//private:lock_file_repo.bzl", "lock_file_repo")
 load("//private:msvc_repo.bzl", "msvc_repo")
 load("//private:msvc_toolchains_repo.bzl", "msvc_toolchains_repo")
 load(
@@ -55,7 +74,6 @@ def _find_closest_redist_version(msvc_version, redist_versions_dict):
                 closest_diff = (diff_0, diff_1)
                 closest_redist = rv
             elif diff_0 < closest_diff[0] or (diff_0 == closest_diff[0] and diff_1 < closest_diff[1]):
-                closest_diff = (diff_0, diff_1)
                 closest_redist = rv
 
     if not closest_redist and redist_versions:
@@ -100,6 +118,43 @@ def _validate_toolchain_set_name(name):
         if invalid_char in name:
             fail("Invalid toolchain_set name '{}': must not contain '{}'.".format(name, invalid_char))
 
+def _sort_packages(packages):
+    return sorted(packages, key = lambda pkg: "{}\n{}".format(pkg["filename"], pkg["sha256"]))
+
+def _register_package_url(all_packages_url, sha256, url):
+    existing = all_packages_url.get(sha256)
+    if existing == None:
+        all_packages_url[sha256] = url
+        return
+
+def _package_urls_for_repo(all_packages_url, packages):
+    package_urls = {}
+    for pkg in packages:
+        sha256 = pkg["sha256"]
+        url = all_packages_url.get(sha256)
+        if url == None:
+            fail("Missing URL for package digest '{}' (file '{}')".format(sha256, pkg["filename"]))
+        package_urls[sha256] = url
+    return package_urls
+
+def _llvm_package_filename(version, host):
+    if host == "x64":
+        llvm_arch = "x86_64"
+    elif host == "arm64":
+        llvm_arch = "aarch64"
+    else:
+        fail("Unsupported LLVM host architecture for package filename: {}".format(host))
+    return "clang+llvm-{}-{}-pc-windows-msvc.tar.xz".format(version, llvm_arch)
+
+def _register_repo_definition(repos, repo):
+    name = repo["name"]
+    existing = repos.get(name)
+    if existing == None:
+        repos[name] = repo
+        return
+    if existing != repo:
+        fail("Conflicting definitions for repo '{}': {} != {}".format(name, existing, repo))
+
 def _extension_impl(module_ctx):
     # 1. Download manifest and map for each channel
     packages_maps = {}
@@ -109,6 +164,8 @@ def _extension_impl(module_ctx):
     repo_name_value = "msvc_toolchains"
     toolchain_sets = []
     default_toolchain_set_name = None
+    lock_file_label = None
+    is_locked = False
 
     for mod in module_ctx.modules:
         for tag in mod.tags.repo_name:
@@ -117,6 +174,13 @@ def _extension_impl(module_ctx):
             toolchain_sets.append(tag)
         for tag in mod.tags.default_toolchain_set:
             default_toolchain_set_name = tag.name
+        for tag in mod.tags.lock:
+            if lock_file_label != None:
+                fail("lock tag must be declared at most once.")
+            if not tag.file:
+                fail("lock file label must not be empty.")
+            lock_file_label = tag.file
+            is_locked = True
 
     if not toolchain_sets:
         fail("At least one toolchain.toolchain_set(...) is required.")
@@ -278,25 +342,49 @@ def _extension_impl(module_ctx):
     if default_group == None:
         fail("Internal error: failed to resolve default toolchain_set '{}'.".format(default_toolchain_set_name))
 
-    # 2. Construct all clang repos (only if clang versions are defined)
+    all_packages_url = {}
+    for package_map_key in sorted(packages_maps.keys()):
+        packages_map = packages_maps[package_map_key]
+        for package_id in sorted(packages_map.keys()):
+            payloads = packages_map[package_id].get("payloads", [])
+            for payload in payloads:
+                url = payload.get("url")
+                sha256 = payload.get("sha256")
+                if url and sha256:
+                    _register_package_url(all_packages_url, sha256, url)
+    if clang_versions_dict != None:
+        for llvm_version in sorted(clang_versions_dict.keys()):
+            entry = clang_versions_dict[llvm_version]
+            for arch in ["x64", "arm64"]:
+                url = entry.get(arch)
+                sha256 = entry.get("{}_digest".format(arch))
+                if url and sha256:
+                    _register_package_url(all_packages_url, sha256, url)
+
+    repos = {}
+
+    # 2. Construct llvm repo definitions (only if llvm versions are defined)
     if all_llvm_versions:
         for llvm_version in all_llvm_versions:
             entry = clang_versions_dict[llvm_version]
             for host in all_hosts:
                 if host == "x86":
                     continue  # LLVM does not provide x86 Windows binaries
-                url = entry["x64"] if host == "x64" else entry["arm64"]
                 digest = entry["x64_digest"] if host == "x64" else entry["arm64_digest"]
-                llvm_repo(
-                    name = "llvm_{}_{}".format(llvm_version, host),
-                    version = llvm_version,
-                    host = host,
-                    url = url,
-                    digest = digest,
-                    src_build = Label("//overlays/llvm:BUILD.root.tpl"),
-                )
+                if not digest:
+                    fail("Missing digest for LLVM version '{}' host '{}' in {}".format(llvm_version, host, entry))
+                _register_repo_definition(repos, {
+                    "kind": "llvm",
+                    "name": "llvm_{}_{}".format(llvm_version, host),
+                    "version": llvm_version,
+                    "host": host,
+                    "packages": _sort_packages([{
+                        "filename": _llvm_package_filename(llvm_version, host),
+                        "sha256": digest,
+                    }]),
+                })
 
-    # 3. Construct all msvc repos
+    # 3. Construct all msvc repo definitions
     for msvc_version in all_msvc_versions:
         msvc_package_map_key = msvc_versions_dict[msvc_version]
         msvc_packages_map = packages_maps[msvc_package_map_key]
@@ -318,33 +406,38 @@ def _extension_impl(module_ctx):
                 payloads = pkg.get("payloads", [])
                 for payload in payloads:
                     if "url" in payload:
+                        sha256 = payload.get("sha256")
+                        filename = payload.get("fileName")
+                        if not sha256 or not filename:
+                            fail("MSVC payload in '{}' is missing sha256 or fileName".format(dep_id))
                         packages_list.append({
-                            "url": payload["url"],
-                            "sha256": payload.get("sha256"),
-                            "filename": payload.get("fileName"),
+                            "filename": filename,
+                            "sha256": sha256,
                         })
 
-        msvc_repo(
-            name = "msvc_{}".format(msvc_version),
-            hosts = all_hosts,
-            targets = all_targets,
-            packages = json.encode(packages_list),
-            src_build = Label("//overlays/msvc:BUILD.root.tpl"),
-        )
+        _register_repo_definition(repos, {
+            "kind": "msvc",
+            "name": "msvc_{}".format(msvc_version),
+            "hosts": all_hosts,
+            "targets": all_targets,
+            "packages": _sort_packages(packages_list),
+        })
 
-    # 4. Construct all winsdk repos
+    # 4. Construct all winsdk repo definitions
     for winsdk_version in all_winsdk_versions:
         winsdk_package_map_key = winsdk_versions_dict[winsdk_version]
         winsdk_packages_map = packages_maps[winsdk_package_map_key]
         id = get_winsdk_package_id(winsdk_version)
         required_msi_files = get_winsdk_msi_list(all_targets)
 
-        cab_list = {}
-        msi_list = []
+        packages_list = []
         pkg = winsdk_packages_map.get(id)
         payloads = pkg.get("payloads", [])
         for payload in payloads:
             if "url" in payload and "fileName" in payload:
+                sha256 = payload.get("sha256")
+                if not sha256:
+                    fail("WinSDK payload for '{}' is missing sha256".format(id))
                 raw_filename = payload["fileName"]
                 filename = raw_filename
                 if raw_filename.startswith("Installers\\"):
@@ -352,33 +445,106 @@ def _extension_impl(module_ctx):
                 if filename.endswith(".msi"):
                     for required_msi_file in required_msi_files:
                         if filename.endswith(required_msi_file):
-                            msi_list.append({
-                                "url": payload["url"],
-                                "sha256": payload.get("sha256"),
+                            packages_list.append({
                                 "filename": filename,
+                                "sha256": sha256,
                             })
+                            break
                 elif filename.endswith(".cab"):
-                    cab_list[filename] = {
-                        "url": payload["url"],
-                        "sha256": payload.get("sha256"),
+                    packages_list.append({
                         "filename": filename,
-                    }
+                        "sha256": sha256,
+                    })
 
-        packages_list = {
-            "cab": cab_list,
-            "msi": msi_list,
-        }
-
-        winsdk_repo(
-            name = "winsdk_{}".format(winsdk_version),
-            targets = all_targets,
-            packages = json.encode(packages_list),
-            winsdk_version = winsdk_version,
-        )
+        _register_repo_definition(repos, {
+            "kind": "winsdk",
+            "name": "winsdk_{}".format(winsdk_version),
+            "targets": all_targets,
+            "packages": _sort_packages(packages_list),
+            "winsdk_version": winsdk_version,
+        })
 
     default_repo_llvm_version = default_group["default_clang_version"]
     if not default_repo_llvm_version and default_group["cl_with_lld_version"]:
         default_repo_llvm_version = default_group["cl_with_lld_version"]
+
+    module_lock_repos = {
+        repo_name: repos[repo_name]
+        for repo_name in sorted(repos.keys())
+    }
+
+    user_lock_repos = None
+    relative_lock_file_path = None
+    if is_locked:
+        module_ctx.watch(lock_file_label)
+        lock_path = module_ctx.path(lock_file_label)
+        if lock_path.exists:
+            user_lock_repos = json.decode(module_ctx.read(lock_file_label), default = None)
+        if lock_file_label.package:
+            relative_lock_file_path = "{}/{}".format(lock_file_label.package, lock_file_label.name)
+        else:
+            relative_lock_file_path = lock_file_label.name
+
+    lock_file_repo(
+        name = "toolchains_msvc_lock",
+        lock_json = json.encode_indent(module_lock_repos),
+        lock_file_path = relative_lock_file_path,
+    )
+
+    for repo_name in sorted(module_lock_repos.keys()):
+        repo = module_lock_repos[repo_name]
+        kind = repo["kind"]
+
+        error = ""
+        if is_locked:
+            if user_lock_repos == None:
+                error = "lock file '{}' does not exist or is invalid. You must run `bazel run @toolchains_msvc/:pin` to create it.".format(relative_lock_file_path)
+            else:
+                user_repo = user_lock_repos.get(repo_name)
+                if user_repo == None or user_repo != repo:
+                    error = "The lock file '{}' does not match the toolchain definition in MODULE.bazel. Run bazel run @toolchains_msvc/:pin to update the lock filex.".format(relative_lock_file_path)
+
+        if error:
+            packages = []
+            package_urls = {}
+        else:
+            packages = repo["packages"]
+            package_urls = _package_urls_for_repo(all_packages_url, repo["packages"])
+
+        if kind == "llvm":
+            llvm_repo(
+                name = repo["name"],
+                version = repo["version"],
+                host = repo["host"],
+                packages = json.encode(packages),
+                package_urls = json.encode(package_urls),
+                error = error,
+            )
+            continue
+
+        if kind == "msvc":
+            msvc_repo(
+                name = repo["name"],
+                hosts = repo["hosts"],
+                targets = repo["targets"],
+                packages = json.encode(packages),
+                package_urls = json.encode(package_urls),
+                error = error,
+            )
+            continue
+
+        if kind == "winsdk":
+            winsdk_repo(
+                name = repo["name"],
+                targets = repo["targets"],
+                packages = json.encode(packages),
+                package_urls = json.encode(package_urls),
+                winsdk_version = repo["winsdk_version"],
+                error = error,
+            )
+            continue
+
+        fail("Unsupported repo kind '{}' for repo '{}'".format(kind, repo["name"]))
 
     # 5. Instantiate toolchains repo with resolved toolchain_set configs.
     msvc_toolchains_repo(
@@ -478,9 +644,16 @@ default_toolchain_set_tag = tag_class(
     },
 )
 
+lock_tag = tag_class(
+    attrs = {
+        "file": attr.label(mandatory = True),
+    },
+)
+
 toolchain = module_extension(
     implementation = _extension_impl,
     tag_classes = {
+        "lock": lock_tag,
         "repo_name": repo_name_tag,
         "toolchain_set": toolchain_set_tag,
         "default_toolchain_set": default_toolchain_set_tag,

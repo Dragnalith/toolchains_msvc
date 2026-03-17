@@ -11,7 +11,7 @@ from typing import NoReturn
 
 DEFAULT_MSVC_VERSIONS = ["14.50", "14.44", "14.40", "14.33"]
 DEFAULT_WINSDK_VERSIONS = ["26100", "22621", "19041"]
-DEFAULT_CLANG_VERSIONS = ["22.1.0", "20.1.0"]
+DEFAULT_CLANG_VERSIONS = ["22.1.0", "20.1.7"]
 ALL_COMPILERS = ["msvc", "clang", "clang-cl"]
 
 
@@ -746,7 +746,7 @@ def main() -> None:
     matrix_parent.add_argument("--compilers", type=parse_comma_list, default=None, help="Comma-separated compiler drivers to test: msvc, clang, clang-cl (default: all). Clang/clang-cl only run when --clang_versions is non-empty.")
     matrix_parent.add_argument("--msvc_versions", type=parse_comma_list, default=DEFAULT_MSVC_VERSIONS, help="Comma-separated MSVC versions (default: 14.33, 14.40, 14.44, 14.50)")
     matrix_parent.add_argument("--winsdk_versions", type=parse_comma_list, default=DEFAULT_WINSDK_VERSIONS, help="Comma-separated Windows SDK versions (default: 19041, 22621, 26100)")
-    matrix_parent.add_argument("--clang_versions", type=parse_comma_list, default=DEFAULT_CLANG_VERSIONS, help="Comma-separated Clang/LLVM versions to also test; if empty only msvc is tested (default: 20.1.0, 22.1.0)")
+    matrix_parent.add_argument("--clang_versions", type=parse_comma_list, default=DEFAULT_CLANG_VERSIONS, help="Comma-separated Clang/LLVM versions to also test; if empty only msvc is tested (default: 20.1.7, 22.1.0)")
     matrix_mode_group = matrix_parent.add_mutually_exclusive_group()
     matrix_mode_group.add_argument("--all", dest="axis_mode", action="store_const", const="all", default="all", help="Run the full valid cross-product across the requested axes")
     matrix_mode_group.add_argument("--one", dest="axis_mode", action="store_const", const="one", help="Run one value per version/architecture axis")
@@ -770,7 +770,7 @@ def main() -> None:
     test_default_parser = subparsers.add_parser("test_default", help="Test default toolchain configuration")
     test_default_parser.add_argument("--hosts", type=parse_comma_list, default=None, help="Comma-separated host architectures (default: x86, x64 on AMD64, arm64 on ARM64)")
     test_default_parser.add_argument("--targets", type=parse_comma_list, default=None, help="Comma-separated target architectures (default: x86, x64 for x64/x86 host, arm64 for arm64 host)")
-    test_default_parser.add_argument("--clang_versions", type=parse_comma_list, default=DEFAULT_CLANG_VERSIONS, help="Comma-separated Clang/LLVM versions to also test; if empty only msvc is tested (default: 20.1.0, 22.1.0)")
+    test_default_parser.add_argument("--clang_versions", type=parse_comma_list, default=DEFAULT_CLANG_VERSIONS, help="Comma-separated Clang/LLVM versions to also test; if empty only msvc is tested (default: 20.1.7, 22.1.0)")
     test_default_parser.add_argument("--show-progress", action="store_true", dest="show_progress", help=show_progress_help)
     test_default_parser.add_argument("--no-stderr-flush", action="store_true", dest="no_stderr_flush", help="Do not capture or flush stderr; let it go to the terminal")
 
