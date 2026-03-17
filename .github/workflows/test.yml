@@ -11,6 +11,8 @@ jobs:
   test_x64:
     runs-on: windows-latest
     name: Test x64
+    env:
+      BAZEL_TOOLCHAINS_MSVC_ACCEPT_MICROSOFT_VISUAL_STUDIO_BUILDTOOLS_EULA: 1
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -46,6 +48,8 @@ jobs:
   test_arm64:
     runs-on: windows-11-arm
     name: Test arm64
+    env:
+      BAZEL_TOOLCHAINS_MSVC_ACCEPT_MICROSOFT_VISUAL_STUDIO_BUILDTOOLS_EULA: 1
     steps:
       - name: Checkout
         uses: actions/checkout@v4

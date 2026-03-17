@@ -159,7 +159,15 @@ def _extension_impl(module_ctx):
     # 1. Download manifest and map for each channel
     packages_maps = {}
     for package_map_key, channel_url in CHANNEL_URL.items():
-        packages_maps[package_map_key] = download_and_map(module_ctx, channel_url)
+        package_map, license_url = download_and_map(module_ctx, channel_url)
+        packages_maps[package_map_key] = package_map
+
+        accept_eula = module_ctx.os.environ.get("BAZEL_TOOLCHAINS_MSVC_ACCEPT_MICROSOFT_VISUAL_STUDIO_BUILDTOOLS_EULA", "").lower()
+        if accept_eula not in ["1", "true"]:
+            fail("\n\n" +
+                 "You must accept the Microsoft Visual Studio Build Tools License to use this toolchain.\n" +
+                 "License URL: {}\n\n".format(license_url) +
+                 "To accept the license, set the environment variable BAZEL_TOOLCHAINS_MSVC_ACCEPT_MICROSOFT_VISUAL_STUDIO_BUILDTOOLS_EULA=1\n")
 
     repo_name_value = "msvc_toolchains"
     toolchain_sets = []
@@ -661,5 +669,6 @@ toolchain = module_extension(
     environ = [
         "BAZEL_TOOLCHAINS_MSVC_HOSTS",
         "BAZEL_TOOLCHAINS_MSVC_TARGETS",
+        "BAZEL_TOOLCHAINS_MSVC_ACCEPT_MICROSOFT_VISUAL_STUDIO_BUILDTOOLS_EULA",
     ],
 )

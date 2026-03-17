@@ -1,14 +1,14 @@
 """Module for downloading and parsing Visual Studio channel manifests."""
 
 def download_and_map(ctx, channel_url):
-    """Downloads the VS manifest from the given channel and returns a mapping of package IDs to package data.
+    """Downloads the VS manifest from the given channel and returns a mapping of package IDs to package data and the license URL.
 
     Args:
         ctx: The module_context or repository_ctx.
         channel_url: The channel URL to download from (e.g., "https://aka.ms/vs/17/release/channel").
 
     Returns:
-        A dictionary mapping package IDs to package data.
+        A tuple (packages_map, license_url).
     """
 
     # 1. Download the root manifest
@@ -18,14 +18,24 @@ def download_and_map(ctx, channel_url):
         output = "visual_studio_root_manifest.json",
     )
 
-    # 2. Parse the root manifest to find the package manifest URL
+    # 2. Parse the root manifest to find the package manifest URL and license URL
     root_manifest_content = ctx.read("visual_studio_root_manifest.json")
     root_manifest = json.decode(root_manifest_content)
 
     package_manifest_url = None
+    license_url = None
     for item in root_manifest["channelItems"]:
         if item["id"] == "Microsoft.VisualStudio.Manifests.VisualStudio":
             package_manifest_url = item["payloads"][0]["url"]
+        
+        if item["id"] == "Microsoft.VisualStudio.Product.BuildTools":
+            localized_resources = item.get("localizedResources", [])
+            for res in localized_resources:
+                if "license" in res:
+                    license_url = res["license"]
+                    break
+
+        if package_manifest_url and license_url:
             break
 
     if not package_manifest_url:
@@ -55,7 +65,7 @@ def download_and_map(ctx, channel_url):
         if pkg_id not in packages_map:
             fail("Package not found: {pkg_id}".format(pkg_id = pkg_id))
 
-    return packages_map
+    return packages_map, license_url
 
 def get_winsdk_msi_list(targets):
     msi_list = [
