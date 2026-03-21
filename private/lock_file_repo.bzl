@@ -2,6 +2,7 @@
 
 def _lock_file_repo_impl(ctx):
     ctx.file("lock.json", ctx.attr.lock_json + "\n")
+    ctx.file("available_versions.json", ctx.attr.available_versions_json + "\n")
     raw_lock_file_path = ctx.attr.lock_file_path
 
     if not raw_lock_file_path:
@@ -27,7 +28,7 @@ echo Wrote %TARGET_PATH%
 
     ctx.file("BUILD.bazel", """package(default_visibility = ["//visibility:public"])
 
-exports_files(["lock.json", "pin.bat"])
+exports_files(["lock.json", "available_versions.json", "pin.bat"])
 """)
 
 lock_file_repo = repository_rule(
@@ -35,5 +36,6 @@ lock_file_repo = repository_rule(
     attrs = {
         "lock_json": attr.string(mandatory = True),
         "lock_file_path": attr.string(mandatory = False, default = ""),
+        "available_versions_json": attr.string(mandatory = True),
     },
 )

@@ -1,4 +1,22 @@
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+
 exports_files([
     "flags.bzl",
     "vs_channel_manifest.bzl",
 ])
+
+bzl_library(
+    name = "bzl",
+    visibility = ["//visibility:public"],
+    srcs = [
+        "flags.bzl",
+        "libs.bzl",
+        "llvm_repo.bzl",
+        "lock_file_repo.bzl",
+        "msvc_repo.bzl",
+        "msvc_toolchains_repo.bzl",
+        "utils.bzl",
+        "vs_channel_manifest.bzl",
+        "winsdk_repo.bzl",
+    ],
+)

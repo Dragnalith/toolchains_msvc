@@ -4,3 +4,5 @@ alias(
     name = "pin",
     actual = "@@toolchains_msvc++toolchain+toolchains_msvc_lock//:pin.bat",
 )
+
+exports_files(["extensions.bzl"])

@@ -1,0 +1,10 @@
+load("@stardoc//stardoc:stardoc.bzl", "stardoc")
+
+package(default_visibility = ["//visibility:public"])
+
+stardoc(
+    name = "extensions_doc",
+    input = "//:extensions.bzl",
+    out = "extensions.md",
+    deps = ["//private:bzl"],
+)

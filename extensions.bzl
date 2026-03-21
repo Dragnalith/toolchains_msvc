@@ -1,4 +1,28 @@
-"""Toolchains extension for toolchains_msvc."""
+"""Bazel module extension for `toolchains_msvc` (MSVC, Windows SDK, and LLVM).
+
+Fetch MSVC / WinSDK / LLVM packages, and declare toolchains according to `toolchain.toolchain_set(...)` blocks.
+
+Typical `MODULE.bazel` pattern:
+
+```
+toolchain = use_extension("@toolchains_msvc//:extensions.bzl", "toolchain")
+toolchain.toolchain_set(
+    name = "main",
+    msvc_versions = ["..."],
+    winsdk_versions = ["..."],
+)
+use_repo(toolchain, "msvc_toolchains")
+register_toolchains("@msvc_toolchains//:all")
+```
+
+Optional lock file (reproducible pins): ``toolchain.lock(file = \"//:toolchains_msvc.json.lock\")``.
+Run ``bazel run @toolchains_msvc//:pin`` to refresh the lock after changing tags.
+
+Environment:
+
+* ``BAZEL_TOOLCHAINS_MSVC_HOSTS`` — comma-separated list of hosts, used if ``hosts`` is omitted on a set.
+* ``BAZEL_TOOLCHAINS_MSVC_TARGETS`` — comma-separated list of targets, used if ``targets`` is omitted.
+"""
 
 load(
     "//private:flags.bzl",
@@ -48,13 +72,22 @@ load(
 )
 load("//private:winsdk_repo.bzl", "winsdk_repo")
 
+# Keys select which VS channel manifest is used ("17" vs "18"); values are aka.ms URLs.
 CHANNEL_URL = {
     "18": "https://aka.ms/vs/stable/channel",
     "17": "https://aka.ms/vs/17/release/channel",
 }
 
 def _find_closest_redist_version(msvc_version, redist_versions_dict):
-    """Returns (closest_redist_version, package_map_key)."""
+    """Pick a MSVC redistributable version compatible with the given MSVC toolset version.
+
+    Args:
+        msvc_version: MSVC version string (e.g. ``"14.44"``).
+        redist_versions_dict: Map from redist version string to VS channel map key.
+
+    Returns:
+        A ``(redist_version, package_map_key)`` pair for manifest lookups.
+    """
     redist_versions = redist_versions_dict.keys()
     target_v_parts = msvc_version.split(".")[:2]
     target_v = (int(target_v_parts[0]), int(target_v_parts[1]))
@@ -86,7 +119,7 @@ def _find_closest_redist_version(msvc_version, redist_versions_dict):
     return (closest_redist, redist_versions_dict[closest_redist])
 
 def _unique_values(values):
-    """Returns values without duplicates while preserving order."""
+    """Returns ``values`` without duplicates, preserving first-seen order."""
     seen = {}
     result = []
     for value in values:
@@ -96,13 +129,32 @@ def _unique_values(values):
     return result
 
 def _env_list(module_ctx, env_var):
+    """Parses a comma-separated environment variable into a list of non-empty strings.
+
+    Args:
+        module_ctx: The module extension context.
+        env_var: Name of the environment variable.
+
+    Returns:
+        A list of stripped segments, or an empty list if unset/blank.
+    """
     value = module_ctx.os.environ.get(env_var, "").strip()
     if not value:
         return []
     return _unique_values([item.strip() for item in value.split(",") if item.strip()])
 
 def _resolve_group_axis(module_ctx, explicit_values, env_var, fallback):
-    """Returns explicit values, env override values, or fallback values."""
+    """Resolves a host/target axis: tag list wins, then ``env_var``, then ``fallback``.
+
+    Args:
+        module_ctx: The module extension context (used to read environment variables).
+        explicit_values: List of values provided directly on the tag; used as-is if non-empty.
+        env_var: Name of the environment variable to parse when ``explicit_values`` is empty.
+        fallback: Default list returned when both ``explicit_values`` and ``env_var`` are absent.
+
+    Returns:
+        De-duplicated list of resolved values in their original priority order.
+    """
     if explicit_values:
         return _unique_values(explicit_values)
     env_values = _env_list(module_ctx, env_var)
@@ -111,7 +163,7 @@ def _resolve_group_axis(module_ctx, explicit_values, env_var, fallback):
     return fallback
 
 def _validate_toolchain_set_name(name):
-    """Ensures toolchain_set names can be used as labels and folder names."""
+    """Fails if ``name`` is empty or contains characters unsafe in labels or paths."""
     if not name:
         fail("toolchain_set name must not be empty.")
     for invalid_char in ["/", "\\", ":", "@", " "]:
@@ -119,15 +171,18 @@ def _validate_toolchain_set_name(name):
             fail("Invalid toolchain_set name '{}': must not contain '{}'.".format(name, invalid_char))
 
 def _sort_packages(packages):
+    """Sorts package dicts by ``filename`` then ``sha256`` for stable lock output."""
     return sorted(packages, key = lambda pkg: "{}\n{}".format(pkg["filename"], pkg["sha256"]))
 
 def _register_package_url(all_packages_url, sha256, url):
+    """Records the first URL seen for a package digest (deduplicated by ``sha256``)."""
     existing = all_packages_url.get(sha256)
     if existing == None:
         all_packages_url[sha256] = url
         return
 
 def _package_urls_for_repo(all_packages_url, packages):
+    """Builds a ``sha256 -> url`` map for the given package list."""
     package_urls = {}
     for pkg in packages:
         sha256 = pkg["sha256"]
@@ -138,6 +193,7 @@ def _package_urls_for_repo(all_packages_url, packages):
     return package_urls
 
 def _sorted_union_keys(left, right):
+    """Returns sorted keys present in either dict-like mapping."""
     keys = {}
     for key in left:
         keys[key] = True
@@ -146,6 +202,7 @@ def _sorted_union_keys(left, right):
     return sorted(keys.keys())
 
 def _packages_by_filename(packages):
+    """Indexes package dicts by ``filename``; entries without a ``filename`` key are skipped."""
     packages_by_filename = {}
     for package in packages:
         if type(package) == "dict" and package.get("filename") != None:
@@ -153,6 +210,7 @@ def _packages_by_filename(packages):
     return packages_by_filename
 
 def _diff_repo_packages(repo_name, repo_packages, user_repo_packages):
+    """Human-readable diff for ``packages`` lists between MODULE resolution and lock file."""
     if type(repo_packages) != "list" or type(user_repo_packages) != "list":
         return "packages: type mismatch (MODULE: {}, lock: {}).\n".format(
             type(repo_packages),
@@ -192,6 +250,7 @@ def _diff_repo_packages(repo_name, repo_packages, user_repo_packages):
     return diff_text
 
 def _diff_repo_definition(repo_name, repo, user_repo):
+    """Human-readable diff between two repository definition dicts (including nested packages)."""
     diff_text = ""
     for key in _sorted_union_keys(repo, user_repo):
         in_mod = key in repo
@@ -213,6 +272,7 @@ def _diff_repo_definition(repo_name, repo, user_repo):
     return diff_text
 
 def _lock_error_for_repo(relative_lock_file_path, repo_name, repo, user_lock_repos):
+    """Returns an error string if the lock is missing or does not match ``repo``; else ``\"\"``."""
     if user_lock_repos == None:
         return "The lock file '{}' does not exist or is invalid for repository '{}'. You must run `bazel run @toolchains_msvc//:pin` to create it.".format(
             relative_lock_file_path,
@@ -237,12 +297,14 @@ def _lock_error_for_repo(relative_lock_file_path, repo_name, repo, user_lock_rep
     )
 
 def _merge_repo_errors(*errors):
+    """Joins non-empty error strings with blank lines (e.g. lock + EULA)."""
     merged_errors = [error for error in errors if error]
     if not merged_errors:
         return ""
     return "\n\n".join(merged_errors)
 
 def _llvm_package_filename(version, host):
+    """Official LLVM release tarball basename for ``version`` and Windows ``host`` (``x64`` or ``arm64``)."""
     if host == "x64":
         llvm_arch = "x86_64"
     elif host == "arm64":
@@ -252,6 +314,7 @@ def _llvm_package_filename(version, host):
     return "clang+llvm-{}-{}-pc-windows-msvc.tar.xz".format(version, llvm_arch)
 
 def _register_repo_definition(repos, repo):
+    """Inserts ``repo`` into ``repos`` by name, or fails on conflicting definitions."""
     name = repo["name"]
     existing = repos.get(name)
     if existing == None:
@@ -261,6 +324,22 @@ def _register_repo_definition(repos, repo):
         fail("Conflicting definitions for repo '{}': {} != {}".format(name, existing, repo))
 
 def _extension_impl(module_ctx):
+    """Module extension implementation: manifests, repos, lock, and toolchains registration.
+
+    Phases:
+
+    1. Download VS channel manifests; enforce EULA if needed.
+    2. Parse tags (toolchain sets, defaults, optional lock file label).
+    3. Resolve per-set MSVC / WinSDK / LLVM versions, hosts, targets, and merged flags.
+    4. Build the package-URL map; emit and instantiate LLVM, MSVC, and WinSDK repository rules.
+    5. Create the lock-file helper repo and the aggregate ``msvc_toolchains`` repo.
+
+    Args:
+        module_ctx: Bazel module extension context.
+
+    Returns:
+        ``extension_metadata`` marking the toolchains repo as a direct root dependency.
+    """
     # 1. Download manifest and map for each channel
     packages_maps = {}
     accept_eula = module_ctx.os.environ.get("BAZEL_TOOLCHAINS_MSVC_ACCEPT_MICROSOFT_VISUAL_STUDIO_BUILDTOOLS_EULA", "").lower()
@@ -594,6 +673,15 @@ def _extension_impl(module_ctx):
         for repo_name in sorted(repos.keys())
     }
 
+    if clang_versions_dict == None:
+        clang_versions_dict = list_clang_version(module_ctx)
+
+    available_versions = {
+        "msvc_versions": sorted(msvc_versions_dict.keys()),
+        "winsdk_versions": sorted(winsdk_versions_dict.keys()),
+        "llvm_versions": sorted(clang_versions_dict.keys()),
+    }
+
     user_lock_repos = None
     relative_lock_file_path = None
     if is_locked:
@@ -610,18 +698,22 @@ def _extension_impl(module_ctx):
         name = "toolchains_msvc_lock",
         lock_json = json.encode_indent(module_lock_repos),
         lock_file_path = relative_lock_file_path,
+        available_versions_json = json.encode_indent(available_versions),
     )
 
     for repo_name in sorted(module_lock_repos.keys()):
         repo = module_lock_repos[repo_name]
         kind = repo["kind"]
 
-        lock_error = _lock_error_for_repo(
-                relative_lock_file_path,
-                repo_name,
-                module_lock_repos[repo_name],
-                user_lock_repos,
-        )
+        if is_locked:
+            lock_error = _lock_error_for_repo(
+                    relative_lock_file_path,
+                    repo_name,
+                    module_lock_repos[repo_name],
+                    user_lock_repos,
+            )
+        else:
+            lock_error = ""
 
         if lock_error:
             packages = []
@@ -690,113 +782,322 @@ def _extension_impl(module_ctx):
         root_module_direct_dev_deps = [],
     )
 
-repo_name_tag = tag_class(attrs = {"name": attr.string(mandatory = True)})
+repo_name_tag = tag_class(
+    doc = "Sets the name of the generated toolchains repository (default is `msvc_toolchains`).",
+    attrs = {
+        "name": attr.string(
+            mandatory = True,
+            doc = "Repository name used in `use_repo(toolchain, \"<name>\")` and `@<name>//...` labels.",
+        ),
+    },
+)
 
 toolchain_set_tag = tag_class(
+    doc = "Declares a set of toolchains made of the cross-product of MSVC, WinSDK, and optional LLVM versions, hosts, targets, features, and compiler flags.",
     attrs = {
-        "name": attr.string(mandatory = True),
-        "targets": attr.string_list(default = []),
-        "hosts": attr.string_list(default = []),
-        "msvc_versions": attr.string_list(default = []),
-        "cl_with_lld_version": attr.string(default = ""),
-        "llvm_versions": attr.string_list(default = []),
-        "winsdk_versions": attr.string_list(default = []),
-        "features": attr.string_list(default = []),
-        "dbg_features": attr.string_list(default = []),
-        "fastbuild_features": attr.string_list(default = []),
-        "opt_features": attr.string_list(default = []),
-        "cl_copt": attr.string_list(default = []),
-        "cl_cxxopt": attr.string_list(default = []),
-        "cl_linkopt": attr.string_list(default = []),
-        "cl_dbg_copt": attr.string_list(default = []),
-        "cl_dbg_cxxopt": attr.string_list(default = []),
-        "cl_dbg_linkopt": attr.string_list(default = []),
-        "cl_fastbuild_copt": attr.string_list(default = []),
-        "cl_fastbuild_cxxopt": attr.string_list(default = []),
-        "cl_fastbuild_linkopt": attr.string_list(default = []),
-        "cl_opt_copt": attr.string_list(default = []),
-        "cl_opt_cxxopt": attr.string_list(default = []),
-        "cl_opt_linkopt": attr.string_list(default = []),
-        "add_cl_copt": attr.string_list(default = []),
-        "add_cl_cxxopt": attr.string_list(default = []),
-        "add_cl_linkopt": attr.string_list(default = []),
-        "add_cl_dbg_copt": attr.string_list(default = []),
-        "add_cl_dbg_cxxopt": attr.string_list(default = []),
-        "add_cl_dbg_linkopt": attr.string_list(default = []),
-        "add_cl_fastbuild_copt": attr.string_list(default = []),
-        "add_cl_fastbuild_cxxopt": attr.string_list(default = []),
-        "add_cl_fastbuild_linkopt": attr.string_list(default = []),
-        "add_cl_opt_copt": attr.string_list(default = []),
-        "add_cl_opt_cxxopt": attr.string_list(default = []),
-        "add_cl_opt_linkopt": attr.string_list(default = []),
-        "clang_copt": attr.string_list(default = []),
-        "clang_cxxopt": attr.string_list(default = []),
-        "clang_linkopt": attr.string_list(default = []),
-        "clang_dbg_copt": attr.string_list(default = []),
-        "clang_dbg_cxxopt": attr.string_list(default = []),
-        "clang_dbg_linkopt": attr.string_list(default = []),
-        "clang_fastbuild_copt": attr.string_list(default = []),
-        "clang_fastbuild_cxxopt": attr.string_list(default = []),
-        "clang_fastbuild_linkopt": attr.string_list(default = []),
-        "clang_opt_copt": attr.string_list(default = []),
-        "clang_opt_cxxopt": attr.string_list(default = []),
-        "clang_opt_linkopt": attr.string_list(default = []),
-        "add_clang_copt": attr.string_list(default = []),
-        "add_clang_cxxopt": attr.string_list(default = []),
-        "add_clang_linkopt": attr.string_list(default = []),
-        "add_clang_dbg_copt": attr.string_list(default = []),
-        "add_clang_dbg_cxxopt": attr.string_list(default = []),
-        "add_clang_dbg_linkopt": attr.string_list(default = []),
-        "add_clang_fastbuild_copt": attr.string_list(default = []),
-        "add_clang_fastbuild_cxxopt": attr.string_list(default = []),
-        "add_clang_fastbuild_linkopt": attr.string_list(default = []),
-        "add_clang_opt_copt": attr.string_list(default = []),
-        "add_clang_opt_cxxopt": attr.string_list(default = []),
-        "add_clang_opt_linkopt": attr.string_list(default = []),
+        "name": attr.string(
+            mandatory = True,
+            doc = "Unique name for this toolchain set; must be a valid label segment (no `/`, `\\`, `:`, `@`, or spaces).",
+        ),
+        "targets": attr.string_list(
+            default = [],
+            doc = "List of target architecture, among `x64`, `x86` or `arm64`. If empty, uses `BAZEL_TOOLCHAINS_MSVC_TARGETS` or `x64`.",
+        ),
+        "hosts": attr.string_list(
+            default = [],
+            doc = "List of host architecture, value should be among `x64`, `x86` or `arm64`. If empty, uses `BAZEL_TOOLCHAINS_MSVC_HOSTS` or `x64`.",
+        ),
+        "msvc_versions": attr.string_list(
+            default = [],
+            doc = "List of enabled MSVC versions. Must have at least one element.",
+        ),
+        "cl_with_lld_version": attr.string(
+            default = "",
+            doc = "Optional LLVM version string to pull in `lld-link` for use with `cl` (adds an LLVM repo for that version).",
+        ),
+        "llvm_versions": attr.string_list(
+            default = [],
+            doc = "LLVM/Clang versions for `clang` / `clang-cl` based toolchains. Can be empty.",
+        ),
+        "winsdk_versions": attr.string_list(
+            default = [],
+            doc = "Windows SDK versions for this toolchain set. Must have at least one element.",
+        ),
+        "features": attr.string_list(
+            default = [],
+            doc = "Default `features` to be enabled for this toolchain set (Bazel `cc` feature names).",
+        ),
+        "dbg_features": attr.string_list(
+            default = [],
+            doc = "Extra `features` enabled when compiling with `-c dbg`.",
+        ),
+        "fastbuild_features": attr.string_list(
+            default = [],
+            doc = "Extra `features` enabled when compiling with `-c fastbuild`.",
+        ),
+        "opt_features": attr.string_list(
+            default = [],
+            doc = "Extra `features` enabled when compiling with `-c opt`.",
+        ),
+        "cl_copt": attr.string_list(
+            default = [],
+            doc = "MSVC `cl` or `clang-cl` C compile options for the default compilation mode; replaces the built-in default list.",
+        ),
+        "cl_cxxopt": attr.string_list(
+            default = [],
+            doc = "MSVC `cl` or `clang-cl` C++ compile options for the default mode; replaces the built-in default list.",
+        ),
+        "cl_linkopt": attr.string_list(
+            default = [],
+            doc = "MSVC link flags for the default mode; replaces the built-in default list.",
+        ),
+        "cl_dbg_copt": attr.string_list(
+            default = [],
+            doc = "MSVC `cl` or `clang-cl` C compile options for `-c dbg`; replaces the dbg defaults.",
+        ),
+        "cl_dbg_cxxopt": attr.string_list(
+            default = [],
+            doc = "MSVC `cl` or `clang-cl` C++ compile options for `-c dbg`; replaces the dbg defaults.",
+        ),
+        "cl_dbg_linkopt": attr.string_list(
+            default = [],
+            doc = "MSVC link flags for `-c dbg`; replaces the dbg defaults.",
+        ),
+        "cl_fastbuild_copt": attr.string_list(
+            default = [],
+            doc = "MSVC `cl` or `clang-cl` C compile options for `-c fastbuild`; replaces fastbuild defaults.",
+        ),
+        "cl_fastbuild_cxxopt": attr.string_list(
+            default = [],
+            doc = "MSVC `cl` or `clang-cl` C++ compile options for `-c fastbuild`; replaces fastbuild defaults.",
+        ),
+        "cl_fastbuild_linkopt": attr.string_list(
+            default = [],
+            doc = "MSVC link flags for `-c fastbuild`; replaces fastbuild defaults.",
+        ),
+        "cl_opt_copt": attr.string_list(
+            default = [],
+            doc = "MSVC `cl` or `clang-cl` C compile options for `-c opt`; replaces opt defaults.",
+        ),
+        "cl_opt_cxxopt": attr.string_list(
+            default = [],
+            doc = "MSVC `cl` or `clang-cl` C++ compile options for `-c opt`; replaces opt defaults.",
+        ),
+        "cl_opt_linkopt": attr.string_list(
+            default = [],
+            doc = "MSVC link flags for `-c opt`; replaces opt defaults.",
+        ),
+        "add_cl_copt": attr.string_list(
+            default = [],
+            doc = "Appended to the effective MSVC `cl` or `clang-cl` C flags for the default mode (after defaults or `cl_copt` replacement).",
+        ),
+        "add_cl_cxxopt": attr.string_list(
+            default = [],
+            doc = "Appended to the effective MSVC `cl` or `clang-cl` C++ flags for the default mode.",
+        ),
+        "add_cl_linkopt": attr.string_list(
+            default = [],
+            doc = "Appended to the effective MSVC link flags for the default mode.",
+        ),
+        "add_cl_dbg_copt": attr.string_list(
+            default = [],
+            doc = "Appended to the effective MSVC `cl` or `clang-cl` C flags for `-c dbg`.",
+        ),
+        "add_cl_dbg_cxxopt": attr.string_list(
+            default = [],
+            doc = "Appended to the effective MSVC `cl` or `clang-cl` C++ flags for `-c dbg`.",
+        ),
+        "add_cl_dbg_linkopt": attr.string_list(
+            default = [],
+            doc = "Appended to the effective MSVC link flags for `-c dbg`.",
+        ),
+        "add_cl_fastbuild_copt": attr.string_list(
+            default = [],
+            doc = "Appended to the effective MSVC `cl` or `clang-cl` C flags for `-c fastbuild`.",
+        ),
+        "add_cl_fastbuild_cxxopt": attr.string_list(
+            default = [],
+            doc = "Appended to the effective MSVC `cl` or `clang-cl` C++ flags for `-c fastbuild`.",
+        ),
+        "add_cl_fastbuild_linkopt": attr.string_list(
+            default = [],
+            doc = "Appended to the effective MSVC link flags for `-c fastbuild`.",
+        ),
+        "add_cl_opt_copt": attr.string_list(
+            default = [],
+            doc = "Appended to the effective MSVC `cl` or `clang-cl` C flags for `-c opt`.",
+        ),
+        "add_cl_opt_cxxopt": attr.string_list(
+            default = [],
+            doc = "Appended to the effective MSVC `cl` or `clang-cl` C++ flags for `-c opt`.",
+        ),
+        "add_cl_opt_linkopt": attr.string_list(
+            default = [],
+            doc = "Appended to the effective MSVC link flags for `-c opt`.",
+        ),
+        "clang_copt": attr.string_list(
+            default = [],
+            doc = "Clang C compile options for the default mode; non-empty replaces the built-in default list.",
+        ),
+        "clang_cxxopt": attr.string_list(
+            default = [],
+            doc = "Clang C++ compile options for the default mode; non-empty replaces the built-in default list.",
+        ),
+        "clang_linkopt": attr.string_list(
+            default = [],
+            doc = "Clang/lld link flags for the default mode; non-empty replaces the built-in default list.",
+        ),
+        "clang_dbg_copt": attr.string_list(
+            default = [],
+            doc = "Clang C compile options for `-c dbg`; non-empty replaces dbg defaults.",
+        ),
+        "clang_dbg_cxxopt": attr.string_list(
+            default = [],
+            doc = "Clang C++ compile options for `-c dbg`; non-empty replaces dbg defaults.",
+        ),
+        "clang_dbg_linkopt": attr.string_list(
+            default = [],
+            doc = "Clang link flags for `-c dbg`; non-empty replaces dbg defaults.",
+        ),
+        "clang_fastbuild_copt": attr.string_list(
+            default = [],
+            doc = "Clang C compile options for `-c fastbuild`; non-empty replaces fastbuild defaults.",
+        ),
+        "clang_fastbuild_cxxopt": attr.string_list(
+            default = [],
+            doc = "Clang C++ compile options for `-c fastbuild`; non-empty replaces fastbuild defaults.",
+        ),
+        "clang_fastbuild_linkopt": attr.string_list(
+            default = [],
+            doc = "Clang link flags for `-c fastbuild`; non-empty replaces fastbuild defaults.",
+        ),
+        "clang_opt_copt": attr.string_list(
+            default = [],
+            doc = "Clang C compile options for `-c opt`; non-empty replaces opt defaults.",
+        ),
+        "clang_opt_cxxopt": attr.string_list(
+            default = [],
+            doc = "Clang C++ compile options for `-c opt`; non-empty replaces opt defaults.",
+        ),
+        "clang_opt_linkopt": attr.string_list(
+            default = [],
+            doc = "Clang link flags for `-c opt`; non-empty replaces opt defaults.",
+        ),
+        "add_clang_copt": attr.string_list(
+            default = [],
+            doc = "Appended to the effective Clang C flags for the default mode.",
+        ),
+        "add_clang_cxxopt": attr.string_list(
+            default = [],
+            doc = "Appended to the effective Clang C++ flags for the default mode.",
+        ),
+        "add_clang_linkopt": attr.string_list(
+            default = [],
+            doc = "Appended to the effective Clang link flags for the default mode.",
+        ),
+        "add_clang_dbg_copt": attr.string_list(
+            default = [],
+            doc = "Appended to the effective Clang C flags for `-c dbg`.",
+        ),
+        "add_clang_dbg_cxxopt": attr.string_list(
+            default = [],
+            doc = "Appended to the effective Clang C++ flags for `-c dbg`.",
+        ),
+        "add_clang_dbg_linkopt": attr.string_list(
+            default = [],
+            doc = "Appended to the effective Clang link flags for `-c dbg`.",
+        ),
+        "add_clang_fastbuild_copt": attr.string_list(
+            default = [],
+            doc = "Appended to the effective Clang C flags for `-c fastbuild`.",
+        ),
+        "add_clang_fastbuild_cxxopt": attr.string_list(
+            default = [],
+            doc = "Appended to the effective Clang C++ flags for `-c fastbuild`.",
+        ),
+        "add_clang_fastbuild_linkopt": attr.string_list(
+            default = [],
+            doc = "Appended to the effective Clang link flags for `-c fastbuild`.",
+        ),
+        "add_clang_opt_copt": attr.string_list(
+            default = [],
+            doc = "Appended to the effective Clang C flags for `-c opt`.",
+        ),
+        "add_clang_opt_cxxopt": attr.string_list(
+            default = [],
+            doc = "Appended to the effective Clang C++ flags for `-c opt`.",
+        ),
+        "add_clang_opt_linkopt": attr.string_list(
+            default = [],
+            doc = "Appended to the effective Clang link flags for `-c opt`.",
+        ),
     },
 )
 
 default_toolchain_set_tag = tag_class(
+    doc = "Selects which declared `toolchain_set` is the default for the generated repo. Otherwise, the first declared toolchain set is used.",
     attrs = {
-        "name": attr.string(mandatory = True),
+        "name": attr.string(
+            mandatory = True,
+            doc = "Must match the `name` of a `toolchain.toolchain_set` in this extension invocation.",
+        ),
     },
 )
 
 default_msvc_version_tag = tag_class(
+    doc = "Default MSVC toolset version for the aggregate toolchains repository (must appear in some `toolchain_set`).",
     attrs = {
-        "version": attr.string(mandatory = True),
+        "version": attr.string(
+            mandatory = True,
+            doc = "Must be one of the MSVC versions declared in `toolchain_set`. If the whole `default_msvc_version` tag is omitted, the first MSVC version across sets is used.",
+        ),
     },
 )
 
 default_llvm_version_tag = tag_class(
+    doc = "Default LLVM version when LLVM is used (must appear in at least one `toolchain_set`).",
     attrs = {
-        "version": attr.string(mandatory = True),
+        "version": attr.string(
+            mandatory = True,
+            doc = "Must be one of the LLVM versions declared in `toolchain_set`. If the whole `default_llvm_version` tag is omitted, the first LLVM version across sets is used when LLVM is enabled.",
+        ),
     },
 )
 
 default_winsdk_version_tag = tag_class(
+    doc = "Default Windows SDK version (must appear in at least one `toolchain_set`).",
     attrs = {
-        "version": attr.string(mandatory = True),
+        "version": attr.string(
+            mandatory = True,
+            doc = "Must be one of the WinSDK versions declared in `toolchain_set`. If the whole `default_winsdk_version` tag is omitted, the first WinSDK version across sets is used.",
+        ),
     },
 )
 
 default_compiler_tag = tag_class(
+    doc = "Default compiler to be used (`msvc-cl`, `clang-cl`, or `clang`) when resolving toolchains.",
     attrs = {
         "compiler": attr.string(
             mandatory = True,
             values = ["msvc-cl", "clang-cl", "clang"],
+            doc = "`msvc-cl` uses MSVC `cl`; `clang-cl` / `clang` require LLVM versions to be declared.",
         ),
     },
 )
 
 lock_tag = tag_class(
+    doc = "Pins resolved repositories to a JSON lock file for reproducible fetches.",
     attrs = {
-        "file": attr.label(mandatory = True),
+        "file": attr.label(
+            mandatory = True,
+            doc = "Label of the lock file (e.g. `//:toolchains_msvc.json.lock`). Must be unique across tags.",
+        ),
     },
 )
 
 toolchain = module_extension(
     implementation = _extension_impl,
+    doc = "Fetches MSVC, Windows SDK, and optional LLVM artifacts and registers matching C++ toolchains.",
     tag_classes = {
         "lock": lock_tag,
         "repo_name": repo_name_tag,
