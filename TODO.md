@@ -29,7 +29,11 @@
 - [X] Lock File: Repo is reproducible
 - [X] Lock File: Separate toolchains installation into two phase: preparation of a "lock" file, then consuming the lock file for installation.
 - [X] Lock File: Support lock file using the 'Update pattern'
-- [ ] Enforce Visual Studio's EULA agreement: require a BAZEL_TOOLCHAINS_MSVC_AGREE_WITH_VS_EULA envvar. If does not exist, installation fails with the url pointing to EULA gotten from the channel manifest
+- [X] Enforce Visual Studio's EULA agreement: require a BAZEL_TOOLCHAINS_MSVC_AGREE_WITH_VS_EULA envvar. If does not exist, installation fails with the url pointing to EULA gotten from the channel manifest
+- [X] Fix: EULA should failed is repository_rule execution
+- [ ] Fix: default should be global not per toolchains_set
+- [ ] Create a sample app
+- [ ] Write documentation
 - [ ] Feature: ASAN (design: one cc_feature and one alias on cc_import selecting asan runtime for the current toolchain)
 - [ ] Test: Display test result using Github "Check API"
 - [ ] Configuration: Support .def file for DLL

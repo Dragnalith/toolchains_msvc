@@ -236,6 +236,12 @@ def _lock_error_for_repo(relative_lock_file_path, repo_name, repo, user_lock_rep
         diff_text,
     )
 
+def _merge_repo_errors(*errors):
+    merged_errors = [error for error in errors if error]
+    if not merged_errors:
+        return ""
+    return "\n\n".join(merged_errors)
+
 def _llvm_package_filename(version, host):
     if host == "x64":
         llvm_arch = "x86_64"
@@ -257,16 +263,18 @@ def _register_repo_definition(repos, repo):
 def _extension_impl(module_ctx):
     # 1. Download manifest and map for each channel
     packages_maps = {}
+    accept_eula = module_ctx.os.environ.get("BAZEL_TOOLCHAINS_MSVC_ACCEPT_MICROSOFT_VISUAL_STUDIO_BUILDTOOLS_EULA", "").lower()
+    accept_eula_error = ""
     for package_map_key, channel_url in CHANNEL_URL.items():
         package_map, license_url = download_and_map(module_ctx, channel_url)
         packages_maps[package_map_key] = package_map
 
-        accept_eula = module_ctx.os.environ.get("BAZEL_TOOLCHAINS_MSVC_ACCEPT_MICROSOFT_VISUAL_STUDIO_BUILDTOOLS_EULA", "").lower()
-        if accept_eula not in ["1", "true"]:
-            fail("\n\n" +
-                 "You must accept the Microsoft Visual Studio Build Tools License to use this toolchain.\n" +
-                 "License URL: {}\n\n".format(license_url) +
-                 "To accept the license, set the environment variable BAZEL_TOOLCHAINS_MSVC_ACCEPT_MICROSOFT_VISUAL_STUDIO_BUILDTOOLS_EULA=1\n")
+        if not accept_eula_error and accept_eula not in ["1", "true"]:
+            accept_eula_error = (
+                "You must accept the Microsoft Visual Studio Build Tools License to use this toolchain.\n" +
+                "License URL: {}\n\n".format(license_url) +
+                "To accept the license, set the environment variable BAZEL_TOOLCHAINS_MSVC_ACCEPT_MICROSOFT_VISUAL_STUDIO_BUILDTOOLS_EULA=1"
+            )
 
     repo_name_value = "msvc_toolchains"
     toolchain_sets = []
@@ -628,24 +636,26 @@ def _extension_impl(module_ctx):
             continue
 
         if kind == "msvc":
+            repo_error = _merge_repo_errors(lock_error, accept_eula_error)
             msvc_repo(
                 name = repo["name"],
                 hosts = repo["hosts"],
                 targets = repo["targets"],
                 packages = json.encode(packages),
                 package_urls = json.encode(package_urls),
-                error = lock_error,
+                error = repo_error,
             )
             continue
 
         if kind == "winsdk":
+            repo_error = _merge_repo_errors(lock_error, accept_eula_error)
             winsdk_repo(
                 name = repo["name"],
                 targets = repo["targets"],
                 packages = json.encode(packages),
                 package_urls = json.encode(package_urls),
                 winsdk_version = repo["winsdk_version"],
-                error = lock_error,
+                error = repo_error,
             )
             continue
 
