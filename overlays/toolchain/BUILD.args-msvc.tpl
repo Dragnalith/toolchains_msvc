@@ -285,7 +285,7 @@ cc_args(
 
 cc_args(
     name = "user_compile_defines",
-    actions = ["@rules_cc//cc/toolchains/actions:compile_actions"],
+    actions = ["@rules_cc//cc/toolchains/actions:source_compile_actions"],
     args = ["/D{define}"],
     format = {"define": "@rules_cc//cc/toolchains/variables:preprocessor_defines"},
     iterate_over = "@rules_cc//cc/toolchains/variables:preprocessor_defines",
@@ -293,7 +293,7 @@ cc_args(
 
 cc_args(
     name = "includes",
-    actions = ["@rules_cc//cc/toolchains/actions:compile_actions"],
+    actions = ["@rules_cc//cc/toolchains/actions:source_compile_actions"],
     nested = [
         ":quote_include_paths",
         ":include_paths",
