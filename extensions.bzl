@@ -137,6 +137,105 @@ def _package_urls_for_repo(all_packages_url, packages):
         package_urls[sha256] = url
     return package_urls
 
+def _sorted_union_keys(left, right):
+    keys = {}
+    for key in left:
+        keys[key] = True
+    for key in right:
+        keys[key] = True
+    return sorted(keys.keys())
+
+def _packages_by_filename(packages):
+    packages_by_filename = {}
+    for package in packages:
+        if type(package) == "dict" and package.get("filename") != None:
+            packages_by_filename[package["filename"]] = package
+    return packages_by_filename
+
+def _diff_repo_packages(repo_name, repo_packages, user_repo_packages):
+    if type(repo_packages) != "list" or type(user_repo_packages) != "list":
+        return "packages: type mismatch (MODULE: {}, lock: {}).\n".format(
+            type(repo_packages),
+            type(user_repo_packages),
+        )
+
+    diff_text = ""
+    if len(repo_packages) != len(user_repo_packages):
+        diff_text += "packages: MODULE has {} entries, lock file has {} entries (repository '{}').\n".format(
+            len(repo_packages),
+            len(user_repo_packages),
+            repo_name,
+        )
+
+    repo_by_fn = _packages_by_filename(repo_packages)
+    user_repo_by_fn = _packages_by_filename(user_repo_packages)
+    for fn in _sorted_union_keys(repo_by_fn, user_repo_by_fn):
+        repo_pkg = repo_by_fn.get(fn)
+        user_repo_pkg = user_repo_by_fn.get(fn)
+        if repo_pkg == None:
+            diff_text += "packages: filename {} only in lock file.\n".format(repr(fn))
+        elif user_repo_pkg == None:
+            diff_text += "packages: filename {} only in MODULE resolution.\n".format(repr(fn))
+        else:
+            if repo_pkg.get("filename") != user_repo_pkg.get("filename"):
+                diff_text += "packages: filename field differs for {}: MODULE {} vs lock {}.\n".format(
+                    repr(fn),
+                    repr(repo_pkg.get("filename")),
+                    repr(user_repo_pkg.get("filename")),
+                )
+            if repo_pkg.get("sha256") != user_repo_pkg.get("sha256"):
+                diff_text += "packages: sha256 differs for filename {}: MODULE {} vs lock {}.\n".format(
+                    repr(fn),
+                    repr(repo_pkg.get("sha256")),
+                    repr(user_repo_pkg.get("sha256")),
+                )
+    return diff_text
+
+def _diff_repo_definition(repo_name, repo, user_repo):
+    diff_text = ""
+    for key in _sorted_union_keys(repo, user_repo):
+        in_mod = key in repo
+        in_lock = key in user_repo
+        if not in_mod:
+            diff_text += "Key '{}' only in lock file (repository '{}').\n".format(key, repo_name)
+        elif not in_lock:
+            diff_text += "Key '{}' only in MODULE resolution (repository '{}').\n".format(key, repo_name)
+        elif repo[key] != user_repo[key]:
+            if key == "packages":
+                diff_text += _diff_repo_packages(repo_name, repo["packages"], user_repo["packages"])
+            else:
+                diff_text += "Key '{}' differs in repository '{}': MODULE {} vs lock {}.\n".format(
+                    key,
+                    repo_name,
+                    repr(repo[key]),
+                    repr(user_repo[key]),
+                )
+    return diff_text
+
+def _lock_error_for_repo(relative_lock_file_path, repo_name, repo, user_lock_repos):
+    if user_lock_repos == None:
+        return "The lock file '{}' does not exist or is invalid for repository '{}'. You must run `bazel run @toolchains_msvc//:pin` to create it.".format(
+            relative_lock_file_path,
+            repo_name,
+        )
+
+    user_repo = user_lock_repos.get(repo_name)
+    if user_repo == None:
+        return "The lock file '{}' does not contain the definition for repository '{}'. Run `bazel run @toolchains_msvc//:pin` to update the lock file.".format(
+            relative_lock_file_path,
+            repo_name,
+        )
+
+    if user_repo == repo:
+        return ""
+
+    diff_text = _diff_repo_definition(repo_name, repo, user_repo)
+    return "The lock file '{}' does not match the toolchain definition for repository '{}'. Differences:\n{}\nRun `bazel run @toolchains_msvc//:pin` to update the lock file.".format(
+        relative_lock_file_path,
+        repo_name,
+        diff_text,
+    )
+
 def _llvm_package_filename(version, host):
     if host == "x64":
         llvm_arch = "x86_64"
@@ -503,16 +602,14 @@ def _extension_impl(module_ctx):
         repo = module_lock_repos[repo_name]
         kind = repo["kind"]
 
-        error = ""
-        if is_locked:
-            if user_lock_repos == None:
-                error = "lock file '{}' does not exist or is invalid. You must run `bazel run @toolchains_msvc/:pin` to create it.".format(relative_lock_file_path)
-            else:
-                user_repo = user_lock_repos.get(repo_name)
-                if user_repo == None or user_repo != repo:
-                    error = "The lock file '{}' does not match the toolchain definition in MODULE.bazel. Run bazel run @toolchains_msvc/:pin to update the lock filex.".format(relative_lock_file_path)
+        lock_error = _lock_error_for_repo(
+                relative_lock_file_path,
+                repo_name,
+                module_lock_repos[repo_name],
+                user_lock_repos,
+        )
 
-        if error:
+        if lock_error:
             packages = []
             package_urls = {}
         else:
@@ -526,7 +623,7 @@ def _extension_impl(module_ctx):
                 host = repo["host"],
                 packages = json.encode(packages),
                 package_urls = json.encode(package_urls),
-                error = error,
+                error = lock_error,
             )
             continue
 
@@ -537,7 +634,7 @@ def _extension_impl(module_ctx):
                 targets = repo["targets"],
                 packages = json.encode(packages),
                 package_urls = json.encode(package_urls),
-                error = error,
+                error = lock_error,
             )
             continue
 
@@ -548,7 +645,7 @@ def _extension_impl(module_ctx):
                 packages = json.encode(packages),
                 package_urls = json.encode(package_urls),
                 winsdk_version = repo["winsdk_version"],
-                error = error,
+                error = lock_error,
             )
             continue
 

@@ -714,27 +714,27 @@
 		"packages": [
 			{
 				"filename": "Microsoft.VC.14.44.17.14.ASAN.Headers.base.vsix",
-				"sha256": "4146e40cf96f5986c59fbede3e9431bb35c7eacdf405ad8a364f153c37a1e27a"
+				"sha256": "1fb314862240d0f35142bc180f105628252adf5c5839a5109025a70ce67373e6"
 			},
 			{
 				"filename": "Microsoft.VC.14.44.17.14.ASAN.X64.base.vsix",
-				"sha256": "9a76a6618ff718e8c93df40a7c760c9d06a27852f0405fc68282bc53c436673e"
+				"sha256": "1f076eb630a5b68ac27b55f7a011365b0a8a062475a6d1803319fbd1ac58d421"
 			},
 			{
 				"filename": "Microsoft.VC.14.44.17.14.ASAN.X86.base.vsix",
-				"sha256": "dd6d6eb9fb887bd5e0261d1246a32b4d667f7ca24ba0208747503401feb4466d"
+				"sha256": "f731efba65d6edf8741aae27c854a9b04b0a7d33578790954f738aa27d30aeeb"
 			},
 			{
 				"filename": "Microsoft.VC.14.44.17.14.CRT.ARM64.Desktop.base.vsix",
-				"sha256": "6b9ae8efe100a7a77c8567d86138eba1010f7a5100b6851ae4c09c26e2f47f2c"
+				"sha256": "0e77418300961cef21b07ec41fb89710ee0c5711e5ca70300eeed92628d583ac"
 			},
 			{
 				"filename": "Microsoft.VC.14.44.17.14.CRT.ARM64.Desktop.debug.base.vsix",
-				"sha256": "b68eff153c59e814c88b13a8da2e6b7fff96f7504dcd4d9c69d0dab40e50f3b7"
+				"sha256": "41f1327798fd2f18c5dd1962c32ed3fdceb31c9b4956b16e4d3f00a2e4ef1ee0"
 			},
 			{
 				"filename": "Microsoft.VC.14.44.17.14.CRT.ARM64.Store.base.vsix",
-				"sha256": "ca22cb7e23ac0505a028bb7b9dd3a5d3d22d971315b9e8af0e1c88f6b5d37a1c"
+				"sha256": "99b4af6f42a000a1da246044309100656bd5b59b4576e01cb6435f6aa42f907a"
 			},
 			{
 				"filename": "Microsoft.VC.14.44.17.14.CRT.ARM64EC.Store.base.vsix",
@@ -766,27 +766,27 @@
 			},
 			{
 				"filename": "Microsoft.VC.14.44.17.14.CRT.arm.Desktop.base.vsix",
-				"sha256": "a6c2bdfee598deb539c328a5364b985929b0b1b68c17c50a5db33be2879b9cfe"
+				"sha256": "a3c852a6ed6f7e0ce23f8afe0b69f0e76e765e2a51e55b3350a2602dd5382b52"
 			},
 			{
 				"filename": "Microsoft.VC.14.44.17.14.CRT.arm.Store.base.vsix",
-				"sha256": "f73553ea95efbaab5e9a91616ba7ee204ed9c877b4908f4bca18589e27de0940"
+				"sha256": "ae5ff4286d06c6482ff7fc9e985462466c3ed0b3d2261fea6c13641d38bd6755"
 			},
 			{
 				"filename": "Microsoft.VC.14.44.17.14.CRT.x64.Desktop.base.vsix",
-				"sha256": "3d6b398f32eafd7fb3735f83402c0658d831c3b4ee10f93f0031f7a78f311c27"
+				"sha256": "d8ea8e1087d35d7d5066b23e15d538497981d47d4ba84cb5ecca65c0c6012a7f"
 			},
 			{
 				"filename": "Microsoft.VC.14.44.17.14.CRT.x64.Store.base.vsix",
-				"sha256": "2fea29c858fc487873e813926d240c97235153c2bef82bf22d17cce45e7bcf57"
+				"sha256": "14c4d2d4aac6f9f1a90af742506434f3640f113f49325fc459e2237163648660"
 			},
 			{
 				"filename": "Microsoft.VC.14.44.17.14.CRT.x86.Desktop.base.vsix",
-				"sha256": "8992c88610655b69d8efa226af1a270c85499aebe9050fed2b550653bde5257f"
+				"sha256": "28ce277a501d8e9e4701f7a0615c8e42a09f2e989ed950642b4617a31c091705"
 			},
 			{
 				"filename": "Microsoft.VC.14.44.17.14.CRT.x86.Store.base.vsix",
-				"sha256": "8983e16f42207860ddbe9ff90dcaa4ecddb1fa52c88e336c43e209bc5582dccd"
+				"sha256": "7bd2fff158157683a776c999b92251d4c055827efcc81e8732ae831db744ea54"
 			},
 			{
 				"filename": "Microsoft.VC.14.44.17.14.PGO.ARM.base.vsix",
@@ -926,99 +926,99 @@
 			},
 			{
 				"filename": "Microsoft.VC.14.44.17.14.Tools.HostARM64.TargetARM.Res.base.enu.vsix",
-				"sha256": "25581e4d5fd78a1650e5805a7ade5d8907b2f7d815c544f2cf172473c5fe8628"
+				"sha256": "c95bf69eb1ba5c6ad44c42bb24881ea69895edd294d3885d559da52dd8bdcfd0"
 			},
 			{
 				"filename": "Microsoft.VC.14.44.17.14.Tools.HostARM64.TargetARM.base.vsix",
-				"sha256": "29bbf698f594c8cc0257e370fd579d468472d068679c0b5ee20aa8056eb05631"
+				"sha256": "e0739e33e0e1e3adf58b3db1a5748b0f8a1d08305fc7c9b9b1f22a0ced6f94cf"
 			},
 			{
 				"filename": "Microsoft.VC.14.44.17.14.Tools.HostARM64.TargetARM64.Res.base.enu.vsix",
-				"sha256": "3981de80edb6db789d20fa5438c4b9e4dceb6f89e5b2f9a3aaa1b06ac2cba734"
+				"sha256": "f75b07730e8c5391838502b044d01f135dc808bcdc2cb5d7658d6768a29c2955"
 			},
 			{
 				"filename": "Microsoft.VC.14.44.17.14.Tools.HostARM64.TargetARM64.base.vsix",
-				"sha256": "7e9acb6c3d43c78b6cefdb36f57c7c1e52e03c64bce5403f1125d98b3339ad43"
+				"sha256": "ca74ba7f0e7cc2327a1fa6b46f2800002496f192b6e7ddfa83cedc6e9621faa9"
 			},
 			{
 				"filename": "Microsoft.VC.14.44.17.14.Tools.HostARM64.TargetX64.base.vsix",
-				"sha256": "0b109a9882d352956254b6d996a692425ea0eea9b35478d012e6edfe02def322"
+				"sha256": "55196fdbb8c31f30d7c3d4c25e8dc0014f5c80675cf364419048813df44ab024"
 			},
 			{
 				"filename": "Microsoft.VC.14.44.17.14.Tools.HostARM64.TargetX86.Res.base.enu.vsix",
-				"sha256": "a66068999801ee330f0ae84b9b906c447c2a8f30cc321d5c204587ed5824551a"
+				"sha256": "716165785f5cdd7bdab93f7e8d7cd6177fe9702c9b8e90e9e68288e6e54c5f4f"
 			},
 			{
 				"filename": "Microsoft.VC.14.44.17.14.Tools.HostARM64.TargetX86.base.vsix",
-				"sha256": "a822709fb168073ef403c372bfcf5a15e200bb75270eeaf92ba8eb3eb00b374e"
+				"sha256": "4fbccde17f6d789a2b80227d8d6935e55794fd717d751b8dfef74deae549309c"
 			},
 			{
 				"filename": "Microsoft.VC.14.44.17.14.Tools.HostARM64.Targetx64.Res.base.enu.vsix",
-				"sha256": "124f2fb08b31bf3238500be1573341c80bd140ebc83354733bdec6281c6f24ad"
+				"sha256": "2576cc40c6e08b224592aae08471cfdf8500f0a57682d48f8e9f0b2f1c69090c"
 			},
 			{
 				"filename": "Microsoft.VC.14.44.17.14.Tools.HostX64.TargetARM.Res.base.enu.vsix",
-				"sha256": "8f48e2821e85944a4c40e9952d84a7afed7b38eed49916fc59794aad20953230"
+				"sha256": "119abfbc172b10d8ec011da6de97455d828385e3d324e135d4632cdb16dfb80e"
 			},
 			{
 				"filename": "Microsoft.VC.14.44.17.14.Tools.HostX64.TargetARM.base.vsix",
-				"sha256": "c728d7a8d1bdae5dffd08478473687b6f8ca088ba96f771a5ae20f4e7d52312a"
+				"sha256": "4a8358ecc3e4576fde0b827a4c51b4987e20e72f3599cbb329f6714ec8fdde8d"
 			},
 			{
 				"filename": "Microsoft.VC.14.44.17.14.Tools.HostX64.TargetARM64.Res.base.enu.vsix",
-				"sha256": "8fb14e51ee95e41dc998e021c05fee7e36910dc50802f8c17293c674de501f91"
+				"sha256": "5372b959e79f9479adaecdef6e32df6bf60da612cd32acdcb865b2306231787b"
 			},
 			{
 				"filename": "Microsoft.VC.14.44.17.14.Tools.HostX64.TargetARM64.base.vsix",
-				"sha256": "34451960d49715398bb66ceddf0750ddf1ea14b773ee9f1965fc9ca45cbad6eb"
+				"sha256": "7504f7447ea6193e6ded8dfe5b6f2b928823de0236a4937e504c6e81adc7e9bd"
 			},
 			{
 				"filename": "Microsoft.VC.14.44.17.14.Tools.HostX64.TargetX64.Res.base.enu.vsix",
-				"sha256": "69e3f5f4f6d271023bedc82147752a187b18cb73985e654bef08d492067d0179"
+				"sha256": "b794dd213be14c1a02cf00fe0178befeaaeff75cb3321bf2858f767683f6dbcf"
 			},
 			{
 				"filename": "Microsoft.VC.14.44.17.14.Tools.HostX64.TargetX64.base.vsix",
-				"sha256": "9e44436cfcec21a0452e93c210db11da49c601cdbdecae8e02ec92912ba7af1a"
+				"sha256": "101737476c74086532caac9ef969dc2db11130011935c4df9de21132a9127216"
 			},
 			{
 				"filename": "Microsoft.VC.14.44.17.14.Tools.HostX64.TargetX86.Res.base.enu.vsix",
-				"sha256": "2db1f81fba7391d6ab3ac5a770980fcd31856a6942e3d0ac96a0ced01bccafbc"
+				"sha256": "1db321d0d1261fe5131630e0fb92e9d4b2f0be9b8d6e7a1806f36a998b8b9d78"
 			},
 			{
 				"filename": "Microsoft.VC.14.44.17.14.Tools.HostX64.TargetX86.base.vsix",
-				"sha256": "7c3a17df6c28322db569b558a2940a9e9baa8ac6d6bb7fd01dbe5db872ac3f26"
+				"sha256": "6e6727cfa4c52463ecf352c2c1f1bc2bdf15ba6d19a36f05e389c2e95c159e29"
 			},
 			{
 				"filename": "Microsoft.VC.14.44.17.14.Tools.HostX86.TargetARM.Res.base.enu.vsix",
-				"sha256": "812db34119c2e74a22ba1c17175c011b1cc422eb04d6579c29a51eb8e2e1b579"
+				"sha256": "a6d0cd13acd1d4a0bde875ae490a50114abb72d7a8e99319397b0a9375e32763"
 			},
 			{
 				"filename": "Microsoft.VC.14.44.17.14.Tools.HostX86.TargetARM64.Res.base.enu.vsix",
-				"sha256": "1fd92f63a5c57b589e9ba979b71c961f1f679e50d27b2db81901428d16a6fec7"
+				"sha256": "f1148c07c8d071ab4d73846bb9adfa39a93d775633d4e600839d308538e79751"
 			},
 			{
 				"filename": "Microsoft.VC.14.44.17.14.Tools.HostX86.TargetX64.base.vsix",
-				"sha256": "30aced9b47c1e0f594fa6e936c6841abb3b95467d7dfca01e09da0cc2d64fa3a"
+				"sha256": "b61ff32feb52db35983ed3f837381b443e0a109d8ac4edc2d1b3ad8b8c051df6"
 			},
 			{
 				"filename": "Microsoft.VC.14.44.17.14.Tools.HostX86.TargetX86.Res.base.enu.vsix",
-				"sha256": "08ac6b7cde423b409d37a004e763adec3f174695f4c31ca2a820fbde74437d4a"
+				"sha256": "4f0a6ead4d1bb03853c5ab271ce06b42129ef658bd0290433eaa5876a4e9a1a6"
 			},
 			{
 				"filename": "Microsoft.VC.14.44.17.14.Tools.HostX86.TargetX86.base.vsix",
-				"sha256": "6fb5f1cf5b62787ebde12bd5b702ad26c6ab2c4f79f4ad915d83b957357fbde3"
+				"sha256": "1e15339e6e7d17ecf58778ea4bfae3c47aacb181312295f10cfcb2479a9e7763"
 			},
 			{
 				"filename": "Microsoft.VC.14.44.17.14.Tools.Hostx86.Targetarm.base.vsix",
-				"sha256": "b6b70a02f3581fc28479f4a9753c27204a71c4aadf880df49ce2bb5ffee34603"
+				"sha256": "ef3a35f17fd30bf6861c9f8b81356965caf7dbbfa91bf91bbc236bf564248141"
 			},
 			{
 				"filename": "Microsoft.VC.14.44.17.14.Tools.Hostx86.Targetarm64.base.vsix",
-				"sha256": "25f99d50729cc4a99afc9eb5ae262ac523c3f9e7d7957f0d322bea171c13e1ac"
+				"sha256": "c61ac7ad180c8e3042b35119a7ff2afc86f86021c0345759795680ea543186f1"
 			},
 			{
 				"filename": "Microsoft.VC.14.44.17.14.Tools.Hostx86.Targetx64.Res.base.enu.vsix",
-				"sha256": "8e50253dcd6ef757add4f6668f79c3184fa7295b9b5ad427925986ff6853650a"
+				"sha256": "5270c52f6dfa56c0df91f492517f610e11211441c48e663e748b801fa53e2980"
 			}
 		],
 		"targets": [
@@ -1038,31 +1038,31 @@
 		"packages": [
 			{
 				"filename": "Microsoft.VC.14.50.18.0.ASAN.ARM64.base.vsix",
-				"sha256": "4d0adc36e749d21b459392cd96ea519d95d8b911703e7776383cf5c2e62d86ae"
+				"sha256": "3514c184ab08bdab9cdd531e63df304cce166cee228ec1b5de6a2334b83ca608"
 			},
 			{
 				"filename": "Microsoft.VC.14.50.18.0.ASAN.Headers.base.vsix",
-				"sha256": "8516840a364044bfbe838680590f6208bf615fde03bd70a638d39e9b100cc4bb"
+				"sha256": "3a39c27b9bd61bb8194dbbabde27b0a98894f3a33be650d8eef385db6688c897"
 			},
 			{
 				"filename": "Microsoft.VC.14.50.18.0.ASAN.X64.base.vsix",
-				"sha256": "9ffdee1e682c736fe9b169d3e020503368f207bee122b9c366e684077aff45cd"
+				"sha256": "23df338e6c5d6208a086b14148e09267108349255bf5c646ee6eac0720d110f0"
 			},
 			{
 				"filename": "Microsoft.VC.14.50.18.0.ASAN.X86.base.vsix",
-				"sha256": "a0fafa2a9d5662eb7ef6f906f881411ebf71fd209bf806cd4dd7bd32a620dbad"
+				"sha256": "ccdaed43ba1ff3351bb5d93e56f529d1adfc7884debbaf8aa3c619b3a05d17ac"
 			},
 			{
 				"filename": "Microsoft.VC.14.50.18.0.CRT.ARM64.Desktop.base.vsix",
-				"sha256": "b286a8912017b67b05b4a5e5bebaf0f323dc6b75d914e70513472aa0a895010f"
+				"sha256": "e0bfc64d582e38b1ba5c21a54ce5b70c079e906cd6387923bd84c7f1cec82125"
 			},
 			{
 				"filename": "Microsoft.VC.14.50.18.0.CRT.ARM64.Desktop.debug.base.vsix",
-				"sha256": "842c36a533d12e7f8f6c1af707e1e78ccb3198fd36e2c7a9c12439c8ee1d1828"
+				"sha256": "23af3422f8608f61779957470ff07b2b7f82ea535a9f36def9c8280c55426e76"
 			},
 			{
 				"filename": "Microsoft.VC.14.50.18.0.CRT.ARM64.Store.base.vsix",
-				"sha256": "c114b9e8a9a8496ae0cee02d71d242b6a9d3d268b55772febb201ba6dd0716c4"
+				"sha256": "30ca11d450918ca78d573b0bcc60be8cc29593c5da9162233966dbc41ac32b4d"
 			},
 			{
 				"filename": "Microsoft.VC.14.50.18.0.CRT.ARM64EC.Store.base.vsix",
@@ -1094,19 +1094,19 @@
 			},
 			{
 				"filename": "Microsoft.VC.14.50.18.0.CRT.x64.Desktop.base.vsix",
-				"sha256": "5072bd8183709b8cd05b8406beed28698426ec98ee11037afbf771151e1c41ff"
+				"sha256": "254cbe1d5d5ac71ef7aebecba9980d530d3b3f63984d43bd5aca66b22d19ae30"
 			},
 			{
 				"filename": "Microsoft.VC.14.50.18.0.CRT.x64.Store.base.vsix",
-				"sha256": "6b2c1616e86c36304c0e141f51fbd9b9438d0f3e7cca37a3a42bc8dfa4f09854"
+				"sha256": "2ed606cdc1cb7e5d311ec19364b7df9e9932817ebfed761ae358cd438936dd57"
 			},
 			{
 				"filename": "Microsoft.VC.14.50.18.0.CRT.x86.Desktop.base.vsix",
-				"sha256": "fd3266ece49465dd8f373a099b49047a26af6f6a1ef8a69222f06d784b4ae727"
+				"sha256": "7859ed2e91e22ee75d35e603341d8e14a19986164cbc4be933e444c3a2276553"
 			},
 			{
 				"filename": "Microsoft.VC.14.50.18.0.CRT.x86.Store.base.vsix",
-				"sha256": "322394d020df9ac25b648349094c7dc0013dd7a430b5d12a6e9333255ec40a13"
+				"sha256": "5e44bb61880ce15108879dd8591f1aab1972b6bb8e39b7d88ea132281261a0cf"
 			},
 			{
 				"filename": "Microsoft.VC.14.50.18.0.PGO.ARM64.base.vsix",
@@ -1206,75 +1206,75 @@
 			},
 			{
 				"filename": "Microsoft.VC.14.50.18.0.Tools.HostARM64.TargetARM64.Res.base.enu.vsix",
-				"sha256": "ccb46f0e2e03d97b2c466cd0f2701b3c1e659b0ffe32f6ccc2052356884c334d"
+				"sha256": "f5d3d8f3fcb1564ebf5119ed85643e8c6afd000e4d93ca7572431da1a731d3d1"
 			},
 			{
 				"filename": "Microsoft.VC.14.50.18.0.Tools.HostARM64.TargetARM64.base.vsix",
-				"sha256": "f43d26843ea25535df2ff3bf064e828773b390a86bbcd962711a658cec520beb"
+				"sha256": "1962fca23e76fc475e81104f3fcdc0c954c8dd3225b7a9f39866e88ef220367a"
 			},
 			{
 				"filename": "Microsoft.VC.14.50.18.0.Tools.HostARM64.TargetX64.base.vsix",
-				"sha256": "fb48d9f035f1e4da1755f03d8c6ba302604bec2794cec906ab7eadd6039955a6"
+				"sha256": "8a86cb57939010397c4b7febd918fbf68fdd3181e8666421f11453d82f7cd8c1"
 			},
 			{
 				"filename": "Microsoft.VC.14.50.18.0.Tools.HostARM64.TargetX86.Res.base.enu.vsix",
-				"sha256": "f304fc5ff7bde6706d50aa2c1b885cae6fc5de4433e321f7eeea9f715e60b254"
+				"sha256": "988418ece255ff7a07abdba229f2afe27f1368ac700d3d6003f64270c248c954"
 			},
 			{
 				"filename": "Microsoft.VC.14.50.18.0.Tools.HostARM64.TargetX86.base.vsix",
-				"sha256": "caa6d37a1929d17c10297d1383405d08679eeb61551b7be9e08286860177d5e9"
+				"sha256": "3267fb0361736c23d92b24b42fc3941385d030cf688ebe811c6ac4f28086b9b6"
 			},
 			{
 				"filename": "Microsoft.VC.14.50.18.0.Tools.HostARM64.Targetx64.Res.base.enu.vsix",
-				"sha256": "dbb10c25f0567f603428873793239e67e74827ba20c25314866aaeabd5676f4a"
+				"sha256": "ee6ea9f0fe5a282729729c3c34899eedf2bee77ae70478c38f5bbd7dc59f7b5c"
 			},
 			{
 				"filename": "Microsoft.VC.14.50.18.0.Tools.HostX64.TargetARM64.Res.base.enu.vsix",
-				"sha256": "a6f0cc1ca649ba71477488414d7ce72aee754132781183540469c6568448fb64"
+				"sha256": "de895f7708b8958e853a8dc07f83ee787d3b6db40708f254ab7673b498ac4916"
 			},
 			{
 				"filename": "Microsoft.VC.14.50.18.0.Tools.HostX64.TargetARM64.base.vsix",
-				"sha256": "7d42a4da64b813f14492a81aad2311e608e65d537a6d03c339798f158f0b7729"
+				"sha256": "ae39cbbe5016a366b398a4af285c9f7d62a908fb5192fb1855bc66645782a298"
 			},
 			{
 				"filename": "Microsoft.VC.14.50.18.0.Tools.HostX64.TargetX64.Res.base.enu.vsix",
-				"sha256": "b8047c47ad8273b1f54ae17d3fa793deda722296033e69d5ee22afed821e4bc9"
+				"sha256": "2114c80d4668e394be62e6709beb0738e0cf9daadad327395b23e894e90fae69"
 			},
 			{
 				"filename": "Microsoft.VC.14.50.18.0.Tools.HostX64.TargetX64.base.vsix",
-				"sha256": "300c008dcfbdeb31c1ad581fabcd2c62c00b20b2adece123e3185c6593b9de81"
+				"sha256": "f3ef675d16b255e1f994f271bdb4c4a7c0055ef38b04e3cefb5068c48c085677"
 			},
 			{
 				"filename": "Microsoft.VC.14.50.18.0.Tools.HostX64.TargetX86.Res.base.enu.vsix",
-				"sha256": "5400a794ac77db34fe252e783091ef7acb5e0e69ce9c315a1f261421c2f481f2"
+				"sha256": "3fd0b2a3fddcabd9ae6ba005b93f970bef98e32660b9565fea74cbd6919e4994"
 			},
 			{
 				"filename": "Microsoft.VC.14.50.18.0.Tools.HostX64.TargetX86.base.vsix",
-				"sha256": "4487b82a1c1e993780ed804d0dceb0b20d53d6a13b4fd25b6796e8e018b0903e"
+				"sha256": "5bf4e5f64dead9fe482ef05791089e60d1297ff8d4566bcb6927d328cf15285d"
 			},
 			{
 				"filename": "Microsoft.VC.14.50.18.0.Tools.HostX86.TargetARM64.Res.base.enu.vsix",
-				"sha256": "c75bec396c182e75a0573cbe08ea7c9137339d574e1e7e02c567739d489f79c9"
+				"sha256": "3ab9f404b6201cb4d222472574e9c6bbe608ec5f7fde5179cf3cf7c830acdbc2"
 			},
 			{
 				"filename": "Microsoft.VC.14.50.18.0.Tools.HostX86.TargetX64.base.vsix",
-				"sha256": "cd4d0045134a9879762338b9b448c42ceb65018f9781fb6dcf7e7726db97b0b4"
+				"sha256": "242124899060c76ee9c6168ba1641d84285063f99428ab7d26c7468fda491153"
 			},
 			{
 				"filename": "Microsoft.VC.14.50.18.0.Tools.HostX86.TargetX86.Res.base.enu.vsix",
-				"sha256": "be7ca5faaef9af906eab6623a05cb4b51c521056254628343a9b27717dc06eaa"
+				"sha256": "731c5d48537b6bf69c772163af8a393f84be2f88790bfae214e579b715739270"
 			},
 			{
 				"filename": "Microsoft.VC.14.50.18.0.Tools.HostX86.TargetX86.base.vsix",
-				"sha256": "47990f26a4f0ec995e54579ed6a96970e628c6785e1a856f9c85970e9c5b4a7e"
+				"sha256": "36372654a94a6e43995885bb03ff31f29c980afaa43f1cb2e4e4117e3e1d7521"
 			},
 			{
 				"filename": "Microsoft.VC.14.50.18.0.Tools.Hostx86.Targetarm64.base.vsix",
-				"sha256": "2fabbc35f09c8798f0a3a97eb237d4eb72650219fe828fc3dcf0d5720ba29cb8"
+				"sha256": "46543493b463ba55186bd94f0fa64d1f19f4505388efc4a381f2c1eb68f683b3"
 			},
 			{
 				"filename": "Microsoft.VC.14.50.18.0.Tools.Hostx86.Targetx64.Res.base.enu.vsix",
-				"sha256": "a6e311a24cbe47d27b540686889b4aa71987d3a1b4d48ea83c50c5f2a391c37e"
+				"sha256": "50d60a4af70db4a7ed526cb0c8b1055fab135723fcf13901637f2e89e8337f6b"
 			}
 		],
 		"targets": [
