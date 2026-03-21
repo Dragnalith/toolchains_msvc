@@ -89,7 +89,7 @@ Each toolchain set:
 * must have a unique `name`
 * generates its toolchains under `@msvc_toolchains//toolchain_set/<name>/...`
 * prefixes every generated root toolchain target with `<name>_`
-* can have independent version lists, defaults, features, and flags
+* can have independent version lists, features, and flags
 
 If multiple toolchain sets are declared, choose the default set with:
 
@@ -98,6 +98,17 @@ toolchain.default_toolchain_set(name = "default")
 ```
 
 If `default_toolchain_set(...)` is omitted, the first declared `toolchain_set(...)` becomes the default.
+
+The generated repo has one global default each for MSVC, LLVM, WinSDK, and compiler (the `//msvc`, `//llvm`, `//winsdk`, and `//compiler` build settings). Configure them with tags alongside `toolchain_set` (not inside it):
+
+```starlark
+toolchain.default_msvc_version(version = "14.44")
+toolchain.default_llvm_version(version = "22.1.0")
+toolchain.default_winsdk_version(version = "26100")
+toolchain.default_compiler(compiler = "msvc-cl")
+```
+
+If a tag is omitted, the default is the first version listed across all `toolchain_set` declarations (for LLVM, the first LLVM version in use, or empty when no LLVM is configured). The compiler defaults to `msvc-cl`. Each chosen version must appear in the union of versions declared across toolchain sets.
 
 ## Selection Flags
 

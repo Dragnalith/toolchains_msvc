@@ -279,6 +279,10 @@ def _extension_impl(module_ctx):
     repo_name_value = "msvc_toolchains"
     toolchain_sets = []
     default_toolchain_set_name = None
+    global_default_msvc_version = None
+    global_default_llvm_version = None
+    global_default_winsdk_version = None
+    global_default_compiler = None
     lock_file_label = None
     is_locked = False
 
@@ -289,6 +293,14 @@ def _extension_impl(module_ctx):
             toolchain_sets.append(tag)
         for tag in mod.tags.default_toolchain_set:
             default_toolchain_set_name = tag.name
+        for tag in mod.tags.default_msvc_version:
+            global_default_msvc_version = tag.version
+        for tag in mod.tags.default_llvm_version:
+            global_default_llvm_version = tag.version
+        for tag in mod.tags.default_winsdk_version:
+            global_default_winsdk_version = tag.version
+        for tag in mod.tags.default_compiler:
+            global_default_compiler = tag.compiler
         for tag in mod.tags.lock:
             if lock_file_label != None:
                 fail("lock tag must be declared at most once.")
@@ -333,11 +345,6 @@ def _extension_impl(module_ctx):
         if not msvc_versions or not winsdk_versions:
             fail("toolchain_set '{}' must specify msvc_versions and winsdk_versions.".format(group_name))
 
-        default_msvc_version = group.default_msvc_version if group.default_msvc_version else msvc_versions[0]
-        default_clang_version = group.default_llvm_version if group.default_llvm_version else (llvm_versions[0] if llvm_versions else "")
-        default_windows_sdk_version = group.default_winsdk_version if group.default_winsdk_version else winsdk_versions[0]
-        default_compiler = "msvc-cl"
-
         for msvc_version in msvc_versions:
             if msvc_version not in msvc_versions_dict:
                 fail("Invalid MSVC version '{}' in toolchain_set '{}'. Valid versions are: {}".format(msvc_version, group_name, msvc_versions_dict.keys()))
@@ -345,22 +352,12 @@ def _extension_impl(module_ctx):
             if winsdk_version not in winsdk_versions_dict:
                 fail("Invalid Windows SDK version '{}' in toolchain_set '{}'. Valid versions are: {}".format(winsdk_version, group_name, winsdk_versions_dict.keys()))
 
-        if default_msvc_version not in msvc_versions:
-            fail("toolchain_set '{}': default_msvc_version '{}' is not in msvc_versions list: {}".format(group_name, default_msvc_version, msvc_versions))
-        if default_windows_sdk_version not in winsdk_versions:
-            fail("toolchain_set '{}': default_winsdk_version '{}' is not in winsdk_versions list: {}".format(group_name, default_windows_sdk_version, winsdk_versions))
-
         if llvm_repo_versions:
             if clang_versions_dict == None:
                 clang_versions_dict = list_clang_version(module_ctx)
             for llvm_version in llvm_repo_versions:
                 if llvm_version not in clang_versions_dict:
                     fail("Invalid Clang/LLVM version '{}' in toolchain_set '{}'. Valid versions are: {}".format(llvm_version, group_name, clang_versions_dict.keys()))
-        if llvm_versions:
-            if default_clang_version and default_clang_version not in llvm_versions:
-                fail("toolchain_set '{}': default_llvm_version '{}' is not in llvm_versions list: {}".format(group_name, default_clang_version, llvm_versions))
-        elif default_clang_version:
-            fail("toolchain_set '{}': default_llvm_version requires llvm_versions to be set.".format(group_name))
 
         for h in hosts:
             if h not in VALID_MSVC_HOSTS:
@@ -409,10 +406,6 @@ def _extension_impl(module_ctx):
             "msvc_versions": msvc_versions,
             "llvm_versions": llvm_versions,
             "winsdk_versions": winsdk_versions,
-            "default_msvc_version": default_msvc_version,
-            "default_clang_version": default_clang_version,
-            "default_windows_sdk_version": default_windows_sdk_version,
-            "default_compiler": default_compiler,
             "cl_with_lld_version": cl_with_lld_version,
             "msvc_default_c_compile_flags": msvc_default_c_compile_flags,
             "msvc_default_cxx_compile_flags": msvc_default_cxx_compile_flags,
@@ -449,13 +442,30 @@ def _extension_impl(module_ctx):
     elif default_toolchain_set_name not in group_names_set:
         fail("default_toolchain_set '{}' does not match any declared toolchain_set. Available values: {}".format(default_toolchain_set_name, group_names))
 
-    default_group = None
-    for group_config in group_configs:
-        if group_config["name"] == default_toolchain_set_name:
-            default_group = group_config
-            break
-    if default_group == None:
-        fail("Internal error: failed to resolve default toolchain_set '{}'.".format(default_toolchain_set_name))
+    default_msvc_for_repo = global_default_msvc_version
+    if not default_msvc_for_repo:
+        default_msvc_for_repo = all_msvc_versions[0]
+    elif default_msvc_for_repo not in all_msvc_versions:
+        fail("default_msvc_version '{}' is not among the MSVC versions declared across toolchain_sets: {}".format(default_msvc_for_repo, all_msvc_versions))
+
+    default_winsdk_for_repo = global_default_winsdk_version
+    if not default_winsdk_for_repo:
+        default_winsdk_for_repo = all_winsdk_versions[0]
+    elif default_winsdk_for_repo not in all_winsdk_versions:
+        fail("default_winsdk_version '{}' is not among the Windows SDK versions declared across toolchain_sets: {}".format(default_winsdk_for_repo, all_winsdk_versions))
+
+    default_llvm_for_repo = global_default_llvm_version
+    if not default_llvm_for_repo:
+        if all_llvm_versions:
+            default_llvm_for_repo = all_llvm_versions[0]
+        else:
+            default_llvm_for_repo = ""
+    elif default_llvm_for_repo not in all_llvm_versions:
+        fail("default_llvm_version '{}' is not among the LLVM versions declared across toolchain_sets: {}".format(default_llvm_for_repo, all_llvm_versions))
+
+    default_compiler_for_repo = global_default_compiler if global_default_compiler else "msvc-cl"
+    if default_compiler_for_repo in ["clang", "clang-cl"] and not all_llvm_versions:
+        fail("default_compiler '{}' requires at least one LLVM version across toolchain_sets (llvm_versions or cl_with_lld_version).".format(default_compiler_for_repo))
 
     all_packages_url = {}
     for package_map_key in sorted(packages_maps.keys()):
@@ -579,10 +589,6 @@ def _extension_impl(module_ctx):
             "winsdk_version": winsdk_version,
         })
 
-    default_repo_llvm_version = default_group["default_clang_version"]
-    if not default_repo_llvm_version and default_group["cl_with_lld_version"]:
-        default_repo_llvm_version = default_group["cl_with_lld_version"]
-
     module_lock_repos = {
         repo_name: repos[repo_name]
         for repo_name in sorted(repos.keys())
@@ -672,10 +678,10 @@ def _extension_impl(module_ctx):
         winsdk_versions = all_winsdk_versions,
         targets = all_targets,
         hosts = all_hosts,
-        default_msvc_version = default_group["default_msvc_version"],
-        default_clang_version = default_repo_llvm_version,
-        default_windows_sdk_version = default_group["default_windows_sdk_version"],
-        default_compiler = default_group["default_compiler"],
+        default_msvc_version = default_msvc_for_repo,
+        default_clang_version = default_llvm_for_repo,
+        default_windows_sdk_version = default_winsdk_for_repo,
+        default_compiler = default_compiler_for_repo,
     )
 
     return module_ctx.extension_metadata(
@@ -692,12 +698,9 @@ toolchain_set_tag = tag_class(
         "targets": attr.string_list(default = []),
         "hosts": attr.string_list(default = []),
         "msvc_versions": attr.string_list(default = []),
-        "default_msvc_version": attr.string(default = ""),
         "cl_with_lld_version": attr.string(default = ""),
         "llvm_versions": attr.string_list(default = []),
-        "default_llvm_version": attr.string(default = ""),
         "winsdk_versions": attr.string_list(default = []),
-        "default_winsdk_version": attr.string(default = ""),
         "features": attr.string_list(default = []),
         "dbg_features": attr.string_list(default = []),
         "fastbuild_features": attr.string_list(default = []),
@@ -759,6 +762,33 @@ default_toolchain_set_tag = tag_class(
     },
 )
 
+default_msvc_version_tag = tag_class(
+    attrs = {
+        "version": attr.string(mandatory = True),
+    },
+)
+
+default_llvm_version_tag = tag_class(
+    attrs = {
+        "version": attr.string(mandatory = True),
+    },
+)
+
+default_winsdk_version_tag = tag_class(
+    attrs = {
+        "version": attr.string(mandatory = True),
+    },
+)
+
+default_compiler_tag = tag_class(
+    attrs = {
+        "compiler": attr.string(
+            mandatory = True,
+            values = ["msvc-cl", "clang-cl", "clang"],
+        ),
+    },
+)
+
 lock_tag = tag_class(
     attrs = {
         "file": attr.label(mandatory = True),
@@ -772,6 +802,10 @@ toolchain = module_extension(
         "repo_name": repo_name_tag,
         "toolchain_set": toolchain_set_tag,
         "default_toolchain_set": default_toolchain_set_tag,
+        "default_msvc_version": default_msvc_version_tag,
+        "default_llvm_version": default_llvm_version_tag,
+        "default_winsdk_version": default_winsdk_version_tag,
+        "default_compiler": default_compiler_tag,
     },
     environ = [
         "BAZEL_TOOLCHAINS_MSVC_HOSTS",
