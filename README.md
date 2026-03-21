@@ -63,6 +63,8 @@ Or you can set in as bazel command line flag:
 bazel build //... --repo_env=BAZEL_TOOLCHAINS_MSVC_AGREE_WITH_VS_EULA=1
 ```
 
+For a full sample project built with this module, see [toolchains_msvc_example](https://github.com/Dragnalith/toolchains_msvc_example).
+
 ## Generated Repositories
 
 The extension creates the aggregate `@msvc_toolchains` repository (name customizable via `toolchain.repo_name(...)`), which contains:
