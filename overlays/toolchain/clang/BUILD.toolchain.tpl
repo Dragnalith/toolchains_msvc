@@ -96,6 +96,12 @@ cc_args(
         "@rules_cc//cc/toolchains/actions:c_compile",
         "@rules_cc//cc/toolchains/actions:cpp_compile_actions",
     ],
+    allowlist_include_directories = [
+        "@{msvc_repo}//:include_dir",
+        "@{winsdk_repo}//:ucrt_include",
+        "@{winsdk_repo}//:um_include",
+        "@{winsdk_repo}//:shared_include",
+    ],
     args = [
         "-isystem",
         "{msvc_include}",
