@@ -14,6 +14,8 @@ Supported compiler frontends:
 
 All toolchains use the MSVC headers and Windows SDK as their sysroot, and pass deterministic flags to produce reproducible build outputs.
 
+For a longer introduction and walkthrough, see [Introducing toolchains_msvc: a hermetic MSVC toolchain for Bazel](https://marcdelorme.fr/introducing-toolchains-msvc-a-hermetic-msvc-toolchain-for-bazel).
+
 ## Disclaimer
 
 This module downloads and uses MSVC and the Windows SDK from Visual Studio Build Tools. By using this module you agree to the Microsoft Visual Studio License Terms: https://visualstudio.microsoft.com/license-terms/
