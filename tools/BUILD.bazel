@@ -1,4 +1,5 @@
 exports_files([
     "List-MsiCabs.ps1",
     "Normalize-WinSdkLibNames.ps1",
+    "msi-util.exe",
 ])

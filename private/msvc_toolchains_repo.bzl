@@ -560,27 +560,27 @@ config_setting(
             )
 
             for lib_name in ucrt_lib:
-                lib_path = "Lib/10.0.{winsdk_version}.0/ucrt/{target}/{lib_name}".format(
+                lib_path = "Lib/10.0.{winsdk_version}.0/ucrt/{target}/{file_name}".format(
                     winsdk_version = winsdk_version,
                     target = target,
-                    lib_name = lib_name.lower(),
+                    file_name = lib_name,
                 )
                 _add_lib_variant(
                     winsdk_libs,
-                    _normalize_lib_name(lib_name),
+                    lib_name,
                     config_name,
                     "@winsdk_{}//:{}".format(winsdk_version, lib_path),
                 )
 
             for lib_name in um_lib:
-                lib_path = "Lib/10.0.{winsdk_version}.0/um/{target}/{lib_name}".format(
+                lib_path = "Lib/10.0.{winsdk_version}.0/um/{target}/{file_name}".format(
                     winsdk_version = winsdk_version,
                     target = target,
-                    lib_name = lib_name.lower(),
+                    file_name = lib_name,
                 )
                 _add_lib_variant(
                     winsdk_libs,
-                    _normalize_lib_name(lib_name),
+                    lib_name,
                     config_name,
                     "@winsdk_{}//:{}".format(winsdk_version, lib_path),
                 )
@@ -604,23 +604,30 @@ config_setting(
                     "@msvc_{}//:{}".format(msvc_version, lib_path),
                 )
 
-    # 3. Emit cc_import targets for all discovered libraries.
+    # 3. Emit cc_import targets. Map keys are raw WinSDK names or normalized MSVC names; target name is always _normalize_lib_name(key).
+    winsdk_norm_first_raw = {}
+    for raw in winsdk_libs.keys():
+        norm = _normalize_lib_name(raw)
+        prev = winsdk_norm_first_raw.get(norm)
+        if prev != None:
+            fail("WinSDK libraries '{}' and '{}' normalize to the same cc_import name '{}'; fix libs.bzl or normalization".format(prev, raw, norm))
+        winsdk_norm_first_raw[norm] = raw
+
     all_lib_names = {}
-    for lib_name in winsdk_libs.keys():
-        all_lib_names[lib_name] = "winsdk"
-    for lib_name in msvc_libs.keys():
-        existing_origin = all_lib_names.get(lib_name)
-        if existing_origin != None and existing_origin != "msvc":
-            fail("Library '{}' exists in both WinSDK and MSVC repos; disambiguated target names are required".format(lib_name))
-        all_lib_names[lib_name] = "msvc"
+    for raw in winsdk_libs.keys():
+        all_lib_names[raw] = "winsdk"
+    for msvc_key in msvc_libs.keys():
+        if msvc_key in winsdk_norm_first_raw:
+            fail("Library '{}' exists in both WinSDK and MSVC repos; disambiguated target names are required".format(msvc_key))
+        all_lib_names[msvc_key] = "msvc"
 
     for lib_name in sorted(all_lib_names.keys()):
-        if lib_name in winsdk_libs:
+        if all_lib_names[lib_name] == "winsdk":
             variants = winsdk_libs[lib_name]
         else:
             variants = msvc_libs[lib_name]
 
-        lib_build_file_content += "\ncc_import(\n    name = \"{}\",\n    interface_library = select({{\n".format(lib_name)
+        lib_build_file_content += "\ncc_import(\n    name = \"{}\",\n    interface_library = select({{\n".format(_normalize_lib_name(lib_name))
         for config_name in sorted(variants.keys()):
             lib_build_file_content += "        \"{}\": \"{}\",\n".format(config_name, variants[config_name])
         lib_build_file_content += "    }),\n    system_provided = True,\n)\n"

@@ -10,6 +10,10 @@ local_path_override(
     module_name = "toolchains_msvc",
     path = "../..",
 )
+local_path_override(
+    module_name = "rules_cc",
+    path = "../../../rules_cc",
+)
 
 toolchain = use_extension("@toolchains_msvc//:extensions.bzl", "toolchain")
 toolchain.repo_name(name = "msvc_toolchains")

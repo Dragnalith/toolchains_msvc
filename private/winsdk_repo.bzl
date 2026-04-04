@@ -8,23 +8,13 @@ def _package_url(package_urls, pkg):
     return url
 
 def _get_cabs_from_msi(ctx, local_msi_path):
-    """Returns cabinet file names referenced by an MSI."""
-    script_path = str(ctx.path(ctx.attr.src_list_msi_cabs))
+    """Returns cabinet file names referenced by an MSI (via msi-util list-cab)."""
+    msi_util = str(ctx.path(ctx.attr.src_msi_util))
     msi_path = str(ctx.path(local_msi_path))
 
-    args = [
-        "powershell",
-        "-NoProfile",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-File",
-        script_path,
-        "-MsiPath",
-        msi_path,
-    ]
-    result = ctx.execute(args, quiet = True)
+    result = ctx.execute([msi_util, "list-cab", msi_path], quiet = True)
     if result.return_code != 0:
-        fail("Listing cabs for {} failed (exit {})".format(local_msi_path, result.return_code))
+        fail("Listing cabs for {} failed (exit {}): {}".format(local_msi_path, result.return_code, result.stderr))
 
     cabs = []
     for line in result.stdout.splitlines():
@@ -32,23 +22,6 @@ def _get_cabs_from_msi(ctx, local_msi_path):
         if item and item.lower().endswith(".cab"):
             cabs.append(item)
     return cabs
-
-def _normalize_lib_filenames(ctx):
-    """Normalizes all filenames under Lib/ to lowercase."""
-    lib_root = str(ctx.path("Lib")).replace("/", "\\")
-    script_path = str(ctx.path(ctx.attr.src_normalize_lib_names))
-    result = ctx.execute([
-        "powershell",
-        "-NoProfile",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-File",
-        script_path,
-        "-LibRoot",
-        lib_root,
-    ], quiet = True)
-    if result.return_code != 0:
-        fail("Normalizing WinSDK lib filenames failed (exit {code})".format(code = result.return_code))
 
 def _winsdk_repo_impl(ctx):
     """Implementation of the winsdk_repo rule."""
@@ -112,19 +85,17 @@ def _winsdk_repo_impl(ctx):
             output = "tmp/{}".format(cab_filename),
         )
 
-    extract_root = "tmp/extracted"
+    msi_util = str(ctx.path(ctx.attr.src_msi_util))
+    extract_root = str(ctx.path("tmp/extracted"))
     for filename in downloaded_msi_paths:
         ctx.report_progress("Extracting MSI '{}'".format(filename))
-        extract_args = [
-            "msiexec",
-            "/a",
-            str(ctx.path("tmp/{}".format(filename))).replace("/", "\\"),
-            "/qn",
-            "TARGETDIR={}".format(str(ctx.path(extract_root)).replace("/", "\\")),
-        ]
-        result = ctx.execute(extract_args, quiet = True)
+        msi_path = str(ctx.path("tmp/{}".format(filename)))
+        result = ctx.execute(
+            [msi_util, "extract", "--output-dir", extract_root, msi_path],
+            quiet = True,
+        )
         if result.return_code != 0:
-            fail("Extracting MSI {} failed (exit {code})".format(filename, code = result.return_code))
+            fail("Extracting MSI {} failed (exit {}): {}".format(filename, result.return_code, result.stderr))
 
     extracted_dir = ctx.path("tmp/extracted/Windows Kits/10")
     for child in extracted_dir.readdir():
@@ -136,9 +107,6 @@ def _winsdk_repo_impl(ctx):
             str(child).replace("/", "\\"),
             child_name,
         ])
-
-    ctx.report_progress("Normalizing WinSDK lib filenames")
-    _normalize_lib_filenames(ctx)
 
     ctx.delete("tmp")
 
@@ -163,8 +131,7 @@ winsdk_repo = repository_rule(
         "package_urls": attr.string(mandatory = True, doc = "JSON string map from sha256 to URL"),
         "error": attr.string(mandatory = True),
         "targets": attr.string_list(doc = "Target architectures (currently unused)"),
-        "src_list_msi_cabs": attr.label(default = Label("//tools:List-MsiCabs.ps1"), doc = "Label to List-MsiCabs.ps1"),
-        "src_normalize_lib_names": attr.label(default = Label("//tools:Normalize-WinSdkLibNames.ps1"), doc = "Label to Normalize-WinSdkLibNames.ps1"),
+        "src_msi_util": attr.label(default = Label("//tools:msi-util.exe"), allow_single_file = True, doc = "msi-util.exe (list-cab and extract subcommands)"),
         "src_build": attr.label(default = Label("//overlays/winsdk:BUILD.root.tpl"), allow_single_file = True, doc = "Label to BUILD.root.tpl"),
     },
 )

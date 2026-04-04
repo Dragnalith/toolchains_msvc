@@ -8,6 +8,7 @@ It supports:
 - listing available LLVM/Clang packages (clang+llvm-*-*-pc-windows-msvc.tar.xz).
 - listing files within a package payload.
 - Downloading and extracting specific packages or MSI files, including handling of associated cabinet files.
+  The `extract-msi` subcommand defaults to `msiexec` and `tools/List-MsiCabs.ps1` in this repo; pass `--use-msi-util` to use `tools/msi_util/bazel-bin/msi-util.exe` instead (build with `bazel build //:msi-util` in that directory). `msi-util list-cab` prints the same lines as `List-MsiCabs.ps1` (Media table, ordered by DiskId, `#` stripped for embedded cabinets).
 
 *This script is for research purposes only and should not be used in the module implementation.*
 """
@@ -22,6 +23,34 @@ import io
 import subprocess
 import tempfile
 import pprint
+
+# Built with: (cd tools/msi_util && bazel build //:msi-util)
+_MSI_UTIL_EXE = os.path.normpath(
+    os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "..",
+        "tools",
+        "msi_util",
+        "bazel-bin",
+        "msi-util.exe",
+    )
+)
+_LIST_MSI_CABS_PS1 = os.path.normpath(
+    os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "..",
+        "tools",
+        "List-MsiCabs.ps1",
+    )
+)
+
+
+def _payload_basename(file_name):
+    """Manifest fileName values are often full paths; compare using the final component only."""
+    if not file_name:
+        return ""
+    return os.path.basename(file_name.replace("/", "\\"))
+
 
 def get_dependencies(root_id, packages_map, filter_lambda, no_duplicate=True):
     visited = set()
@@ -150,6 +179,11 @@ def main():
     extract_msi_parser = subparsers.add_parser("extract-msi", help="Extract MSI content")
     extract_msi_parser.add_argument("--id", dest="package_id", required=True, help="Package ID")
     extract_msi_parser.add_argument("--msi", dest="msi_name", required=True, help="MSI file name to extract")
+    extract_msi_parser.add_argument(
+        "--use-msi-util",
+        action="store_true",
+        help="Use tools/msi_util msi-util.exe for list-cab and extract; default is msiexec + List-MsiCabs.ps1",
+    )
     extract_msi_parser.add_argument("destination_path", nargs='?', help="Path to extract the MSI")
 
     args = parser.parse_args()
@@ -277,14 +311,31 @@ def main():
         assert len(packages_map[args.package_id]) == 1
         pkg = packages_map[args.package_id][0]
         payloads = pkg.get('payloads', [])
+        want = _payload_basename(args.msi_name).casefold()
         target_payload = None
         for payload in payloads:
-            if payload.get('fileName') == args.msi_name:
+            fn = payload.get("fileName") or ""
+            if _payload_basename(fn).casefold() == want:
                 target_payload = payload
                 break
-        
+
         if not target_payload:
-            print(f"Error: MSI '{args.msi_name}' not found in package '{args.package_id}'.")
+            msi_names = sorted(
+                {
+                    _payload_basename(p.get("fileName", ""))
+                    for p in payloads
+                    if (p.get("fileName") or "").lower().endswith(".msi")
+                }
+            )
+            print(
+                f"Error: MSI matching '{args.msi_name}' not found in package '{args.package_id}'.\n"
+                "Manifest payloads use full paths; pass the .msi file name or run:\n"
+                f"  python explore_vs_channel.py files --id {args.package_id}\n"
+                "Available .msi basenames in this package (sample):\n  "
+                + "\n  ".join(msi_names[:25])
+                + ("\n  ..." if len(msi_names) > 25 else ""),
+                file=sys.stderr,
+            )
             sys.exit(1)
             
         url = target_payload.get('url')
@@ -310,19 +361,42 @@ def main():
                 with open(temp_msi_path, 'wb') as f:
                     f.write(response.read())
 
-            # List cabs
             print("Listing required .cab files...")
-            ps_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'List-MsiCabs.ps1')
-            cmd_list = ['powershell', '-ExecutionPolicy', 'Bypass', '-File', ps_script, '-MsiPath', temp_msi_path]
-            
+            if args.use_msi_util:
+                if not os.path.isfile(_MSI_UTIL_EXE):
+                    print(
+                        f"Error: msi-util not found at {_MSI_UTIL_EXE}\n"
+                        "Build it with: cd tools/msi_util && bazel build //:msi-util",
+                        file=sys.stderr,
+                    )
+                    sys.exit(1)
+                cmd_list = [_MSI_UTIL_EXE, "list-cab", temp_msi_path]
+                list_cab_label = "msi-util list-cab"
+            else:
+                if not os.path.isfile(_LIST_MSI_CABS_PS1):
+                    print(
+                        f"Error: List-MsiCabs.ps1 not found at {_LIST_MSI_CABS_PS1}",
+                        file=sys.stderr,
+                    )
+                    sys.exit(1)
+                cmd_list = [
+                    "powershell",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-File",
+                    _LIST_MSI_CABS_PS1,
+                    "-MsiPath",
+                    temp_msi_path,
+                ]
+                list_cab_label = "List-MsiCabs.ps1"
             try:
-                output = subprocess.check_output(cmd_list, stderr=subprocess.STDOUT).decode('utf-8')
+                output = subprocess.check_output(cmd_list, stderr=subprocess.STDOUT).decode("utf-8")
             except subprocess.CalledProcessError as e:
-                print(f"Error running List-MsiCabs.ps1: {e.output.decode('utf-8')}")
+                err_out = e.output.decode("utf-8", errors="replace") if e.output else ""
+                print(f"Error running {list_cab_label}: {err_out}", file=sys.stderr)
                 sys.exit(1)
-                
             cab_files = [line.strip() for line in output.splitlines() if line.strip()]
-            
+
             # Download cabs
             for cab_file in cab_files:
                 # Find payload for this cab
@@ -354,8 +428,14 @@ def main():
             if not os.path.exists(output_dir):
                 os.makedirs(output_dir)
 
-            extract_cmd = f'msiexec /a "{temp_msi_path}" /qn TARGETDIR="{output_dir}"'
-            subprocess.check_call(extract_cmd)
+            if args.use_msi_util:
+                subprocess.check_call(
+                    [_MSI_UTIL_EXE, "extract", "--output-dir", output_dir, temp_msi_path]
+                )
+            else:
+                subprocess.check_call(
+                    ["msiexec", "/a", temp_msi_path, "/qn", f"TARGETDIR={output_dir}"]
+                )
 
 if __name__ == "__main__":
     main()
