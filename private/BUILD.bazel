@@ -9,9 +9,11 @@ bzl_library(
     name = "bzl",
     visibility = ["//visibility:public"],
     srcs = [
+        "common.bzl",
         "flags.bzl",
         "libs.bzl",
         "llvm_repo.bzl",
+        "msiutil_repo.bzl",
         "msvc_repo.bzl",
         "msvc_toolchains_repo.bzl",
         "utils.bzl",

@@ -66,6 +66,8 @@ load(
     "list_msvc_version",
     "list_winsdk_version",
 )
+load("//private:common.bzl", "normalize_repository_os")
+load("//private:msiutil_repo.bzl", "msiutil_repo")
 load("//private:winsdk_repo.bzl", "winsdk_repo")
 
 # Keys select which VS channel manifest is used ("17" vs "18"); values are aka.ms URLs.
@@ -544,6 +546,9 @@ def _extension_impl(module_ctx):
             "winsdk_version": winsdk_version,
         })
 
+    msiutil_repo(name = "msiutil")
+    msiutil_label = "@msiutil//:{}".format("msiutil.exe" if normalize_repository_os(module_ctx.os.name) == "windows" else "msiutil")
+
     for repo_name in sorted(repos.keys()):
         repo = repos[repo_name]
         kind = repo["kind"]
@@ -574,6 +579,8 @@ def _extension_impl(module_ctx):
         if kind == "winsdk":
             winsdk_repo(
                 name = repo["name"],
+                # Label string plus intra-extension deferred mapping (not Label(...) at eval time).
+                msiutil = msiutil_label,
                 targets = repo["targets"],
                 packages = json.encode(packages),
                 package_urls = json.encode(package_urls),
@@ -601,12 +608,7 @@ def _extension_impl(module_ctx):
         default_compiler = default_compiler_for_repo,
     )
 
-    # Declare per-version LLVM repos as direct deps so consumers that
-    # `use_repo(...)` them don't hit the "imported but reported as indirect
-    # dependencies" warning from Bazel.
-    direct_deps = [repo_name_value] + [
-        repo["name"] for repo in repos.values() if repo["kind"] == "llvm"
-    ]
+    direct_deps = [repo_name_value]
 
     return module_ctx.extension_metadata(
         reproducible = False,

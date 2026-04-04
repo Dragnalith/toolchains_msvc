@@ -7,24 +7,14 @@ def _package_url(package_urls, pkg):
         fail("Missing URL for WinSDK package '{}' ({})".format(pkg.get("filename"), sha256))
     return url
 
-def _get_cabs_from_msi(ctx, local_msi_path):
-    """Returns cabinet file names referenced by an MSI."""
-    script_path = str(ctx.path(ctx.attr.src_list_msi_cabs))
+def _get_cabs_from_msi(msi_util_path, ctx, local_msi_path):
+    """Returns cabinet file names referenced by an MSI (via msi-util list-cab)."""
+    msi_util = str(msi_util_path)
     msi_path = str(ctx.path(local_msi_path))
 
-    args = [
-        "powershell",
-        "-NoProfile",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-File",
-        script_path,
-        "-MsiPath",
-        msi_path,
-    ]
-    result = ctx.execute(args, quiet = True)
+    result = ctx.execute([msi_util, "list-cab", msi_path], quiet = True)
     if result.return_code != 0:
-        fail("Listing cabs for {} failed (exit {})".format(local_msi_path, result.return_code))
+        fail("Listing cabs for {} failed (exit {}): {}".format(local_msi_path, result.return_code, result.stderr))
 
     cabs = []
     for line in result.stdout.splitlines():
@@ -33,23 +23,6 @@ def _get_cabs_from_msi(ctx, local_msi_path):
             cabs.append(item)
     return cabs
 
-def _normalize_lib_filenames(ctx):
-    """Normalizes all filenames under Lib/ to lowercase."""
-    lib_root = str(ctx.path("Lib")).replace("/", "\\")
-    script_path = str(ctx.path(ctx.attr.src_normalize_lib_names))
-    result = ctx.execute([
-        "powershell",
-        "-NoProfile",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-File",
-        script_path,
-        "-LibRoot",
-        lib_root,
-    ], quiet = True)
-    if result.return_code != 0:
-        fail("Normalizing WinSDK lib filenames failed (exit {code})".format(code = result.return_code))
-
 def _winsdk_repo_impl(ctx):
     """Implementation of the winsdk_repo rule."""
     if ctx.attr.error:
@@ -57,6 +30,8 @@ def _winsdk_repo_impl(ctx):
 
     packages = json.decode(ctx.attr.packages)
     package_urls = json.decode(ctx.attr.package_urls)
+    msi_binary = ctx.path(ctx.attr.msiutil)
+
     cab_list = {}
     msi_list = []
     for pkg in packages:
@@ -89,7 +64,7 @@ def _winsdk_repo_impl(ctx):
 
     required_cabs = {}
     for filename in downloaded_msi_paths:
-        for cab_name in _get_cabs_from_msi(ctx, "tmp/{}".format(filename)):
+        for cab_name in _get_cabs_from_msi(msi_binary, ctx, "tmp/{}".format(filename)):
             required_cabs[cab_name] = True
 
     msi_filenames = []
@@ -112,19 +87,17 @@ def _winsdk_repo_impl(ctx):
             output = "tmp/{}".format(cab_filename),
         )
 
-    extract_root = "tmp/extracted"
+    msi_util = str(msi_binary)
+    extract_root = str(ctx.path("tmp/extracted"))
     for filename in downloaded_msi_paths:
         ctx.report_progress("Extracting MSI '{}'".format(filename))
-        extract_args = [
-            "msiexec",
-            "/a",
-            str(ctx.path("tmp/{}".format(filename))).replace("/", "\\"),
-            "/qn",
-            "TARGETDIR={}".format(str(ctx.path(extract_root)).replace("/", "\\")),
-        ]
-        result = ctx.execute(extract_args, quiet = True)
+        msi_path = str(ctx.path("tmp/{}".format(filename)))
+        result = ctx.execute(
+            [msi_util, "extract", "--output-dir", extract_root, msi_path],
+            quiet = True,
+        )
         if result.return_code != 0:
-            fail("Extracting MSI {} failed (exit {code})".format(filename, code = result.return_code))
+            fail("Extracting MSI {} failed (exit {}): {}".format(filename, result.return_code, result.stderr))
 
     extracted_dir = ctx.path("tmp/extracted/Windows Kits/10")
     for child in extracted_dir.readdir():
@@ -136,9 +109,6 @@ def _winsdk_repo_impl(ctx):
             str(child).replace("/", "\\"),
             child_name,
         ])
-
-    ctx.report_progress("Normalizing WinSDK lib filenames")
-    _normalize_lib_filenames(ctx)
 
     ctx.delete("tmp")
 
@@ -160,13 +130,12 @@ def _winsdk_repo_impl(ctx):
 winsdk_repo = repository_rule(
     implementation = _winsdk_repo_impl,
     attrs = {
+        "msiutil": attr.label(mandatory = True, doc = "The msiutil binary (typically ``@msiutil//:<basename>`` exported by ``msiutil_repo``)."),
         "winsdk_version": attr.string(mandatory = True),
         "packages": attr.string(mandatory = True, doc = "JSON string list of WinSDK package dicts"),
         "package_urls": attr.string(mandatory = True, doc = "JSON string map from sha256 to URL"),
         "error": attr.string(mandatory = True),
         "targets": attr.string_list(doc = "Target architectures (currently unused)"),
-        "src_list_msi_cabs": attr.label(default = Label("//tools:List-MsiCabs.ps1"), doc = "Label to List-MsiCabs.ps1"),
-        "src_normalize_lib_names": attr.label(default = Label("//tools:Normalize-WinSdkLibNames.ps1"), doc = "Label to Normalize-WinSdkLibNames.ps1"),
         "src_build": attr.label(default = Label("//overlays/winsdk:BUILD.root.tpl"), allow_single_file = True, doc = "Label to BUILD.root.tpl"),
     },
 )
