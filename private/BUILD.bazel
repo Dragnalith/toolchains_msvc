@@ -12,7 +12,6 @@ bzl_library(
         "flags.bzl",
         "libs.bzl",
         "llvm_repo.bzl",
-        "lock_file_repo.bzl",
         "msvc_repo.bzl",
         "msvc_toolchains_repo.bzl",
         "utils.bzl",

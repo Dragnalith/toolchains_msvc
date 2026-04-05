@@ -8,9 +8,6 @@ def _package_url(package_urls, pkg):
     return url
 
 def _llvm_repo_impl(ctx):
-    if ctx.attr.error:
-        fail(ctx.attr.error)
-
     version = ctx.attr.version
     host_os = ctx.os.name
     host = ctx.attr.host
@@ -57,6 +54,8 @@ lld-link.exe %*
         ctx.attr.src_build,
     )
 
+    return ctx.repo_metadata(reproducible = True)
+
 llvm_repo = repository_rule(
     implementation = _llvm_repo_impl,
     attrs = {
@@ -64,7 +63,6 @@ llvm_repo = repository_rule(
         "host": attr.string(mandatory = True, doc = "Host architecture"),
         "packages": attr.string(mandatory = True, doc = "JSON string list containing exactly one package dict"),
         "package_urls": attr.string(mandatory = True, doc = "JSON string map from sha256 to URL"),
-        "error": attr.string(mandatory = True),
         "src_build": attr.label(default = Label("//overlays/llvm:BUILD.root.tpl"), allow_single_file = True, doc = "Label to BUILD.root.tpl"),
     },
 )

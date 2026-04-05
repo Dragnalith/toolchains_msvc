@@ -627,6 +627,8 @@ config_setting(
 
     ctx.file("lib/BUILD.bazel", lib_build_file_content)
 
+    return ctx.repo_metadata(reproducible = True)
+
 msvc_toolchains_repo = repository_rule(
     implementation = _msvc_toolchains_repo_impl,
     attrs = {

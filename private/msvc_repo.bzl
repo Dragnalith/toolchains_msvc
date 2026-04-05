@@ -63,6 +63,8 @@ set EXECROOT=%CD%
         ctx.attr.src_build,
     )
 
+    return ctx.repo_metadata(reproducible = True)
+
 msvc_repo = repository_rule(
     implementation = _msvc_repo_impl,
     attrs = {

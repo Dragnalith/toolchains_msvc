@@ -13,7 +13,6 @@ local_path_override(
 
 toolchain = use_extension("@toolchains_msvc//:extensions.bzl", "toolchain")
 toolchain.repo_name(name = "msvc_toolchains")
-toolchain.lock(file = "//:toolchains_msvc.json.lock")
 toolchain.toolchain_set(
     name = "default",
     cl_with_lld_version = "22.1.0",

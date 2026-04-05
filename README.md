@@ -199,22 +199,6 @@ cc_binary(
 
 Each alias resolves to the correct library for the Windows SDK version selected at build time.
 
-## Lock File (Reproducible Pinning)
-
-To pin every downloaded artifact to a known SHA-256 and make fetches fully reproducible, add a lock file:
-
-```starlark
-toolchain.lock(file = "//:toolchains_msvc.json.lock")
-```
-
-Generate or refresh the lock file after any version change:
-
-```bash
-bazel run @toolchains_msvc//:pin
-```
-
-The repository rule will then fail if a downloaded package does not match the recorded hash.
-
 ## `cl_with_lld_version`
 
 `cl_with_lld_version` makes an MSVC (`cl.exe`) toolchain set use `lld-link.exe` as its linker. This enables fully deterministic PDB files, which `link.exe` cannot produce.

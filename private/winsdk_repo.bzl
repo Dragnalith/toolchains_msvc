@@ -155,6 +155,8 @@ def _winsdk_repo_impl(ctx):
         },
     )
 
+    return ctx.repo_metadata(reproducible = True)
+
 winsdk_repo = repository_rule(
     implementation = _winsdk_repo_impl,
     attrs = {

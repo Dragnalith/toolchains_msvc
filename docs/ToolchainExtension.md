@@ -17,9 +17,6 @@ use_repo(toolchain, "msvc_toolchains")
 register_toolchains("@msvc_toolchains//:all")
 ```
 
-Optional lock file (reproducible pins): ``toolchain.lock(file = "//:toolchains_msvc.json.lock")``.
-Run ``bazel run @toolchains_msvc//:pin`` to refresh the lock after changing tags.
-
 Environment:
 
 * ``BAZEL_TOOLCHAINS_MSVC_HOSTS`` — comma-separated list of hosts, used if ``hosts`` is omitted on a set.
@@ -31,7 +28,6 @@ Environment:
 
 <pre>
 toolchain = use_extension("@toolchains_msvc//:extensions.bzl", "toolchain")
-toolchain.lock(<a href="#toolchain.lock-file">file</a>)
 toolchain.repo_name(<a href="#toolchain.repo_name-name">name</a>)
 toolchain.toolchain_set(<a href="#toolchain.toolchain_set-name">name</a>, <a href="#toolchain.toolchain_set-add_cl_copt">add_cl_copt</a>, <a href="#toolchain.toolchain_set-add_cl_cxxopt">add_cl_cxxopt</a>, <a href="#toolchain.toolchain_set-add_cl_dbg_copt">add_cl_dbg_copt</a>, <a href="#toolchain.toolchain_set-add_cl_dbg_cxxopt">add_cl_dbg_cxxopt</a>,
                         <a href="#toolchain.toolchain_set-add_cl_dbg_linkopt">add_cl_dbg_linkopt</a>, <a href="#toolchain.toolchain_set-add_cl_fastbuild_copt">add_cl_fastbuild_copt</a>, <a href="#toolchain.toolchain_set-add_cl_fastbuild_cxxopt">add_cl_fastbuild_cxxopt</a>,
@@ -59,18 +55,6 @@ Fetches MSVC, Windows SDK, and optional LLVM artifacts and registers matching C+
 
 
 **TAG CLASSES**
-
-<a id="toolchain.lock"></a>
-
-### lock
-
-Pins resolved repositories to a JSON lock file for reproducible fetches.
-
-**Attributes**
-
-| Name  | Description | Type | Mandatory | Default |
-| :------------- | :------------- | :------------- | :------------- | :------------- |
-| <a id="toolchain.lock-file"></a>file |  Label of the lock file (e.g. `//:toolchains_msvc.json.lock`). Must be unique across tags.   | <a href="https://bazel.build/concepts/labels">Label</a> | required |  |
 
 <a id="toolchain.repo_name"></a>
 

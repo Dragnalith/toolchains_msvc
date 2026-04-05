@@ -15,9 +15,6 @@ use_repo(toolchain, "msvc_toolchains")
 register_toolchains("@msvc_toolchains//:all")
 ```
 
-Optional lock file (reproducible pins): ``toolchain.lock(file = \"//:toolchains_msvc.json.lock\")``.
-Run ``bazel run @toolchains_msvc//:pin`` to refresh the lock after changing tags.
-
 Environment:
 
 * ``BAZEL_TOOLCHAINS_MSVC_HOSTS`` — comma-separated list of hosts, used if ``hosts`` is omitted on a set.
@@ -53,7 +50,6 @@ load(
     "merge_flags",
 )
 load("//private:llvm_repo.bzl", "llvm_repo")
-load("//private:lock_file_repo.bzl", "lock_file_repo")
 load("//private:msvc_repo.bzl", "msvc_repo")
 load("//private:msvc_toolchains_repo.bzl", "msvc_toolchains_repo")
 load(
@@ -171,7 +167,7 @@ def _validate_toolchain_set_name(name):
             fail("Invalid toolchain_set name '{}': must not contain '{}'.".format(name, invalid_char))
 
 def _sort_packages(packages):
-    """Sorts package dicts by ``filename`` then ``sha256`` for stable lock output."""
+    """Sorts package dicts by ``filename`` then ``sha256`` for deterministic ordering."""
     return sorted(packages, key = lambda pkg: "{}\n{}".format(pkg["filename"], pkg["sha256"]))
 
 def _register_package_url(all_packages_url, sha256, url):
@@ -191,117 +187,6 @@ def _package_urls_for_repo(all_packages_url, packages):
             fail("Missing URL for package digest '{}' (file '{}')".format(sha256, pkg["filename"]))
         package_urls[sha256] = url
     return package_urls
-
-def _sorted_union_keys(left, right):
-    """Returns sorted keys present in either dict-like mapping."""
-    keys = {}
-    for key in left:
-        keys[key] = True
-    for key in right:
-        keys[key] = True
-    return sorted(keys.keys())
-
-def _packages_by_filename(packages):
-    """Indexes package dicts by ``filename``; entries without a ``filename`` key are skipped."""
-    packages_by_filename = {}
-    for package in packages:
-        if type(package) == "dict" and package.get("filename") != None:
-            packages_by_filename[package["filename"]] = package
-    return packages_by_filename
-
-def _diff_repo_packages(repo_name, repo_packages, user_repo_packages):
-    """Human-readable diff for ``packages`` lists between MODULE resolution and lock file."""
-    if type(repo_packages) != "list" or type(user_repo_packages) != "list":
-        return "packages: type mismatch (MODULE: {}, lock: {}).\n".format(
-            type(repo_packages),
-            type(user_repo_packages),
-        )
-
-    diff_text = ""
-    if len(repo_packages) != len(user_repo_packages):
-        diff_text += "packages: MODULE has {} entries, lock file has {} entries (repository '{}').\n".format(
-            len(repo_packages),
-            len(user_repo_packages),
-            repo_name,
-        )
-
-    repo_by_fn = _packages_by_filename(repo_packages)
-    user_repo_by_fn = _packages_by_filename(user_repo_packages)
-    for fn in _sorted_union_keys(repo_by_fn, user_repo_by_fn):
-        repo_pkg = repo_by_fn.get(fn)
-        user_repo_pkg = user_repo_by_fn.get(fn)
-        if repo_pkg == None:
-            diff_text += "packages: filename {} only in lock file.\n".format(repr(fn))
-        elif user_repo_pkg == None:
-            diff_text += "packages: filename {} only in MODULE resolution.\n".format(repr(fn))
-        else:
-            if repo_pkg.get("filename") != user_repo_pkg.get("filename"):
-                diff_text += "packages: filename field differs for {}: MODULE {} vs lock {}.\n".format(
-                    repr(fn),
-                    repr(repo_pkg.get("filename")),
-                    repr(user_repo_pkg.get("filename")),
-                )
-            if repo_pkg.get("sha256") != user_repo_pkg.get("sha256"):
-                diff_text += "packages: sha256 differs for filename {}: MODULE {} vs lock {}.\n".format(
-                    repr(fn),
-                    repr(repo_pkg.get("sha256")),
-                    repr(user_repo_pkg.get("sha256")),
-                )
-    return diff_text
-
-def _diff_repo_definition(repo_name, repo, user_repo):
-    """Human-readable diff between two repository definition dicts (including nested packages)."""
-    diff_text = ""
-    for key in _sorted_union_keys(repo, user_repo):
-        in_mod = key in repo
-        in_lock = key in user_repo
-        if not in_mod:
-            diff_text += "Key '{}' only in lock file (repository '{}').\n".format(key, repo_name)
-        elif not in_lock:
-            diff_text += "Key '{}' only in MODULE resolution (repository '{}').\n".format(key, repo_name)
-        elif repo[key] != user_repo[key]:
-            if key == "packages":
-                diff_text += _diff_repo_packages(repo_name, repo["packages"], user_repo["packages"])
-            else:
-                diff_text += "Key '{}' differs in repository '{}': MODULE {} vs lock {}.\n".format(
-                    key,
-                    repo_name,
-                    repr(repo[key]),
-                    repr(user_repo[key]),
-                )
-    return diff_text
-
-def _lock_error_for_repo(relative_lock_file_path, repo_name, repo, user_lock_repos):
-    """Returns an error string if the lock is missing or does not match ``repo``; else ``\"\"``."""
-    if user_lock_repos == None:
-        return "The lock file '{}' does not exist or is invalid for repository '{}'. You must run `bazel run @toolchains_msvc//:pin` to create it.".format(
-            relative_lock_file_path,
-            repo_name,
-        )
-
-    user_repo = user_lock_repos.get(repo_name)
-    if user_repo == None:
-        return "The lock file '{}' does not contain the definition for repository '{}'. Run `bazel run @toolchains_msvc//:pin` to update the lock file.".format(
-            relative_lock_file_path,
-            repo_name,
-        )
-
-    if user_repo == repo:
-        return ""
-
-    diff_text = _diff_repo_definition(repo_name, repo, user_repo)
-    return "The lock file '{}' does not match the toolchain definition for repository '{}'. Differences:\n{}\nRun `bazel run @toolchains_msvc//:pin` to update the lock file.".format(
-        relative_lock_file_path,
-        repo_name,
-        diff_text,
-    )
-
-def _merge_repo_errors(*errors):
-    """Joins non-empty error strings with blank lines (e.g. lock + EULA)."""
-    merged_errors = [error for error in errors if error]
-    if not merged_errors:
-        return ""
-    return "\n\n".join(merged_errors)
 
 def _llvm_package_filename(version, host):
     """Official LLVM release tarball basename for ``version`` and Windows ``host`` (``x64`` or ``arm64``)."""
@@ -324,15 +209,15 @@ def _register_repo_definition(repos, repo):
         fail("Conflicting definitions for repo '{}': {} != {}".format(name, existing, repo))
 
 def _extension_impl(module_ctx):
-    """Module extension implementation: manifests, repos, lock, and toolchains registration.
+    """Module extension implementation: manifests, repos, and toolchains registration.
 
     Phases:
 
     1. Download VS channel manifests; enforce EULA if needed.
-    2. Parse tags (toolchain sets, defaults, optional lock file label).
+    2. Parse tags (toolchain sets and defaults).
     3. Resolve per-set MSVC / WinSDK / LLVM versions, hosts, targets, and merged flags.
     4. Build the package-URL map; emit and instantiate LLVM, MSVC, and WinSDK repository rules.
-    5. Create the lock-file helper repo and the aggregate ``msvc_toolchains`` repo.
+    5. Create the aggregate ``msvc_toolchains`` repository.
 
     Args:
         module_ctx: Bazel module extension context.
@@ -362,8 +247,6 @@ def _extension_impl(module_ctx):
     global_default_llvm_version = None
     global_default_winsdk_version = None
     global_default_compiler = None
-    lock_file_label = None
-    is_locked = False
 
     for mod in module_ctx.modules:
         for tag in mod.tags.repo_name:
@@ -380,13 +263,6 @@ def _extension_impl(module_ctx):
             global_default_winsdk_version = tag.version
         for tag in mod.tags.default_compiler:
             global_default_compiler = tag.compiler
-        for tag in mod.tags.lock:
-            if lock_file_label != None:
-                fail("lock tag must be declared at most once.")
-            if not tag.file:
-                fail("lock file label must not be empty.")
-            lock_file_label = tag.file
-            is_locked = True
 
     if not toolchain_sets:
         fail("At least one toolchain.toolchain_set(...) is required.")
@@ -668,59 +544,11 @@ def _extension_impl(module_ctx):
             "winsdk_version": winsdk_version,
         })
 
-    module_lock_repos = {
-        repo_name: repos[repo_name]
-        for repo_name in sorted(repos.keys())
-    }
-
-    if clang_versions_dict == None:
-        clang_versions_dict = list_clang_version(module_ctx)
-
-    available_versions = {
-        "msvc_versions": sorted(msvc_versions_dict.keys()),
-        "winsdk_versions": sorted(winsdk_versions_dict.keys()),
-        "llvm_versions": sorted(clang_versions_dict.keys()),
-    }
-
-    user_lock_repos = None
-    relative_lock_file_path = None
-    if is_locked:
-        module_ctx.watch(lock_file_label)
-        lock_path = module_ctx.path(lock_file_label)
-        if lock_path.exists:
-            user_lock_repos = json.decode(module_ctx.read(lock_file_label), default = None)
-        if lock_file_label.package:
-            relative_lock_file_path = "{}/{}".format(lock_file_label.package, lock_file_label.name)
-        else:
-            relative_lock_file_path = lock_file_label.name
-
-    lock_file_repo(
-        name = "toolchains_msvc_lock",
-        lock_json = json.encode_indent(module_lock_repos),
-        lock_file_path = relative_lock_file_path,
-        available_versions_json = json.encode_indent(available_versions),
-    )
-
-    for repo_name in sorted(module_lock_repos.keys()):
-        repo = module_lock_repos[repo_name]
+    for repo_name in sorted(repos.keys()):
+        repo = repos[repo_name]
         kind = repo["kind"]
-
-        if is_locked:
-            lock_error = _lock_error_for_repo(
-                    relative_lock_file_path,
-                    repo_name,
-                    module_lock_repos[repo_name],
-                    user_lock_repos,
-            )
-        else:
-            lock_error = ""
-
-        if lock_error:
-            packages = []
-            package_urls = {}
-        else:
-            packages = repo["packages"]
-            package_urls = _package_urls_for_repo(all_packages_url, repo["packages"])
+        packages = repo["packages"]
+        package_urls = _package_urls_for_repo(all_packages_url, repo["packages"])
 
         if kind == "llvm":
             llvm_repo(
@@ -729,31 +557,28 @@ def _extension_impl(module_ctx):
                 host = repo["host"],
                 packages = json.encode(packages),
                 package_urls = json.encode(package_urls),
-                error = lock_error,
             )
             continue
 
         if kind == "msvc":
-            repo_error = _merge_repo_errors(lock_error, accept_eula_error)
             msvc_repo(
                 name = repo["name"],
                 hosts = repo["hosts"],
                 targets = repo["targets"],
                 packages = json.encode(packages),
                 package_urls = json.encode(package_urls),
-                error = repo_error,
+                error = accept_eula_error,
             )
             continue
 
         if kind == "winsdk":
-            repo_error = _merge_repo_errors(lock_error, accept_eula_error)
             winsdk_repo(
                 name = repo["name"],
                 targets = repo["targets"],
                 packages = json.encode(packages),
                 package_urls = json.encode(package_urls),
                 winsdk_version = repo["winsdk_version"],
-                error = repo_error,
+                error = accept_eula_error,
             )
             continue
 
@@ -777,7 +602,7 @@ def _extension_impl(module_ctx):
     )
 
     return module_ctx.extension_metadata(
-        reproducible = True,
+        reproducible = False,
         root_module_direct_deps = [repo_name_value],
         root_module_direct_dev_deps = [],
     )
@@ -1085,21 +910,10 @@ default_compiler_tag = tag_class(
     },
 )
 
-lock_tag = tag_class(
-    doc = "Pins resolved repositories to a JSON lock file for reproducible fetches.",
-    attrs = {
-        "file": attr.label(
-            mandatory = True,
-            doc = "Label of the lock file (e.g. `//:toolchains_msvc.json.lock`). Must be unique across tags.",
-        ),
-    },
-)
-
 toolchain = module_extension(
     implementation = _extension_impl,
     doc = "Fetches MSVC, Windows SDK, and optional LLVM artifacts and registers matching C++ toolchains.",
     tag_classes = {
-        "lock": lock_tag,
         "repo_name": repo_name_tag,
         "toolchain_set": toolchain_set_tag,
         "default_toolchain_set": default_toolchain_set_tag,
