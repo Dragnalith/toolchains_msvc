@@ -9,10 +9,12 @@ exports_files(
         "bin/clang-cl.exe",
         "bin/clang-format.exe",
         "bin/clang-tidy.exe",
+        "bin/libclang.dll",
         "bin/lld-link.exe",
         "bin/lld-link_wrapper.bat",
         "bin/llvm-lib.exe",
         "bin/llvm-ml.exe",
+        "lib/libclang.lib",
     ],
     visibility = ["//visibility:public"],
 )
@@ -38,6 +40,16 @@ filegroup(
 filegroup(
     name = "clang-tidy",
     srcs = ["bin/clang-tidy.exe"],
+)
+
+# libclang (DLL + import library) for consumers that link against the Clang
+# C API — e.g. Rust bindgen and other FFI binding generators.
+filegroup(
+    name = "libclang",
+    srcs = [
+        "bin/libclang.dll",
+        "lib/libclang.lib",
+    ],
 )
 
 filegroup(
