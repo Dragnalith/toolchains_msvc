@@ -70,7 +70,6 @@ cc_args(
         "-fcoverage-compilation-dir=.",
         "-resource-dir=.",
         "-no-canonical-prefixes",
-        "-gno-codeview-command-line",
         "-fno-ident",
     ],
 )

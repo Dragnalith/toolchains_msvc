@@ -427,7 +427,13 @@ cc_args(
 cc_args(
     name = "generate_debug_symbols_compile",
     actions = ["@rules_cc//cc/toolchains/actions:compile_actions"],
-    args = ["-gcodeview"],
+    # -gno-codeview-command-line prevents the full command line from being
+    # embedded in CodeView debug info (which would contain absolute paths,
+    # breaking PDB reproducibility). Only meaningful alongside -gcodeview.
+    args = [
+        "-gcodeview",
+        "-gno-codeview-command-line",
+    ],
 )
 
 cc_args(
