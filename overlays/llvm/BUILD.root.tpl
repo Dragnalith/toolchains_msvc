@@ -7,6 +7,8 @@ exports_files(
     [
         "bin/clang.exe",
         "bin/clang-cl.exe",
+        "bin/clang-format.exe",
+        "bin/clang-tidy.exe",
         "bin/lld-link.exe",
         "bin/lld-link_wrapper.bat",
         "bin/llvm-lib.exe",
@@ -23,6 +25,19 @@ filegroup(
 filegroup(
     name = "clang_cl_exe_only",
     srcs = ["bin/clang-cl.exe"],
+)
+
+# Developer tools not used by the toolchain itself, but shipped in the LLVM
+# distribution and commonly consumed as standalone executables by aspects,
+# build rules, or `bazel run` targets.
+filegroup(
+    name = "clang-format",
+    srcs = ["bin/clang-format.exe"],
+)
+
+filegroup(
+    name = "clang-tidy",
+    srcs = ["bin/clang-tidy.exe"],
 )
 
 filegroup(
