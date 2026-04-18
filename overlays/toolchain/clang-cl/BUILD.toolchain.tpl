@@ -96,6 +96,7 @@ cc_args(
         "@rules_cc//cc/toolchains/actions:cpp_compile_actions",
     ],
     allowlist_include_directories = [
+        "@{llvm_repo}//:clang_builtin_include",
         "@{msvc_repo}//:include_dir",
         "@{winsdk_repo}//:ucrt_include",
         "@{winsdk_repo}//:um_include",
@@ -103,6 +104,8 @@ cc_args(
     ],
     args = [
         "/external:W0",
+        "/external:I",
+        "{clang_builtin_include}",
         "/external:I",
         "{msvc_include}",
         "/external:I",
@@ -113,12 +116,14 @@ cc_args(
         "{winsdk_shared_include}",
     ],
     data = [
+        "@{llvm_repo}//:clang_builtin_include_files",
         "@{msvc_repo}//:msvc_all_includes",
         "@{winsdk_repo}//:um_include_files",
         "@{winsdk_repo}//:ucrt_include_files",
         "@{winsdk_repo}//:shared_include_files",
     ],
     format = {
+        "clang_builtin_include": "@{llvm_repo}//:clang_builtin_include",
         "msvc_include": "@{msvc_repo}//:include_dir",
         "winsdk_ucrt_include": "@{winsdk_repo}//:ucrt_include",
         "winsdk_um_include": "@{winsdk_repo}//:um_include",
