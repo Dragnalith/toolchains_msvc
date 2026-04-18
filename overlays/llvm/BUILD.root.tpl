@@ -52,6 +52,27 @@ filegroup(
     ],
 )
 
+# Clang's own compiler-resources (intrinsic headers: xmmintrin.h etc., plus
+# stdbool.h, stdarg.h, etc.). The cc_toolchain wires this path as an include
+# directory so Clang picks up its own inline intrinsic implementations rather
+# than falling through to MSVC's `extern`-declared versions from the Windows
+# SDK sysroot.
+directory(
+    name = "llvm_tree",
+    srcs = glob(["lib/clang/**"]),
+)
+
+subdirectory(
+    name = "clang_builtin_include",
+    parent = ":llvm_tree",
+    path = "lib/clang/{LLVM_VERSION}/include",
+)
+
+filegroup(
+    name = "clang_builtin_include_files",
+    srcs = glob(["lib/clang/{LLVM_VERSION}/include/**"]),
+)
+
 filegroup(
     name = "lld_link_exe_only",
     srcs = [

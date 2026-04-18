@@ -52,6 +52,9 @@ lld-link.exe %*
     ctx.template(
         "BUILD.bazel",
         ctx.attr.src_build,
+        substitutions = {
+            "{LLVM_VERSION}": version.split(".")[0],
+        },
     )
 
     return ctx.repo_metadata(reproducible = True)
