@@ -601,9 +601,16 @@ def _extension_impl(module_ctx):
         default_compiler = default_compiler_for_repo,
     )
 
+    # Declare per-version LLVM repos as direct deps so consumers that
+    # `use_repo(...)` them don't hit the "imported but reported as indirect
+    # dependencies" warning from Bazel.
+    direct_deps = [repo_name_value] + [
+        repo["name"] for repo in repos.values() if repo["kind"] == "llvm"
+    ]
+
     return module_ctx.extension_metadata(
         reproducible = False,
-        root_module_direct_deps = [repo_name_value],
+        root_module_direct_deps = direct_deps,
         root_module_direct_dev_deps = [],
     )
 
