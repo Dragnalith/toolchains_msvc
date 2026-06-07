@@ -22,10 +22,10 @@ cc_tool_map(
 
 cc_tool(
     name = "cl",
-    src = "@{msvc_repo}//:cl_wrapper_host{host}_target{target}",
+    src = "//msvc/bin:cl_wrapper_{suffix}",
     data = [
-        "@{msvc_repo}//:msvc_all_binaries_host{host}_target{target}",
-        "@{msvc_repo}//:msvc_all_includes",
+        "//msvc/bin:all_binaries_{suffix}",
+        "//msvc/include:all_includes",
     ],
 )
 
@@ -33,17 +33,17 @@ cc_tool(
 
 cc_tool(
     name = "lib",
-    src = "@{msvc_repo}//:lib_host{host}_target{target}",
+    src = "//msvc/bin:lib_{suffix}",
     data = [
-        "@{msvc_repo}//:msvc_all_binaries_host{host}_target{target}",
+        "//msvc/bin:all_binaries_{suffix}",
     ],
 )
 
 cc_tool(
     name = "ml64",
-    src = "@{msvc_repo}//:ml64_host{host}_target{target}",
+    src = "//msvc/bin:ml64_{suffix}",
     data = [
-        "@{msvc_repo}//:msvc_all_binaries_host{host}_target{target}",
+        "//msvc/bin:all_binaries_{suffix}",
     ],
 )
 
@@ -91,10 +91,10 @@ cc_args(
         "@rules_cc//cc/toolchains/actions:cpp_compile_actions",
     ],
     allowlist_include_directories = [
-        "@{msvc_repo}//:include_dir",
-        "@{winsdk_repo}//:ucrt_include",
-        "@{winsdk_repo}//:um_include",
-        "@{winsdk_repo}//:shared_include",
+        "//msvc/include:include_dir",
+        "//winsdk/include:ucrt_include",
+        "//winsdk/include:um_include",
+        "//winsdk/include:shared_include",
     ],
     args = [
         "/external:W0",
@@ -108,97 +108,17 @@ cc_args(
         "{winsdk_shared_include}",
     ],
     data = [
-        "@{msvc_repo}//:msvc_all_includes",
-        "@{winsdk_repo}//:shared_include_files",
-        "@{winsdk_repo}//:ucrt_include_files",
-        "@{winsdk_repo}//:um_include_files",
+        "//msvc/include:all_includes",
+        "//winsdk/include:shared_include_files",
+        "//winsdk/include:ucrt_include_files",
+        "//winsdk/include:um_include_files",
     ],
     format = {
-        "msvc_include": "@{msvc_repo}//:include_dir",
-        "winsdk_ucrt_include": "@{winsdk_repo}//:ucrt_include",
-        "winsdk_um_include": "@{winsdk_repo}//:um_include",
-        "winsdk_shared_include": "@{winsdk_repo}//:shared_include",
+        "msvc_include": "//msvc/include:include_dir",
+        "winsdk_ucrt_include": "//winsdk/include:ucrt_include",
+        "winsdk_um_include": "//winsdk/include:um_include",
+        "winsdk_shared_include": "//winsdk/include:shared_include",
     },
-)
-
-filegroup(
-    name = "file_ucrt",
-    srcs = ["@{winsdk_repo}//:Lib/10.0.{winsdk_version}.0/ucrt/{target}/ucrt.lib"],
-)
-
-filegroup(
-    name = "file_msvcrt",
-    srcs = ["@{msvc_repo}//:Tools/lib/{target}/msvcrt.lib"],
-)
-
-filegroup(
-    name = "file_vcruntime",
-    srcs = ["@{msvc_repo}//:Tools/lib/{target}/vcruntime.lib"],
-)
-
-filegroup(
-    name = "file_msvcprt",
-    srcs = ["@{msvc_repo}//:Tools/lib/{target}/msvcprt.lib"],
-)
-
-filegroup(
-    name = "file_libucrt",
-    srcs = ["@{winsdk_repo}//:Lib/10.0.{winsdk_version}.0/ucrt/{target}/libucrt.lib"],
-)
-
-filegroup(
-    name = "file_libvcruntime",
-    srcs = ["@{msvc_repo}//:Tools/lib/{target}/libvcruntime.lib"],
-)
-
-filegroup(
-    name = "file_libcmt",
-    srcs = ["@{msvc_repo}//:Tools/lib/{target}/libcmt.lib"],
-)
-
-filegroup(
-    name = "file_libcpmt",
-    srcs = ["@{msvc_repo}//:Tools/lib/{target}/libcpmt.lib"],
-)
-
-filegroup(
-    name = "file_ucrtd",
-    srcs = ["@{winsdk_repo}//:Lib/10.0.{winsdk_version}.0/ucrt/{target}/ucrtd.lib"],
-)
-
-filegroup(
-    name = "file_msvcrtd",
-    srcs = ["@{msvc_repo}//:Tools/lib/{target}/msvcrtd.lib"],
-)
-
-filegroup(
-    name = "file_vcruntimed",
-    srcs = ["@{msvc_repo}//:Tools/lib/{target}/vcruntimed.lib"],
-)
-
-filegroup(
-    name = "file_msvcprtd",
-    srcs = ["@{msvc_repo}//:Tools/lib/{target}/msvcprtd.lib"],
-)
-
-filegroup(
-    name = "file_libucrtd",
-    srcs = ["@{winsdk_repo}//:Lib/10.0.{winsdk_version}.0/ucrt/{target}/libucrtd.lib"],
-)
-
-filegroup(
-    name = "file_libvcruntimed",
-    srcs = ["@{msvc_repo}//:Tools/lib/{target}/libvcruntimed.lib"],
-)
-
-filegroup(
-    name = "file_libcmtd",
-    srcs = ["@{msvc_repo}//:Tools/lib/{target}/libcmtd.lib"],
-)
-
-filegroup(
-    name = "file_libcpmtd",
-    srcs = ["@{msvc_repo}//:Tools/lib/{target}/libcpmtd.lib"],
 )
 
 cc_args(
@@ -213,16 +133,16 @@ cc_args(
         "{msvcprt}",
     ],
     data = [
-        ":file_ucrt",
-        ":file_msvcrt",
-        ":file_vcruntime",
-        ":file_msvcprt",
+        "//winsdk/lib:rt_ucrt_{target}",
+        "//msvc/lib:rt_msvcrt_{target}",
+        "//msvc/lib:rt_vcruntime_{target}",
+        "//msvc/lib:rt_msvcprt_{target}",
     ],
     format = {
-        "ucrt": ":file_ucrt",
-        "msvcrt": ":file_msvcrt",
-        "vcruntime": ":file_vcruntime",
-        "msvcprt": ":file_msvcprt",
+        "ucrt": "//winsdk/lib:rt_ucrt_{target}",
+        "msvcrt": "//msvc/lib:rt_msvcrt_{target}",
+        "vcruntime": "//msvc/lib:rt_vcruntime_{target}",
+        "msvcprt": "//msvc/lib:rt_msvcprt_{target}",
     },
     requires_any_of = ["{features_package}/msvc:no_static_no_debug_constraint"],
 )
@@ -239,16 +159,16 @@ cc_args(
         "{libcpmt}",
     ],
     data = [
-        ":file_libucrt",
-        ":file_libvcruntime",
-        ":file_libcmt",
-        ":file_libcpmt",
+        "//winsdk/lib:rt_libucrt_{target}",
+        "//msvc/lib:rt_libvcruntime_{target}",
+        "//msvc/lib:rt_libcmt_{target}",
+        "//msvc/lib:rt_libcpmt_{target}",
     ],
     format = {
-        "libucrt": ":file_libucrt",
-        "libvcruntime": ":file_libvcruntime",
-        "libcmt": ":file_libcmt",
-        "libcpmt": ":file_libcpmt",
+        "libucrt": "//winsdk/lib:rt_libucrt_{target}",
+        "libvcruntime": "//msvc/lib:rt_libvcruntime_{target}",
+        "libcmt": "//msvc/lib:rt_libcmt_{target}",
+        "libcpmt": "//msvc/lib:rt_libcpmt_{target}",
     },
     requires_any_of = ["{features_package}/msvc:static_no_debug_constraint"],
 )
@@ -265,16 +185,16 @@ cc_args(
         "{msvcprtd}",
     ],
     data = [
-        ":file_ucrtd",
-        ":file_msvcrtd",
-        ":file_vcruntimed",
-        ":file_msvcprtd",
+        "//winsdk/lib:rt_ucrtd_{target}",
+        "//msvc/lib:rt_msvcrtd_{target}",
+        "//msvc/lib:rt_vcruntimed_{target}",
+        "//msvc/lib:rt_msvcprtd_{target}",
     ],
     format = {
-        "ucrtd": ":file_ucrtd",
-        "msvcrtd": ":file_msvcrtd",
-        "vcruntimed": ":file_vcruntimed",
-        "msvcprtd": ":file_msvcprtd",
+        "ucrtd": "//winsdk/lib:rt_ucrtd_{target}",
+        "msvcrtd": "//msvc/lib:rt_msvcrtd_{target}",
+        "vcruntimed": "//msvc/lib:rt_vcruntimed_{target}",
+        "msvcprtd": "//msvc/lib:rt_msvcprtd_{target}",
     },
     requires_any_of = ["{features_package}/msvc:no_static_debug_constraint"],
 )
@@ -291,16 +211,16 @@ cc_args(
         "{libcpmtd}",
     ],
     data = [
-        ":file_libucrtd",
-        ":file_libvcruntimed",
-        ":file_libcmtd",
-        ":file_libcpmtd",
+        "//winsdk/lib:rt_libucrtd_{target}",
+        "//msvc/lib:rt_libvcruntimed_{target}",
+        "//msvc/lib:rt_libcmtd_{target}",
+        "//msvc/lib:rt_libcpmtd_{target}",
     ],
     format = {
-        "libucrtd": ":file_libucrtd",
-        "libvcruntimed": ":file_libvcruntimed",
-        "libcmtd": ":file_libcmtd",
-        "libcpmtd": ":file_libcpmtd",
+        "libucrtd": "//winsdk/lib:rt_libucrtd_{target}",
+        "libvcruntimed": "//msvc/lib:rt_libvcruntimed_{target}",
+        "libcmtd": "//msvc/lib:rt_libcmtd_{target}",
+        "libcpmtd": "//msvc/lib:rt_libcpmtd_{target}",
     },
     requires_any_of = ["{features_package}/msvc:static_debug_constraint"],
 )

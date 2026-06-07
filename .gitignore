@@ -5,3 +5,4 @@ tests/reproducible_projectA/MODULE.bazel.lock
 tests/reproducible_projectB/MODULE.bazel.lock
 bazel-*
 research/minimal_cpp_project/_build
+_tmp

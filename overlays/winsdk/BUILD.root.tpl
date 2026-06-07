@@ -73,6 +73,43 @@ filegroup(
     ),
 )
 
+# Resource compiler runfiles (rc.exe + rcdll.dll), one bundle per host arch.
+# Shipped in the "Windows SDK for Windows Store Apps Tools" MSI under
+# bin/10.0.<ver>.0/<host>/. The bare rc.exe (for use as a tool `src`) is
+# available directly via the catch-all `exports_files` below.
+filegroup(
+    name = "rc_files_x64",
+    srcs = glob(
+        [
+            "bin/10.0.{winsdk_version}.0/x64/rc.exe",
+            "bin/10.0.{winsdk_version}.0/x64/rcdll.dll",
+        ],
+        allow_empty = True,
+    ),
+)
+
+filegroup(
+    name = "rc_files_x86",
+    srcs = glob(
+        [
+            "bin/10.0.{winsdk_version}.0/x86/rc.exe",
+            "bin/10.0.{winsdk_version}.0/x86/rcdll.dll",
+        ],
+        allow_empty = True,
+    ),
+)
+
+filegroup(
+    name = "rc_files_arm64",
+    srcs = glob(
+        [
+            "bin/10.0.{winsdk_version}.0/arm64/rc.exe",
+            "bin/10.0.{winsdk_version}.0/arm64/rcdll.dll",
+        ],
+        allow_empty = True,
+    ),
+)
+
 exports_files(
     glob(["**/*"]),  # or narrower patterns
     visibility = ["//visibility:public"],
