@@ -1,4 +1,18 @@
-"""Repository rule to define MSVC toolchains."""
+"""Repository rule to define MSVC toolchains.
+
+The generated `@msvc_toolchains` repo folds the MSVC / WinSDK / LLVM *version*
+axes behind `select()`-based facade packages keyed on the `//msvc`, `//winsdk`,
+and `//llvm` flags:
+
+* `//llvm/bin`, `//llvm/include`
+* `//msvc/bin`, `//msvc/include`, `//msvc/lib`
+* `//winsdk/include`, `//winsdk/bin` (rc.exe), `//winsdk/lib`
+
+Architecture (host/target) is NOT selected: one `cc_toolchain` is generated per
+`(toolchain_set, compiler, host, target)` and registered with
+`exec_compatible_with` / `target_compatible_with` so cross-compilation picks the
+right baked tools. Only the version axes use `select()`.
+"""
 
 load("//private:libs.bzl", "msvc_lib", "ucrt_lib", "um_lib")
 load("//private:utils.bzl", "convert_msvc_arch_to_bazel_arch", "convert_msvc_arch_to_clang_target", "msvc_version_to_cl_internal_version")
@@ -35,6 +49,278 @@ def _append_list_line(content, var_name, values, item_prefix = ""):
 def _toolchain_set_prefix(group_name):
     return "toolchain_set/{}".format(group_name)
 
+def _select_label(flag_pkg, versions, label_for_version, indent = "        "):
+    """Returns a `select({...})` expression string keyed on `//<flag_pkg>:<v>`.
+
+    Args:
+        flag_pkg: package of the version flag (e.g. "msvc", "winsdk", "llvm").
+        versions: list of version strings (the select arms).
+        label_for_version: function version -> label string (without quotes).
+        indent: leading whitespace for each arm.
+    """
+    close_indent = indent[:-4] if len(indent) >= 4 else ""
+    lines = ["select({"]
+    for v in versions:
+        lines.append("{}\"//{}:{}\": \"{}\",".format(indent, flag_pkg, v, label_for_version(v)))
+    lines.append(close_indent + "})")
+    return "\n".join(lines)
+
+def _select_list(flag_pkg, versions, label_for_version, indent = "        "):
+    """Like `_select_label` but each arm is a single-element list (for `srcs`)."""
+    close_indent = indent[:-4] if len(indent) >= 4 else ""
+    lines = ["select({"]
+    for v in versions:
+        lines.append("{}\"//{}:{}\": [\"{}\"],".format(indent, flag_pkg, v, label_for_version(v)))
+    lines.append(close_indent + "})")
+    return "\n".join(lines)
+
+def _llvm_hosts(hosts):
+    # LLVM provides no x86 Windows host binaries.
+    return [h for h in hosts if h != "x86"]
+
+def _emit_llvm_facades(ctx, llvm_versions, hosts, targets):
+    """Generates //llvm/bin and //llvm/include facades (select over //llvm)."""
+    if not llvm_versions:
+        return
+
+    llvm_hosts = _llvm_hosts(hosts)
+
+    bin_content = ["package(default_visibility = [\"//visibility:public\"])", ""]
+
+    # alias name -> repo target name (same name pattern in the llvm repo)
+    alias_tools = ["clang", "clang-cl", "lld-link", "llvm-lib", "llvm-ml"]
+
+    # filegroup data targets (exe_only) -> repo target name
+    data_tools = {
+        "clang_exe_only": "clang_exe_only",
+        "clang_cl_exe_only": "clang_cl_exe_only",
+        "lld_link_exe_only": "lld_link_exe_only",
+        "llvm_lib_exe_only": "llvm_lib_exe_only",
+        "llvm_ml_exe_only": "llvm_ml_exe_only",
+    }
+
+    for host in llvm_hosts:
+        for target in targets:
+            suffix = "host{}_target{}".format(host, target)
+            for tool in alias_tools:
+                actual = _select_label(
+                    "llvm",
+                    llvm_versions,
+                    lambda v, host = host, suffix = suffix, tool = tool: "@llvm_{}_{}//:{}_{}".format(v, host, tool, suffix),
+                )
+                bin_content.append("alias(\n    name = \"{}_{}\",\n    actual = {},\n)\n".format(tool, suffix, actual))
+            for fg_name, repo_name in data_tools.items():
+                srcs = _select_list(
+                    "llvm",
+                    llvm_versions,
+                    lambda v, host = host, suffix = suffix, repo_name = repo_name: "@llvm_{}_{}//:{}_{}".format(v, host, repo_name, suffix),
+                )
+                bin_content.append("filegroup(\n    name = \"{}_{}\",\n    srcs = {},\n)\n".format(fg_name, suffix, srcs))
+
+    ctx.file("llvm/bin/BUILD.bazel", "\n".join(bin_content))
+
+    inc_content = ["package(default_visibility = [\"//visibility:public\"])", ""]
+    for host in llvm_hosts:
+        actual = _select_label(
+            "llvm",
+            llvm_versions,
+            lambda v, host = host: "@llvm_{}_{}//:clang_builtin_include".format(v, host),
+        )
+        inc_content.append("alias(\n    name = \"clang_builtin_include_host{}\",\n    actual = {},\n)\n".format(host, actual))
+        srcs = _select_list(
+            "llvm",
+            llvm_versions,
+            lambda v, host = host: "@llvm_{}_{}//:clang_builtin_include_files".format(v, host),
+        )
+        inc_content.append("filegroup(\n    name = \"clang_builtin_include_files_host{}\",\n    srcs = {},\n)\n".format(host, srcs))
+
+    ctx.file("llvm/include/BUILD.bazel", "\n".join(inc_content))
+
+def _emit_msvc_facades(ctx, msvc_versions, hosts, targets):
+    """Generates //msvc/bin and //msvc/include facades (select over //msvc)."""
+    bin_content = ["package(default_visibility = [\"//visibility:public\"])", ""]
+
+    alias_tools = ["cl", "cl_wrapper", "link", "lib", "ml64"]
+    for host in hosts:
+        for target in targets:
+            suffix = "host{}_target{}".format(host, target)
+            for tool in alias_tools:
+                actual = _select_label(
+                    "msvc",
+                    msvc_versions,
+                    lambda v, suffix = suffix, tool = tool: "@msvc_{}//:{}_{}".format(v, tool, suffix),
+                )
+                bin_content.append("alias(\n    name = \"{}_{}\",\n    actual = {},\n)\n".format(tool, suffix, actual))
+            srcs = _select_list(
+                "msvc",
+                msvc_versions,
+                lambda v, suffix = suffix: "@msvc_{}//:msvc_all_binaries_{}".format(v, suffix),
+            )
+            bin_content.append("filegroup(\n    name = \"all_binaries_{}\",\n    srcs = {},\n)\n".format(suffix, srcs))
+
+    ctx.file("msvc/bin/BUILD.bazel", "\n".join(bin_content))
+
+    inc_content = ["package(default_visibility = [\"//visibility:public\"])", ""]
+    inc_content.append("alias(\n    name = \"include_dir\",\n    actual = {},\n)\n".format(
+        _select_label("msvc", msvc_versions, lambda v: "@msvc_{}//:include_dir".format(v)),
+    ))
+    inc_content.append("filegroup(\n    name = \"all_includes\",\n    srcs = {},\n)\n".format(
+        _select_list("msvc", msvc_versions, lambda v: "@msvc_{}//:msvc_all_includes".format(v)),
+    ))
+    ctx.file("msvc/include/BUILD.bazel", "\n".join(inc_content))
+
+def _emit_winsdk_facades(ctx, winsdk_versions, hosts):
+    """Generates //winsdk/include and //winsdk/bin facades (select over //winsdk)."""
+    inc_content = ["package(default_visibility = [\"//visibility:public\"])", ""]
+    for inc in ["ucrt_include", "um_include", "shared_include"]:
+        inc_content.append("alias(\n    name = \"{}\",\n    actual = {},\n)\n".format(
+            inc,
+            _select_label("winsdk", winsdk_versions, lambda v, inc = inc: "@winsdk_{}//:{}".format(v, inc)),
+        ))
+    for inc in ["ucrt_include_files", "um_include_files", "shared_include_files"]:
+        inc_content.append("filegroup(\n    name = \"{}\",\n    srcs = {},\n)\n".format(
+            inc,
+            _select_list("winsdk", winsdk_versions, lambda v, inc = inc: "@winsdk_{}//:{}".format(v, inc)),
+        ))
+    ctx.file("winsdk/include/BUILD.bazel", "\n".join(inc_content))
+
+    bin_content = ["package(default_visibility = [\"//visibility:public\"])", ""]
+    for host in hosts:
+        bin_content.append("filegroup(\n    name = \"rc_{}\",\n    srcs = {},\n)\n".format(
+            host,
+            _select_list("winsdk", winsdk_versions, lambda v, host = host: "@winsdk_{}//:rc_{}".format(v, host)),
+        ))
+    ctx.file("winsdk/bin/BUILD.bazel", "\n".join(bin_content))
+
+def _emit_lib_packages(ctx, msvc_versions, winsdk_versions, targets):
+    """Generates //msvc/lib and //winsdk/lib (cc_import system libs + runtime-link file targets)."""
+
+    # --- config_settings combining version flag + target cpu ---
+    winsdk_cfg = ""
+    for winsdk_version in winsdk_versions:
+        for target in targets:
+            target_arch = convert_msvc_arch_to_bazel_arch(target)
+            winsdk_cfg += """config_setting(
+    name = "winsdk{winsdk_version}_{target}",
+    flag_values = {{"//winsdk:winsdk": "{winsdk_version}"}},
+    constraint_values = ["@platforms//cpu:{target_arch}"],
+)
+""".format(winsdk_version = winsdk_version, target = target, target_arch = target_arch)
+
+    msvc_cfg = ""
+    for msvc_version in msvc_versions:
+        for target in targets:
+            target_arch = convert_msvc_arch_to_bazel_arch(target)
+            msvc_cfg += """config_setting(
+    name = "msvc{msvc_version}_{target}",
+    flag_values = {{"//msvc:msvc": "{msvc_version}"}},
+    constraint_values = ["@platforms//cpu:{target_arch}"],
+)
+""".format(msvc_version = msvc_version, target = target, target_arch = target_arch)
+
+    # --- cc_import system libraries (kernel32, user32, msvcrt, ...) ---
+    winsdk_libs = {}
+    msvc_libs = {}
+
+    for winsdk_version in winsdk_versions:
+        for target in targets:
+            config_name = ":winsdk{}_{}".format(winsdk_version, target)
+            for lib_name in ucrt_lib:
+                _add_lib_variant(
+                    winsdk_libs,
+                    lib_name,
+                    config_name,
+                    "@winsdk_{}//:Lib/10.0.{}.0/ucrt/{}/{}".format(winsdk_version, winsdk_version, target, lib_name),
+                )
+            for lib_name in um_lib:
+                _add_lib_variant(
+                    winsdk_libs,
+                    lib_name,
+                    config_name,
+                    "@winsdk_{}//:Lib/10.0.{}.0/um/{}/{}".format(winsdk_version, winsdk_version, target, lib_name),
+                )
+
+    for msvc_version in msvc_versions:
+        for target in targets:
+            config_name = ":msvc{}_{}".format(msvc_version, target)
+            for lib_name in msvc_lib:
+                _add_lib_variant(
+                    msvc_libs,
+                    _normalize_lib_name(lib_name),
+                    config_name,
+                    "@msvc_{}//:Tools/lib/{}/{}".format(msvc_version, target, lib_name.lower()),
+                )
+
+    def _cc_imports(lib_map):
+        out = ""
+        for lib_name in sorted(lib_map.keys()):
+            variants = lib_map[lib_name]
+            out += "\ncc_import(\n    name = \"{}\",\n    interface_library = select({{\n".format(_normalize_lib_name(lib_name))
+            for config_name in sorted(variants.keys()):
+                out += "        \"{}\": \"{}\",\n".format(config_name, variants[config_name])
+            out += "    }),\n    system_provided = True,\n)\n"
+        return out
+
+    # --- runtime-link file targets (used by toolchain link args) ---
+    def _rt_winsdk(out):
+        rt = {
+            "ucrt": "ucrt.lib",
+            "ucrtd": "ucrtd.lib",
+            "libucrt": "libucrt.lib",
+            "libucrtd": "libucrtd.lib",
+        }
+        for name in sorted(rt.keys()):
+            file_name = rt[name]
+            for target in targets:
+                srcs = _select_list(
+                    "winsdk",
+                    winsdk_versions,
+                    lambda v, target = target, file_name = file_name: "@winsdk_{}//:Lib/10.0.{}.0/ucrt/{}/{}".format(v, v, target, file_name),
+                )
+                out += "\nfilegroup(\n    name = \"rt_{}_{}\",\n    srcs = {},\n)\n".format(name, target, srcs)
+        return out
+
+    def _rt_msvc(out):
+        rt = [
+            "msvcrt",
+            "msvcrtd",
+            "vcruntime",
+            "vcruntimed",
+            "msvcprt",
+            "msvcprtd",
+            "libvcruntime",
+            "libvcruntimed",
+            "libcmt",
+            "libcmtd",
+            "libcpmt",
+            "libcpmtd",
+        ]
+        for name in rt:
+            for target in targets:
+                srcs = _select_list(
+                    "msvc",
+                    msvc_versions,
+                    lambda v, target = target, name = name: "@msvc_{}//:Tools/lib/{}/{}.lib".format(v, target, name),
+                )
+                out += "\nfilegroup(\n    name = \"rt_{}_{}\",\n    srcs = {},\n)\n".format(name, target, srcs)
+        return out
+
+    winsdk_content = """load("@rules_cc//cc:defs.bzl", "cc_import")
+
+package(default_visibility = ["//visibility:public"])
+
+""" + winsdk_cfg + _cc_imports(winsdk_libs)
+    winsdk_content = _rt_winsdk(winsdk_content)
+    ctx.file("winsdk/lib/BUILD.bazel", winsdk_content)
+
+    msvc_content = """load("@rules_cc//cc:defs.bzl", "cc_import")
+
+package(default_visibility = ["//visibility:public"])
+
+""" + msvc_cfg + _cc_imports(msvc_libs)
+    msvc_content = _rt_msvc(msvc_content)
+    ctx.file("msvc/lib/BUILD.bazel", msvc_content)
+
 def _msvc_toolchains_repo_impl(ctx):
     # Install common.bzl (string_enum_flag) at repo root
     ctx.template("common.bzl", ctx.attr.src_common, {})
@@ -44,6 +330,7 @@ def _msvc_toolchains_repo_impl(ctx):
     llvm_versions = ctx.attr.llvm_versions
     winsdk_versions = ctx.attr.winsdk_versions
     targets = ctx.attr.targets
+    hosts = ctx.attr.hosts
 
     default_msvc_value = ctx.attr.default_msvc_version
     default_winsdk_value = ctx.attr.default_windows_sdk_version
@@ -148,29 +435,33 @@ package(default_visibility = ["//visibility:public"])
         group_hosts = group["hosts"]
         cl_with_lld_version = group["cl_with_lld_version"]
 
-        for winsdk_version in group_winsdk_versions:
-            for msvc_version in group_msvc_versions:
-                for host in group_hosts:
-                    for target in group_targets:
-                        toolchain_name = "{group_name}_msvc{msvc_version}_winsdk{winsdk_version}_host{host}_target{target}".format(
-                            group_name = group_name,
-                            msvc_version = msvc_version,
-                            winsdk_version = winsdk_version,
-                            host = host,
-                            target = target,
-                        )
+        # The MSVC compatibility version varies by the selected MSVC version, so
+        # it cannot be a label - emit a select() over //msvc for clang/clang-cl.
+        ms_compat_select = "select({\n" + "".join([
+            "        \"//msvc:{}\": [\"-fms-compatibility-version={}\"],\n".format(
+                v,
+                msvc_version_to_cl_internal_version(v),
+            )
+            for v in group_msvc_versions
+        ]) + "    })"
 
-                        msvc_repo = "msvc_{}".format(msvc_version)
-                        if cl_with_lld_version:
-                            lld_link_llvm_repo = "llvm_{}_{}".format(cl_with_lld_version, host)
-                            link_cc_tool = """cc_tool(
+        for host in group_hosts:
+            host_arch = convert_msvc_arch_to_bazel_arch(host)
+            for target in group_targets:
+                target_arch = convert_msvc_arch_to_bazel_arch(target)
+                suffix = "host{}_target{}".format(host, target)
+
+                # --- msvc-cl ---
+                if cl_with_lld_version:
+                    lld_link_llvm_repo = "llvm_{}_{}".format(cl_with_lld_version, host)
+                    link_cc_tool = """cc_tool(
     name = "link",
-    src = "@{llvm_repo}//:lld-link_host{host}_target{target}",
+    src = "@{llvm_repo}//:lld-link_{suffix}",
     data = [
-        "@{llvm_repo}//:lld_link_exe_only_host{host}_target{target}",
+        "@{llvm_repo}//:lld_link_exe_only_{suffix}",
     ],
-)""".format(llvm_repo = lld_link_llvm_repo, host = host, target = target)
-                            base_link_flags = """base_link_flags = [
+)""".format(llvm_repo = lld_link_llvm_repo, suffix = suffix)
+                    base_link_flags = """base_link_flags = [
     "/lldignoreenv",
     "/NODEFAULTLIB",
     "/INCREMENTAL:NO",
@@ -178,15 +469,15 @@ package(default_visibility = ["//visibility:public"])
     "/Brepro",
     "/pdbsourcepath:.",
 ]"""
-                        else:
-                            link_cc_tool = """cc_tool(
+                else:
+                    link_cc_tool = """cc_tool(
     name = "link",
-    src = "@{msvc_repo}//:link_host{host}_target{target}",
+    src = "//msvc/bin:link_{suffix}",
     data = [
-        "@{msvc_repo}//:msvc_all_binaries_host{host}_target{target}",
+        "//msvc/bin:all_binaries_{suffix}",
     ],
-)""".format(msvc_repo = msvc_repo, host = host, target = target)
-                            base_link_flags = """base_link_flags = [
+)""".format(suffix = suffix)
+                    base_link_flags = """base_link_flags = [
     "/nologo",
     "/NODEFAULTLIB",
     "/INCREMENTAL:NO",
@@ -195,220 +486,71 @@ package(default_visibility = ["//visibility:public"])
     "/PDBALTPATH:%_PDB%",
 ]"""
 
-                        ctx.template(
-                            "{group_prefix}/toolchain/{toolchain_name}/BUILD.bazel".format(
-                                group_prefix = group_prefix,
-                                toolchain_name = toolchain_name,
-                            ),
-                            ctx.attr.src_toolchain_msvc,
-                            substitutions = {
-                                "{toolchain_name}": toolchain_name,
-                                "{compiler}": "msvc-cl",
-                                "{msvc_repo}": msvc_repo,
-                                "{link_cc_tool}": link_cc_tool,
-                                "{base_link_flags}": base_link_flags,
-                                "{winsdk_repo}": "winsdk_{}".format(winsdk_version),
-                                "{msvc_version}": msvc_version,
-                                "{winsdk_version}": winsdk_version,
-                                "{target}": target,
-                                "{host}": host,
-                                "{artifacts_package}": artifacts_package,
-                                "{features_package}": features_package,
-                            },
-                        )
+                msvc_toolchain_name = "{}_msvc-cl_{}".format(group_name, suffix)
+                ctx.template(
+                    "{}/toolchain/{}/BUILD.bazel".format(group_prefix, msvc_toolchain_name),
+                    ctx.attr.src_toolchain_msvc,
+                    substitutions = {
+                        "{toolchain_name}": msvc_toolchain_name,
+                        "{compiler}": "msvc-cl",
+                        "{link_cc_tool}": link_cc_tool,
+                        "{base_link_flags}": base_link_flags,
+                        "{target}": target,
+                        "{host}": host,
+                        "{suffix}": suffix,
+                        "{artifacts_package}": artifacts_package,
+                        "{features_package}": features_package,
+                    },
+                )
+                root_build_file_content += _toolchain_registration(
+                    msvc_toolchain_name,
+                    group_name,
+                    "msvc-cl",
+                    group_prefix,
+                    host_arch,
+                    target_arch,
+                    llvm_version = None,
+                )
 
-                        target_arch = convert_msvc_arch_to_bazel_arch(target)
-                        host_arch = convert_msvc_arch_to_bazel_arch(host)
-                        root_build_file_content += """
-toolchain(
-    name = "{toolchain_name}",
-    exec_compatible_with = [
-        "@platforms//os:windows",
-        "@platforms//cpu:{host_arch}",
-    ],
-    target_compatible_with = [
-        "@platforms//os:windows",
-        "@platforms//cpu:{target_arch}",
-    ],
-    target_settings = [
-        "//toolchain_set:{group_name}",
-        "//winsdk:{winsdk_version}",
-        "//msvc:{msvc_version}",
-        "//compiler:msvc-cl",
-    ],
-    toolchain = "//{group_prefix}/toolchain/{toolchain_name}:cc_toolchain",
-    toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
-)
+                # --- clang / clang-cl (require LLVM, no x86 host) ---
+                if not group_llvm_versions or host == "x86":
+                    continue
 
-    """.format(
-                            toolchain_name = toolchain_name,
-                            group_name = group_name,
-                            winsdk_version = winsdk_version,
-                            msvc_version = msvc_version,
-                            group_prefix = group_prefix,
-                            target_arch = target_arch,
-                            host_arch = host_arch,
-                        )
+                clang_target = convert_msvc_arch_to_clang_target(target)
 
-                        for llvm_version in group_llvm_versions:
-                            if host == "x86":
-                                continue  # LLVM does not provide x86 Windows binaries
-                            clang_target = convert_msvc_arch_to_clang_target(target)
-                            compatibility_version = msvc_version_to_cl_internal_version(msvc_version)
-
-                            clang_toolchain_name = "{group_name}_clang{clang_version}_msvc{msvc_version}_winsdk{winsdk_version}_host{host}_target{target}".format(
-                                group_name = group_name,
-                                clang_version = llvm_version,
-                                msvc_version = msvc_version,
-                                winsdk_version = winsdk_version,
-                                host = host,
-                                target = target,
-                            )
-                            ctx.template(
-                                "{group_prefix}/toolchain/{toolchain_name}/BUILD.bazel".format(
-                                    group_prefix = group_prefix,
-                                    toolchain_name = clang_toolchain_name,
-                                ),
-                                ctx.attr.src_toolchain_clang,
-                                substitutions = {
-                                    "{toolchain_name}": clang_toolchain_name,
-                                    "{compiler}": "clang",
-                                    "{llvm_repo}": "llvm_{}_{}".format(llvm_version, host),
-                                    "{msvc_repo}": "msvc_{}".format(msvc_version),
-                                    "{winsdk_repo}": "winsdk_{}".format(winsdk_version),
-                                    "{clang_version}": llvm_version,
-                                    "{msvc_version}": msvc_version,
-                                    "{winsdk_version}": winsdk_version,
-                                    "{clang_target}": clang_target,
-                                    "{cl_internal_version}": compatibility_version,
-                                    "{target}": target,
-                                    "{host}": host,
-                                    "{artifacts_package}": artifacts_package,
-                                    "{features_package}": features_package,
-                                },
-                            )
-
-                            root_build_file_content += """
-toolchain(
-    name = "{toolchain_name}",
-    exec_compatible_with = [
-        "@platforms//os:windows",
-        "@platforms//cpu:{host_arch}",
-    ],
-    target_compatible_with = [
-        "@platforms//os:windows",
-        "@platforms//cpu:{target_arch}",
-    ],
-    target_settings = [
-        "//toolchain_set:{group_name}",
-        "//winsdk:{winsdk_version}",
-        "//msvc:{msvc_version}",
-        "//llvm:{clang_version}",
-        "//compiler:clang",
-    ],
-    toolchain = "//{group_prefix}/toolchain/{toolchain_name}:cc_toolchain",
-    toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
-)
-
-    """.format(
-                                toolchain_name = clang_toolchain_name,
-                                group_name = group_name,
-                                winsdk_version = winsdk_version,
-                                msvc_version = msvc_version,
-                                clang_version = llvm_version,
-                                group_prefix = group_prefix,
-                                target_arch = target_arch,
-                                host_arch = host_arch,
-                            )
-
-                            clang_cl_toolchain_name = "{group_name}_clang-cl{clang_version}_msvc{msvc_version}_winsdk{winsdk_version}_host{host}_target{target}".format(
-                                group_name = group_name,
-                                clang_version = llvm_version,
-                                msvc_version = msvc_version,
-                                winsdk_version = winsdk_version,
-                                host = host,
-                                target = target,
-                            )
-                            ctx.template(
-                                "{group_prefix}/toolchain/{toolchain_name}/BUILD.bazel".format(
-                                    group_prefix = group_prefix,
-                                    toolchain_name = clang_cl_toolchain_name,
-                                ),
-                                ctx.attr.src_toolchain_clang_cl,
-                                substitutions = {
-                                    "{toolchain_name}": clang_cl_toolchain_name,
-                                    "{compiler}": "clang-cl",
-                                    "{llvm_repo}": "llvm_{}_{}".format(llvm_version, host),
-                                    "{msvc_repo}": "msvc_{}".format(msvc_version),
-                                    "{winsdk_repo}": "winsdk_{}".format(winsdk_version),
-                                    "{clang_target}": clang_target,
-                                    "{cl_internal_version}": compatibility_version,
-                                    "{msvc_version}": msvc_version,
-                                    "{winsdk_version}": winsdk_version,
-                                    "{target}": target,
-                                    "{host}": host,
-                                    "{artifacts_package}": artifacts_package,
-                                    "{features_package}": features_package,
-                                },
-                            )
-
-                            root_build_file_content += """
-toolchain(
-    name = "{toolchain_name}",
-    exec_compatible_with = [
-        "@platforms//os:windows",
-        "@platforms//cpu:{host_arch}",
-    ],
-    target_compatible_with = [
-        "@platforms//os:windows",
-        "@platforms//cpu:{target_arch}",
-    ],
-    target_settings = [
-        "//toolchain_set:{group_name}",
-        "//winsdk:{winsdk_version}",
-        "//msvc:{msvc_version}",
-        "//llvm:{clang_version}",
-        "//compiler:clang-cl",
-    ],
-    toolchain = "//{group_prefix}/toolchain/{toolchain_name}:cc_toolchain",
-    toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
-)
-
-    """.format(
-                                toolchain_name = clang_cl_toolchain_name,
-                                group_name = group_name,
-                                winsdk_version = winsdk_version,
-                                msvc_version = msvc_version,
-                                clang_version = llvm_version,
-                                group_prefix = group_prefix,
-                                target_arch = target_arch,
-                                host_arch = host_arch,
-                            )
+                for compiler, src_attr in [("clang", ctx.attr.src_toolchain_clang), ("clang-cl", ctx.attr.src_toolchain_clang_cl)]:
+                    tc_name = "{}_{}_{}".format(group_name, compiler, suffix)
+                    ctx.template(
+                        "{}/toolchain/{}/BUILD.bazel".format(group_prefix, tc_name),
+                        src_attr,
+                        substitutions = {
+                            "{toolchain_name}": tc_name,
+                            "{compiler}": compiler,
+                            "{clang_target}": clang_target,
+                            "{ms_compat_version_select}": ms_compat_select,
+                            "{target}": target,
+                            "{host}": host,
+                            "{suffix}": suffix,
+                            "{artifacts_package}": artifacts_package,
+                            "{features_package}": features_package,
+                        },
+                    )
+                    root_build_file_content += _toolchain_registration(
+                        tc_name,
+                        group_name,
+                        compiler,
+                        group_prefix,
+                        host_arch,
+                        target_arch,
+                        llvm_version = True,
+                    )
 
     ctx.file("BUILD.bazel", root_build_file_content)
 
-    ctx.file("winsdk/BUILD.bazel", """load("//:common.bzl", "string_enum_flag")
-
-package(default_visibility = ["//visibility:public"])
-
-string_enum_flag(
-    name = "winsdk",
-    build_setting_default = "{default_winsdk}",
-    allowed_values = {allowed_winsdk},
-)
-
-{config_settings}
-""".format(
-        default_winsdk = default_winsdk_value,
-        allowed_winsdk = winsdk_versions,
-        config_settings = "\n".join([
-            """config_setting(
-    name = "{v}",
-    flag_values = {{":winsdk": "{v}"}},
-)""".format(v = v)
-            for v in winsdk_versions
-        ]),
-    ))
+    # Version-selection flag packages.
+    _emit_flag_package(ctx, "winsdk", winsdk_versions, default_winsdk_value)
+    _emit_flag_package(ctx, "msvc", msvc_versions, default_msvc_value)
+    _emit_flag_package(ctx, "llvm", llvm_versions, default_llvm_value)
 
     ctx.file("toolchain_set/BUILD.bazel", """load("//:common.bzl", "string_enum_flag")
 
@@ -430,52 +572,6 @@ string_enum_flag(
     flag_values = {{"//toolchain_set": "{v}"}},
 )""".format(v = v)
             for v in ctx.attr.toolchain_sets
-        ]),
-    ))
-
-    ctx.file("msvc/BUILD.bazel", """load("//:common.bzl", "string_enum_flag")
-
-package(default_visibility = ["//visibility:public"])
-
-string_enum_flag(
-    name = "msvc",
-    build_setting_default = "{default_msvc}",
-    allowed_values = {allowed_msvc},
-)
-
-{config_settings}
-""".format(
-        default_msvc = default_msvc_value,
-        allowed_msvc = msvc_versions,
-        config_settings = "\n".join([
-            """config_setting(
-    name = "{v}",
-    flag_values = {{":msvc": "{v}"}},
-)""".format(v = v)
-            for v in msvc_versions
-        ]),
-    ))
-
-    ctx.file("llvm/BUILD.bazel", """load("//:common.bzl", "string_enum_flag")
-
-package(default_visibility = ["//visibility:public"])
-
-string_enum_flag(
-    name = "llvm",
-    build_setting_default = "{default_llvm}",
-    allowed_values = {allowed_llvm},
-)
-
-{config_settings}
-""".format(
-        default_llvm = default_llvm_value,
-        allowed_llvm = llvm_versions,
-        config_settings = "\n".join([
-            """config_setting(
-    name = "{v}",
-    flag_values = {{":llvm": "{v}"}},
-)""".format(v = v)
-            for v in llvm_versions
         ]),
     ))
 
@@ -506,135 +602,69 @@ string_enum_flag(
     )
     ctx.file("compiler/BUILD.bazel", compiler_build_file)
 
-    # Generate lib/BUILD.bazel with cc_import targets
-    lib_build_file_content = """load("@rules_cc//cc:defs.bzl", "cc_import")
+    # Facade packages.
+    _emit_llvm_facades(ctx, llvm_versions, hosts, targets)
+    _emit_msvc_facades(ctx, msvc_versions, hosts, targets)
+    _emit_winsdk_facades(ctx, winsdk_versions, hosts)
+    _emit_lib_packages(ctx, msvc_versions, winsdk_versions, targets)
+
+    return ctx.repo_metadata(reproducible = True)
+
+def _emit_flag_package(ctx, name, versions, default_value):
+    ctx.file("{}/BUILD.bazel".format(name), """load("//:common.bzl", "string_enum_flag")
 
 package(default_visibility = ["//visibility:public"])
 
-"""
-
-    # 1. Define config_settings for WinSDK and MSVC library selection.
-    for winsdk_version in winsdk_versions:
-        for target in targets:
-            target_arch = convert_msvc_arch_to_bazel_arch(target)
-            lib_build_file_content += """
-config_setting(
-    name = "winsdk{winsdk_version}_{target}",
-    flag_values = {{
-        "//winsdk:winsdk": "{winsdk_version}",
-    }},
-    constraint_values = ["@platforms//cpu:{target_arch}"],
+string_enum_flag(
+    name = "{name}",
+    build_setting_default = "{default}",
+    allowed_values = {allowed},
 )
-""".format(
-                winsdk_version = winsdk_version,
-                target = target,
-                target_arch = target_arch,
-            )
 
-    for msvc_version in msvc_versions:
-        for target in targets:
-            target_arch = convert_msvc_arch_to_bazel_arch(target)
-            lib_build_file_content += """
-config_setting(
-    name = "msvc{msvc_version}_{target}",
-    flag_values = {{
-        "//msvc:msvc": "{msvc_version}",
-    }},
-    constraint_values = ["@platforms//cpu:{target_arch}"],
+{config_settings}
+""".format(
+        name = name,
+        default = default_value,
+        allowed = versions,
+        config_settings = "\n".join([
+            """config_setting(
+    name = "{v}",
+    flag_values = {{":{name}": "{v}"}},
+)""".format(v = v, name = name)
+            for v in versions
+        ]),
+    ))
+
+def _toolchain_registration(toolchain_name, group_name, compiler, group_prefix, host_arch, target_arch, llvm_version):
+    settings = [
+        "\"//toolchain_set:{}\"".format(group_name),
+        "\"//compiler:{}\"".format(compiler),
+    ]
+    return """
+toolchain(
+    name = "{toolchain_name}",
+    exec_compatible_with = [
+        "@platforms//os:windows",
+        "@platforms//cpu:{host_arch}",
+    ],
+    target_compatible_with = [
+        "@platforms//os:windows",
+        "@platforms//cpu:{target_arch}",
+    ],
+    target_settings = [
+        {settings},
+    ],
+    toolchain = "//{group_prefix}/toolchain/{toolchain_name}:cc_toolchain",
+    toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
 )
+
 """.format(
-                msvc_version = msvc_version,
-                target = target,
-                target_arch = target_arch,
-            )
-
-    msvc_libs = {}
-    winsdk_libs = {}
-
-    # 2. Build lib maps from predefined lists in libs.bzl.
-    for winsdk_version in winsdk_versions:
-        for target in targets:
-            config_name = ":winsdk{winsdk_version}_{target}".format(
-                winsdk_version = winsdk_version,
-                target = target,
-            )
-
-            for lib_name in ucrt_lib:
-                lib_path = "Lib/10.0.{winsdk_version}.0/ucrt/{target}/{file_name}".format(
-                    winsdk_version = winsdk_version,
-                    target = target,
-                    file_name = lib_name,
-                )
-                _add_lib_variant(
-                    winsdk_libs,
-                    lib_name,
-                    config_name,
-                    "@winsdk_{}//:{}".format(winsdk_version, lib_path),
-                )
-
-            for lib_name in um_lib:
-                lib_path = "Lib/10.0.{winsdk_version}.0/um/{target}/{file_name}".format(
-                    winsdk_version = winsdk_version,
-                    target = target,
-                    file_name = lib_name,
-                )
-                _add_lib_variant(
-                    winsdk_libs,
-                    lib_name,
-                    config_name,
-                    "@winsdk_{}//:{}".format(winsdk_version, lib_path),
-                )
-
-    for msvc_version in msvc_versions:
-        for target in targets:
-            config_name = ":msvc{msvc_version}_{target}".format(
-                msvc_version = msvc_version,
-                target = target,
-            )
-
-            for lib_name in msvc_lib:
-                lib_path = "Tools/lib/{target}/{lib_name}".format(
-                    target = target,
-                    lib_name = lib_name.lower(),
-                )
-                _add_lib_variant(
-                    msvc_libs,
-                    _normalize_lib_name(lib_name),
-                    config_name,
-                    "@msvc_{}//:{}".format(msvc_version, lib_path),
-                )
-
-    # 3. Emit cc_import targets. Map keys are raw WinSDK names or normalized MSVC names; target name is always _normalize_lib_name(key).
-    winsdk_norm_first_raw = {}
-    for raw in winsdk_libs.keys():
-        norm = _normalize_lib_name(raw)
-        prev = winsdk_norm_first_raw.get(norm)
-        if prev != None:
-            fail("WinSDK libraries '{}' and '{}' normalize to the same cc_import name '{}'; fix libs.bzl or normalization".format(prev, raw, norm))
-        winsdk_norm_first_raw[norm] = raw
-
-    all_lib_names = {}
-    for raw in winsdk_libs.keys():
-        all_lib_names[raw] = "winsdk"
-    for msvc_key in msvc_libs.keys():
-        if msvc_key in winsdk_norm_first_raw:
-            fail("Library '{}' exists in both WinSDK and MSVC repos; disambiguated target names are required".format(msvc_key))
-        all_lib_names[msvc_key] = "msvc"
-
-    for lib_name in sorted(all_lib_names.keys()):
-        if all_lib_names[lib_name] == "winsdk":
-            variants = winsdk_libs[lib_name]
-        else:
-            variants = msvc_libs[lib_name]
-
-        lib_build_file_content += "\ncc_import(\n    name = \"{}\",\n    interface_library = select({{\n".format(_normalize_lib_name(lib_name))
-        for config_name in sorted(variants.keys()):
-            lib_build_file_content += "        \"{}\": \"{}\",\n".format(config_name, variants[config_name])
-        lib_build_file_content += "    }),\n    system_provided = True,\n)\n"
-
-    ctx.file("lib/BUILD.bazel", lib_build_file_content)
-
-    return ctx.repo_metadata(reproducible = True)
+        toolchain_name = toolchain_name,
+        host_arch = host_arch,
+        target_arch = target_arch,
+        settings = ",\n        ".join(settings),
+        group_prefix = group_prefix,
+    )
 
 msvc_toolchains_repo = repository_rule(
     implementation = _msvc_toolchains_repo_impl,

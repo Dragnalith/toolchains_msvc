@@ -72,7 +72,7 @@ For a full sample project built with this module, see [toolchains_msvc_example](
 The extension creates the aggregate `@msvc_toolchains` repository (name customizable via `toolchain.repo_name(...)`), which contains:
 
 * `//msvc`, `//winsdk`, `//llvm`, `//compiler`, `//toolchain_set` — build setting flags for toolchain selection
-* `//lib` — on-demand system library imports (e.g. `@msvc_toolchains//lib:kernel32`)
+* `//winsdk/lib`, `//msvc/lib` — on-demand system library imports (e.g. `@msvc_toolchains//winsdk/lib:kernel32`)
 * `//:all` — registers every generated toolchain
 * `//toolchain_set/<name>/...` — per-toolchain-set generated toolchain definitions
 
@@ -191,8 +191,8 @@ cc_binary(
     name = "my_app",
     srcs = ["main.cc"],
     deps = [
-        "@msvc_toolchains//lib:kernel32",
-        "@msvc_toolchains//lib:user32",
+        "@msvc_toolchains//winsdk/lib:kernel32",
+        "@msvc_toolchains//winsdk/lib:user32",
     ],
 )
 ```

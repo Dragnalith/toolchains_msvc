@@ -10,7 +10,7 @@ cc_binary(
         "//conditions:default": [],
     }),
     deps = [
-        "@msvc_toolchains//lib:kernel32",
+        "@msvc_toolchains//winsdk/lib:kernel32",
     ],
 )
 
