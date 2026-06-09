@@ -200,6 +200,16 @@ def _llvm_package_filename(version, host):
         fail("Unsupported LLVM host architecture for package filename: {}".format(host))
     return "clang+llvm-{}-{}-pc-windows-msvc.tar.xz".format(version, llvm_arch)
 
+def _llvm_package_filename_linux(version, host):
+    """Official LLVM release tarball basename for ``version`` and Linux ``host`` (``x64`` or ``arm64``)."""
+    if host == "x64":
+        llvm_arch = "X64"
+    elif host == "arm64":
+        llvm_arch = "ARM64"
+    else:
+        fail("Unsupported LLVM host architecture for Linux package filename: {}".format(host))
+    return "LLVM-{}-Linux-{}.tar.xz".format(version, llvm_arch)
+
 def _register_repo_definition(repos, repo):
     """Inserts ``repo`` into ``repos`` by name, or fails on conflicting definitions."""
     name = repo["name"]
@@ -279,6 +289,7 @@ def _extension_impl(module_ctx):
     group_names_set = {}
     all_targets = []
     all_hosts = []
+    all_exec_oses = []
     all_msvc_versions = []
     all_llvm_versions = []
     all_winsdk_versions = []
@@ -293,6 +304,7 @@ def _extension_impl(module_ctx):
 
         targets = _resolve_group_axis(module_ctx, group.targets, "BAZEL_TOOLCHAINS_MSVC_TARGETS", ["x64"])
         hosts = _resolve_group_axis(module_ctx, group.hosts, "BAZEL_TOOLCHAINS_MSVC_HOSTS", ["x64"])
+        exec_oses = _unique_values(group.exec_oses)
         msvc_versions = _unique_values(group.msvc_versions)
         llvm_versions = _unique_values(group.llvm_versions)
         cl_with_lld_version = group.cl_with_lld_version if group.cl_with_lld_version else ""
@@ -325,6 +337,7 @@ def _extension_impl(module_ctx):
 
         all_targets = _unique_values(all_targets + targets)
         all_hosts = _unique_values(all_hosts + hosts)
+        all_exec_oses = _unique_values(all_exec_oses + exec_oses)
         all_msvc_versions = _unique_values(all_msvc_versions + msvc_versions)
         all_llvm_versions = _unique_values(all_llvm_versions + llvm_repo_versions)
         all_winsdk_versions = _unique_values(all_winsdk_versions + winsdk_versions)
@@ -360,6 +373,7 @@ def _extension_impl(module_ctx):
             "name": group_name,
             "targets": targets,
             "hosts": hosts,
+            "exec_oses": exec_oses,
             "msvc_versions": msvc_versions,
             "llvm_versions": llvm_versions,
             "winsdk_versions": winsdk_versions,
@@ -437,9 +451,16 @@ def _extension_impl(module_ctx):
     if clang_versions_dict != None:
         for llvm_version in sorted(clang_versions_dict.keys()):
             entry = clang_versions_dict[llvm_version]
+            # Windows LLVM assets
             for arch in ["x64", "arm64"]:
                 url = entry.get(arch)
                 sha256 = entry.get("{}_digest".format(arch))
+                if url and sha256:
+                    _register_package_url(all_packages_url, sha256, url)
+            # Linux LLVM assets
+            for arch in ["x64", "arm64"]:
+                url = entry.get("linux_{}".format(arch))
+                sha256 = entry.get("linux_{}_digest".format(arch))
                 if url and sha256:
                     _register_package_url(all_packages_url, sha256, url)
 
@@ -452,19 +473,34 @@ def _extension_impl(module_ctx):
             for host in all_hosts:
                 if host == "x86":
                     continue  # LLVM does not provide x86 Windows binaries
-                digest = entry["x64_digest"] if host == "x64" else entry["arm64_digest"]
-                if not digest:
-                    fail("Missing digest for LLVM version '{}' host '{}' in {}".format(llvm_version, host, entry))
-                _register_repo_definition(repos, {
-                    "kind": "llvm",
-                    "name": "llvm_{}_{}".format(llvm_version, host),
-                    "version": llvm_version,
-                    "host": host,
-                    "packages": _sort_packages([{
-                        "filename": _llvm_package_filename(llvm_version, host),
-                        "sha256": digest,
-                    }]),
-                })
+                # Windows LLVM repo
+                digest = entry.get("x64_digest") if host == "x64" else entry.get("arm64_digest")
+                if digest:
+                    _register_repo_definition(repos, {
+                        "kind": "llvm",
+                        "name": "llvm_{}_{}".format(llvm_version, host),
+                        "version": llvm_version,
+                        "host": host,
+                        "host_os": "windows",
+                        "packages": _sort_packages([{
+                            "filename": _llvm_package_filename(llvm_version, host),
+                            "sha256": digest,
+                        }]),
+                    })
+                # Linux LLVM repo (for cross-compilation from Linux to Windows)
+                linux_digest = entry.get("linux_x64_digest") if host == "x64" else entry.get("linux_arm64_digest")
+                if linux_digest:
+                    _register_repo_definition(repos, {
+                        "kind": "llvm",
+                        "name": "llvm_{}_{}_linux".format(llvm_version, host),
+                        "version": llvm_version,
+                        "host": host,
+                        "host_os": "linux",
+                        "packages": _sort_packages([{
+                            "filename": _llvm_package_filename_linux(llvm_version, host),
+                            "sha256": linux_digest,
+                        }]),
+                    })
 
     # 3. Construct all msvc repo definitions
     for msvc_version in all_msvc_versions:
@@ -560,6 +596,7 @@ def _extension_impl(module_ctx):
                 name = repo["name"],
                 version = repo["version"],
                 host = repo["host"],
+                host_os = repo.get("host_os", "windows"),
                 packages = json.encode(packages),
                 package_urls = json.encode(package_urls),
             )
@@ -602,6 +639,7 @@ def _extension_impl(module_ctx):
         winsdk_versions = all_winsdk_versions,
         targets = all_targets,
         hosts = all_hosts,
+        exec_oses = all_exec_oses,
         default_msvc_version = default_msvc_for_repo,
         default_clang_version = default_llvm_for_repo,
         default_windows_sdk_version = default_winsdk_for_repo,
@@ -640,6 +678,10 @@ toolchain_set_tag = tag_class(
         "hosts": attr.string_list(
             default = [],
             doc = "List of host architecture, value should be among `x64`, `x86` or `arm64`. If empty, uses `BAZEL_TOOLCHAINS_MSVC_HOSTS` or `x64`.",
+        ),
+        "exec_oses": attr.string_list(
+            default = ["windows"],
+            doc = "List of execution platform OSes for which toolchains should be generated. Supported: `windows`, `linux`. Linux exec toolchains use LLVM Linux binaries (clang-cl, lld-link, etc.) to cross-compile for Windows targets.",
         ),
         "msvc_versions": attr.string_list(
             default = [],

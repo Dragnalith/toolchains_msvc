@@ -21,34 +21,34 @@ cc_tool_map(
 
 cc_tool(
     name = "clang",
-    src = "//llvm/bin:clang_{suffix}",
+    src = "//llvm/bin:clang_{suffix}{linux_suffix}",
     data = [
-        "//llvm/bin:clang_exe_only_{suffix}",
+        "//llvm/bin:clang_exe_only_{suffix}{linux_suffix}",
         "//msvc/include:all_includes",
     ],
 )
 
 cc_tool(
     name = "link",
-    src = "//llvm/bin:lld-link_{suffix}",
+    src = "//llvm/bin:lld-link_{suffix}{linux_suffix}",
     data = [
-        "//llvm/bin:lld_link_exe_only_{suffix}",
+        "//llvm/bin:lld_link_exe_only_{suffix}{linux_suffix}",
     ],
 )
 
 cc_tool(
     name = "lib",
-    src = "//llvm/bin:llvm-lib_{suffix}",
+    src = "//llvm/bin:llvm-lib_{suffix}{linux_suffix}",
     data = [
-        "//llvm/bin:llvm_lib_exe_only_{suffix}",
+        "//llvm/bin:llvm_lib_exe_only_{suffix}{linux_suffix}",
     ],
 )
 
 cc_tool(
     name = "ml64",
-    src = "//llvm/bin:llvm-ml_{suffix}",
+    src = "//llvm/bin:llvm-ml_{suffix}{linux_suffix}",
     data = [
-        "//llvm/bin:llvm_ml_exe_only_{suffix}",
+        "//llvm/bin:llvm_ml_exe_only_{suffix}{linux_suffix}",
     ],
 )
 
@@ -95,7 +95,7 @@ cc_args(
         "@rules_cc//cc/toolchains/actions:cpp_compile_actions",
     ],
     allowlist_include_directories = [
-        "//llvm/include:clang_builtin_include_host{host}",
+        "//llvm/include:clang_builtin_include_host{host}{linux_suffix}",
         "//msvc/include:include_dir",
         "//winsdk/include:ucrt_include",
         "//winsdk/include:um_include",
@@ -114,14 +114,14 @@ cc_args(
         "{winsdk_shared_include}",
     ],
     data = [
-        "//llvm/include:clang_builtin_include_files_host{host}",
+        "//llvm/include:clang_builtin_include_files_host{host}{linux_suffix}",
         "//msvc/include:all_includes",
         "//winsdk/include:um_include_files",
         "//winsdk/include:ucrt_include_files",
         "//winsdk/include:shared_include_files",
     ],
     format = {
-        "clang_builtin_include": "//llvm/include:clang_builtin_include_host{host}",
+        "clang_builtin_include": "//llvm/include:clang_builtin_include_host{host}{linux_suffix}",
         "msvc_include": "//msvc/include:include_dir",
         "winsdk_ucrt_include": "//winsdk/include:ucrt_include",
         "winsdk_um_include": "//winsdk/include:um_include",

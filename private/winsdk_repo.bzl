@@ -1,11 +1,37 @@
 """Repository rule for downloading and extracting Windows SDK artifacts."""
 
+load("//private:common.bzl", "normalize_repository_os")
+
 def _package_url(package_urls, pkg):
     sha256 = pkg.get("sha256")
     url = package_urls.get(sha256)
     if not url:
         fail("Missing URL for WinSDK package '{}' ({})".format(pkg.get("filename"), sha256))
     return url
+
+def _create_lowercase_symlinks(ctx, root_path):
+    """Creates lowercase symlinks for files/dirs with uppercase names under *root_path*.
+
+    On case-sensitive filesystems (ext4, etc.), lld-link and clang-cl cannot find
+    libraries/headers like ``Kernel32.Lib`` or ``Windows.h`` when referenced with
+    different casing.  This helper walks the tree and adds a lowercase symlink
+    sibling for every entry whose basename differs from its lowercased form.
+
+    Skipped on Windows (NTFS is case-insensitive, and ``ctx.symlink`` would collide).
+    """
+    if normalize_repository_os(ctx.os.name) == "windows":
+        return
+
+    queue = [root_path]
+    while queue:
+        current = queue.pop(0)
+        for child in current.readdir():
+            basename = child.basename
+            lowered = basename.lower()
+            if basename != lowered:
+                ctx.symlink(child, str(child.dirname) + "/" + lowered)
+            if child.is_dir:
+                queue.append(child)
 
 def _get_cabs_from_msi(msi_util_path, ctx, local_msi_path):
     """Returns cabinet file names referenced by an MSI (via msi-util list-cab)."""
@@ -102,15 +128,17 @@ def _winsdk_repo_impl(ctx):
     extracted_dir = ctx.path("tmp/extracted/Windows Kits/10")
     for child in extracted_dir.readdir():
         child_name = str(child).replace("\\", "/").rsplit("/", 1)[1]
-        ctx.execute([
-            "cmd",
-            "/c",
-            "move",
-            str(child).replace("/", "\\"),
-            child_name,
-        ])
+        ctx.rename(child, child_name)
 
     ctx.delete("tmp")
+
+    # On case-sensitive filesystems, create lowercase symlinks for WinSDK
+    # headers and libraries (e.g. Include/10.0.xxxxx.0/um/Windows.h → windows.h,
+    # Lib/10.0.xxxxx.0/um/x64/Kernel32.Lib → kernel32.lib).
+    for subdir in ["Include", "Lib"]:
+        p = ctx.path(subdir)
+        if p.exists:
+            _create_lowercase_symlinks(ctx, p)
 
     ctx.file(
         "package.txt",

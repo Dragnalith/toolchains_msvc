@@ -1,11 +1,42 @@
 """Repository rule for downloading MSVC compiler artifacts."""
 
+load("//private:common.bzl", "normalize_repository_os")
+
 def _package_url(package_urls, pkg):
     sha256 = pkg.get("sha256")
     url = package_urls.get(sha256)
     if not url:
         fail("Missing URL for MSVC package '{}' ({})".format(pkg.get("filename"), sha256))
     return url
+
+def _create_lowercase_symlinks(ctx, root_path):
+    """Creates lowercase symlinks for files/dirs with uppercase names under *root_path*.
+
+    On case-sensitive filesystems (ext4, etc.), lld-link and clang-cl cannot find
+    libraries/headers like ``Kernel32.Lib`` or ``Windows.h`` when referenced with
+    different casing (e.g. ``kernel32.lib``, ``windows.h``).  This helper walks the
+    tree and adds a lowercase symlink sibling for every entry whose basename differs
+    from its lowercased form — mirroring what xwin's ``--symlinks`` flag and
+    msvc-wine's ``lowercase`` script do.
+
+    Skipped on Windows (NTFS is case-insensitive, and ``ctx.symlink`` would collide).
+    """
+    if normalize_repository_os(ctx.os.name) == "windows":
+        return
+
+    # Walk the tree breadth-first.  ``readdir`` on a ``path`` object returns
+    # direct children; we recurse into sub-directories.
+    queue = [root_path]
+    while queue:
+        current = queue.pop(0)
+        for child in current.readdir():
+            basename = child.basename
+            lowered = basename.lower()
+            if basename != lowered:
+                # Create a lowercase symlink sibling.
+                ctx.symlink(child, str(child.dirname) + "/" + lowered)
+            if child.is_dir:
+                queue.append(child)
 
 def _msvc_repo_impl(ctx):
     """Implementation of the msvc_repo rule."""
@@ -39,9 +70,14 @@ def _msvc_repo_impl(ctx):
     tools_dir = ctx.path("tmp/Contents/VC/Tools/MSVC").readdir()[0]
     redist_dir = ctx.path("tmp/Contents/VC/Redist/MSVC").readdir()[0]
 
-    ctx.execute(["cmd", "/c", "move", str(tools_dir).replace("/", "\\"), "Tools"])
-    ctx.execute(["cmd", "/c", "move", str(redist_dir).replace("/", "\\"), "Redist"])
+    ctx.rename(tools_dir, "Tools")
+    ctx.rename(redist_dir, "Redist")
     ctx.delete("tmp")
+
+    # On case-sensitive filesystems, create lowercase symlinks for MSVC
+    # headers and libraries (e.g. Tools/lib/x64/Kernel32.Lib → kernel32.lib).
+    _create_lowercase_symlinks(ctx, ctx.path("Tools/lib"))
+    _create_lowercase_symlinks(ctx, ctx.path("Tools/include"))
 
     # Add cl_wrapper.bat next to cl.exe in every host/target config so EXECROOT can be
     # forwarded to cl.exe via /pathmap:%EXECROOT%=. for reproducible paths.

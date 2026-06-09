@@ -78,7 +78,7 @@ def _llvm_hosts(hosts):
     # LLVM provides no x86 Windows host binaries.
     return [h for h in hosts if h != "x86"]
 
-def _emit_llvm_facades(ctx, llvm_versions, hosts, targets):
+def _emit_llvm_facades(ctx, llvm_versions, hosts, targets, exec_oses = ["windows"]):
     """Generates //llvm/bin and //llvm/include facades (select over //llvm)."""
     if not llvm_versions:
         return
@@ -99,40 +99,46 @@ def _emit_llvm_facades(ctx, llvm_versions, hosts, targets):
         "llvm_ml_exe_only": "llvm_ml_exe_only",
     }
 
-    for host in llvm_hosts:
-        for target in targets:
-            suffix = "host{}_target{}".format(host, target)
-            for tool in alias_tools:
-                actual = _select_label(
-                    "llvm",
-                    llvm_versions,
-                    lambda v, host = host, suffix = suffix, tool = tool: "@llvm_{}_{}//:{}_{}".format(v, host, tool, suffix),
-                )
-                bin_content.append("alias(\n    name = \"{}_{}\",\n    actual = {},\n)\n".format(tool, suffix, actual))
-            for fg_name, repo_name in data_tools.items():
-                srcs = _select_list(
-                    "llvm",
-                    llvm_versions,
-                    lambda v, host = host, suffix = suffix, repo_name = repo_name: "@llvm_{}_{}//:{}_{}".format(v, host, repo_name, suffix),
-                )
-                bin_content.append("filegroup(\n    name = \"{}_{}\",\n    srcs = {},\n)\n".format(fg_name, suffix, srcs))
+    for exec_os in exec_oses:
+        linux_suffix = "_linux" if exec_os == "linux" else ""
+        repo_suffix = "_linux" if exec_os == "linux" else ""
+        for host in llvm_hosts:
+            for target in targets:
+                suffix = "host{}_target{}".format(host, target)
+                for tool in alias_tools:
+                    actual = _select_label(
+                        "llvm",
+                        llvm_versions,
+                        lambda v, host = host, suffix = suffix, tool = tool, repo_suffix = repo_suffix: "@llvm_{}_{}{}//:{}_{}".format(v, host, repo_suffix, tool, suffix),
+                    )
+                    bin_content.append("alias(\n    name = \"{}_{}{}\",\n    actual = {},\n)\n".format(tool, suffix, linux_suffix, actual))
+                for fg_name, repo_name in data_tools.items():
+                    srcs = _select_list(
+                        "llvm",
+                        llvm_versions,
+                        lambda v, host = host, suffix = suffix, repo_name = repo_name, repo_suffix = repo_suffix: "@llvm_{}_{}{}//:{}_{}".format(v, host, repo_suffix, repo_name, suffix),
+                    )
+                    bin_content.append("filegroup(\n    name = \"{}_{}{}\",\n    srcs = {},\n)\n".format(fg_name, suffix, linux_suffix, srcs))
 
     ctx.file("llvm/bin/BUILD.bazel", "\n".join(bin_content))
 
     inc_content = ["package(default_visibility = [\"//visibility:public\"])", ""]
-    for host in llvm_hosts:
-        actual = _select_label(
-            "llvm",
-            llvm_versions,
-            lambda v, host = host: "@llvm_{}_{}//:clang_builtin_include".format(v, host),
-        )
-        inc_content.append("alias(\n    name = \"clang_builtin_include_host{}\",\n    actual = {},\n)\n".format(host, actual))
-        srcs = _select_list(
-            "llvm",
-            llvm_versions,
-            lambda v, host = host: "@llvm_{}_{}//:clang_builtin_include_files".format(v, host),
-        )
-        inc_content.append("filegroup(\n    name = \"clang_builtin_include_files_host{}\",\n    srcs = {},\n)\n".format(host, srcs))
+    for exec_os in exec_oses:
+        linux_suffix = "_linux" if exec_os == "linux" else ""
+        repo_suffix = "_linux" if exec_os == "linux" else ""
+        for host in llvm_hosts:
+            actual = _select_label(
+                "llvm",
+                llvm_versions,
+                lambda v, host = host, repo_suffix = repo_suffix: "@llvm_{}_{}{}//:clang_builtin_include".format(v, host, repo_suffix),
+            )
+            inc_content.append("alias(\n    name = \"clang_builtin_include_host{}{}\",\n    actual = {},\n)\n".format(host, linux_suffix, actual))
+            srcs = _select_list(
+                "llvm",
+                llvm_versions,
+                lambda v, host = host, repo_suffix = repo_suffix: "@llvm_{}_{}{}//:clang_builtin_include_files".format(v, host, repo_suffix),
+            )
+            inc_content.append("filegroup(\n    name = \"clang_builtin_include_files_host{}{}\",\n    srcs = {},\n)\n".format(host, linux_suffix, srcs))
 
     ctx.file("llvm/include/BUILD.bazel", "\n".join(inc_content))
 
@@ -337,6 +343,7 @@ def _msvc_toolchains_repo_impl(ctx):
     winsdk_versions = ctx.attr.winsdk_versions
     targets = ctx.attr.targets
     hosts = ctx.attr.hosts
+    exec_oses = ctx.attr.exec_oses
 
     default_msvc_value = ctx.attr.default_msvc_version
     default_winsdk_value = ctx.attr.default_windows_sdk_version
@@ -439,6 +446,7 @@ package(default_visibility = ["//visibility:public"])
         group_winsdk_versions = group["winsdk_versions"]
         group_targets = group["targets"]
         group_hosts = group["hosts"]
+        group_exec_oses = group.get("exec_oses", ["windows"])
         cl_with_lld_version = group["cl_with_lld_version"]
 
         # The MSVC compatibility version varies by the selected MSVC version, so
@@ -508,6 +516,8 @@ package(default_visibility = ["//visibility:public"])
                         "{features_package}": features_package,
                     },
                 )
+
+                # msvc-cl only runs on Windows (it uses cl.exe)
                 root_build_file_content += _toolchain_registration(
                     msvc_toolchain_name,
                     group_name,
@@ -516,6 +526,7 @@ package(default_visibility = ["//visibility:public"])
                     host_arch,
                     target_arch,
                     llvm_version = None,
+                    exec_os = "windows",
                 )
 
                 # --- clang / clang-cl (require LLVM, no x86 host) ---
@@ -524,32 +535,45 @@ package(default_visibility = ["//visibility:public"])
 
                 clang_target = convert_msvc_arch_to_clang_target(target)
 
-                for compiler, src_attr in [("clang", ctx.attr.src_toolchain_clang), ("clang-cl", ctx.attr.src_toolchain_clang_cl)]:
-                    tc_name = "{}_{}_{}".format(group_name, compiler, suffix)
-                    ctx.template(
-                        "{}/toolchain/{}/BUILD.bazel".format(group_prefix, tc_name),
-                        src_attr,
-                        substitutions = {
-                            "{toolchain_name}": tc_name,
-                            "{compiler}": compiler,
-                            "{clang_target}": clang_target,
-                            "{ms_compat_version_select}": ms_compat_select,
-                            "{target}": target,
-                            "{host}": host,
-                            "{suffix}": suffix,
-                            "{artifacts_package}": artifacts_package,
-                            "{features_package}": features_package,
-                        },
-                    )
-                    root_build_file_content += _toolchain_registration(
-                        tc_name,
-                        group_name,
-                        compiler,
-                        group_prefix,
-                        host_arch,
-                        target_arch,
-                        llvm_version = True,
-                    )
+                for exec_os in group_exec_oses:
+                    # Build a suffix and name that includes the exec OS for disambiguation.
+                    # For windows exec, keep the old name format (backward compat).
+                    # For linux exec, append "_linux" to the toolchain name.
+                    if exec_os == "linux":
+                        exec_suffix = "_linux"
+                        llvm_repo_name = "llvm_{}_{}_linux".format(group_llvm_versions[0] if group_llvm_versions else "", host)
+                    else:
+                        exec_suffix = ""
+                        llvm_repo_name = "llvm_{}_{}".format(group_llvm_versions[0] if group_llvm_versions else "", host)
+
+                    for compiler, src_attr in [("clang", ctx.attr.src_toolchain_clang), ("clang-cl", ctx.attr.src_toolchain_clang_cl)]:
+                        tc_name = "{}_{}{}{}".format(group_name, compiler, suffix, exec_suffix)
+                        ctx.template(
+                            "{}/toolchain/{}/BUILD.bazel".format(group_prefix, tc_name),
+                            src_attr,
+                            substitutions = {
+                                "{toolchain_name}": tc_name,
+                                "{compiler}": compiler,
+                                "{clang_target}": clang_target,
+                                "{ms_compat_version_select}": ms_compat_select,
+                                "{target}": target,
+                                "{host}": host,
+                                "{suffix}": suffix,
+                                "{linux_suffix}": exec_suffix,
+                                "{artifacts_package}": artifacts_package,
+                                "{features_package}": features_package,
+                            },
+                        )
+                        root_build_file_content += _toolchain_registration(
+                            tc_name,
+                            group_name,
+                            compiler,
+                            group_prefix,
+                            host_arch,
+                            target_arch,
+                            llvm_version = True,
+                            exec_os = exec_os,
+                        )
 
     ctx.file("BUILD.bazel", root_build_file_content)
 
@@ -609,7 +633,7 @@ string_enum_flag(
     ctx.file("compiler/BUILD.bazel", compiler_build_file)
 
     # Facade packages.
-    _emit_llvm_facades(ctx, llvm_versions, hosts, targets)
+    _emit_llvm_facades(ctx, llvm_versions, hosts, targets, exec_oses = exec_oses)
     _emit_msvc_facades(ctx, msvc_versions, hosts, targets)
     _emit_winsdk_facades(ctx, winsdk_versions, hosts)
     _emit_lib_packages(ctx, msvc_versions, winsdk_versions, targets)
@@ -641,16 +665,20 @@ string_enum_flag(
         ]),
     ))
 
-def _toolchain_registration(toolchain_name, group_name, compiler, group_prefix, host_arch, target_arch, llvm_version):
+def _toolchain_registration(toolchain_name, group_name, compiler, group_prefix, host_arch, target_arch, llvm_version, exec_os = "windows"):
     settings = [
         "\"//toolchain_set:{}\"".format(group_name),
         "\"//compiler:{}\"".format(compiler),
     ]
+    if exec_os == "linux":
+        exec_os_constraint = "@platforms//os:linux"
+    else:
+        exec_os_constraint = "@platforms//os:windows"
     return """
 toolchain(
     name = "{toolchain_name}",
     exec_compatible_with = [
-        "@platforms//os:windows",
+        "{exec_os_constraint}",
         "@platforms//cpu:{host_arch}",
     ],
     target_compatible_with = [
@@ -666,6 +694,7 @@ toolchain(
 
 """.format(
         toolchain_name = toolchain_name,
+        exec_os_constraint = exec_os_constraint,
         host_arch = host_arch,
         target_arch = target_arch,
         settings = ",\n        ".join(settings),
@@ -683,6 +712,7 @@ msvc_toolchains_repo = repository_rule(
         "winsdk_versions": attr.string_list(mandatory = True),
         "targets": attr.string_list(mandatory = True),
         "hosts": attr.string_list(mandatory = True),
+        "exec_oses": attr.string_list(default = ["windows"]),
         "default_msvc_version": attr.string(mandatory = True),
         "default_clang_version": attr.string(mandatory = False),
         "default_windows_sdk_version": attr.string(mandatory = True),

@@ -415,11 +415,27 @@ def _is_clang_windows_msvc_asset(name):
     parts = middle.split("-", 1)
     return len(parts) == 2
 
+def _is_clang_linux_asset(name):
+    """Matches LLVM-*-Linux-*.tar.xz (official LLVM Linux release artifacts)."""
+    if not name.endswith(".tar.xz"):
+        return False
+    if name.endswith(".sig"):
+        return False
+    if not name.startswith("LLVM-"):
+        return False
+    # LLVM-22.1.0-Linux-X64.tar.xz
+    remainder = name[len("LLVM-"):-len(".tar.xz")]
+    parts = remainder.split("-Linux-")
+    return len(parts) == 2
+
 def list_clang_version(ctx):
     """Downloads LLVM releases manifest from GitHub API and returns available versions with package URLs.
 
     Returns:
-        A dict mapping version string to an object with arm64, arm64_digest, x64, x64_digest.
+        A dict mapping version string to an object with windows and linux sub-dicts.
+        Each sub-dict contains arm64, arm64_digest, x64, x64_digest keys.
+        Windows entries may be absent for versions that lack Windows MSVC artifacts.
+        Linux entries may be absent for versions that lack Linux artifacts.
     """
     ctx.report_progress("Downloading LLVM releases manifest...")
     ctx.download(
@@ -430,46 +446,95 @@ def list_clang_version(ctx):
     releases = json.decode(content)
 
     # Build asset name -> (url, digest) from all releases
-    asset_data = {}
+    win_asset_data = {}
+    linux_asset_data = {}
     for release in releases:
         for asset in release.get("assets", []):
             aname = asset.get("name", "")
+            url = asset.get("browser_download_url")
+            if not url:
+                continue
+            digest = asset.get("digest", "")
+            if not digest or digest == "":
+                continue
             if _is_clang_windows_msvc_asset(aname):
-                url = asset.get("browser_download_url")
-                if url:
-                    digest = asset.get("digest", "")
-                    if digest and digest != "":
-                        asset_data[aname] = {"url": url, "digest": digest}
+                win_asset_data[aname] = {"url": url, "digest": digest}
+            elif _is_clang_linux_asset(aname):
+                linux_asset_data[aname] = {"url": url, "digest": digest}
 
-    # Parse versions: loop only on x64 assets, expect arm64 exists for each
-    result = {}
-    for name, data in asset_data.items():
+    # Parse Windows assets: loop on x64 assets, expect arm64 exists for each
+    win_versions = {}
+    for name, data in win_asset_data.items():
         if not name.endswith("-pc-windows-msvc.tar.xz"):
-            fail("Expected .tar.xz asset, got: " + name)
+            continue
         middle = name[len("clang+llvm-"):-len("-pc-windows-msvc.tar.xz")]
         parts = middle.split("-", 1)
         if len(parts) != 2:
-            fail("Expected version-arch format in asset name: " + name)
+            continue
         version = parts[0]
         arch_part = parts[1]
         if arch_part != "x86_64":
             continue
 
         arm64_name = "clang+llvm-" + version + "-aarch64-pc-windows-msvc.tar.xz"
-        arm64_data = asset_data.get(arm64_name)
+        arm64_data = win_asset_data.get(arm64_name)
         if not arm64_data:
             continue
 
-        if version in result:
-            fail("Duplicate x64 package for version {}: {}".format(version, name))
-
         arm64_d = arm64_data.get("digest", "")
         x64_d = data.get("digest", "")
-        result[version] = {
+        win_versions[version] = {
             "arm64": arm64_data["url"],
             "arm64_digest": arm64_d[len("sha256:"):] if (arm64_d and arm64_d.startswith("sha256:")) else "",
             "x64": data["url"],
             "x64_digest": x64_d[len("sha256:"):] if (x64_d and x64_d.startswith("sha256:")) else "",
         }
 
-    return {v: result[v] for v in sorted(result.keys())}
+    # Parse Linux assets: LLVM-{version}-Linux-{Arch}.tar.xz
+    linux_versions = {}
+    for name, data in linux_asset_data.items():
+        # e.g. LLVM-22.1.0-Linux-X64.tar.xz
+        remainder = name[len("LLVM-"):-len(".tar.xz")]
+        parts = remainder.split("-Linux-")
+        if len(parts) != 2:
+            continue
+        version = parts[0]
+        arch_part = parts[1]  # "X64" or "ARM64"
+
+        d = data.get("digest", "")
+        sha256 = d[len("sha256:"):] if (d and d.startswith("sha256:")) else ""
+
+        if version not in linux_versions:
+            linux_versions[version] = {}
+        if arch_part == "X64":
+            linux_versions[version]["x64"] = data["url"]
+            linux_versions[version]["x64_digest"] = sha256
+        elif arch_part == "ARM64":
+            linux_versions[version]["arm64"] = data["url"]
+            linux_versions[version]["arm64_digest"] = sha256
+
+    # Merge: for each version that has at least Windows or Linux data
+    all_version_keys = {}
+    for v in win_versions:
+        all_version_keys[v] = True
+    for v in linux_versions:
+        all_version_keys[v] = True
+
+    result = {}
+    for version in sorted(all_version_keys.keys()):
+        entry = {}
+        w = win_versions.get(version)
+        if w:
+            entry["arm64"] = w["arm64"]
+            entry["arm64_digest"] = w["arm64_digest"]
+            entry["x64"] = w["x64"]
+            entry["x64_digest"] = w["x64_digest"]
+        l = linux_versions.get(version)
+        if l:
+            entry["linux_x64"] = l.get("x64", "")
+            entry["linux_x64_digest"] = l.get("x64_digest", "")
+            entry["linux_arm64"] = l.get("arm64", "")
+            entry["linux_arm64_digest"] = l.get("arm64_digest", "")
+        result[version] = entry
+
+    return result
