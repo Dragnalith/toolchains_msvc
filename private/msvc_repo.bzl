@@ -10,39 +10,30 @@ def _package_url(package_urls, pkg):
     return url
 
 def _create_lowercase_symlinks(ctx, root_path):
-    """Creates lowercase symlinks for files/dirs with uppercase names under *root_path*.
+    """Creates case-alias symlinks under *root_path* for case-sensitive filesystems.
 
     On case-sensitive filesystems (ext4, etc.), lld-link and clang-cl cannot find
-    libraries/headers like ``Kernel32.Lib`` or ``Windows.h`` when referenced with
-    different casing (e.g. ``kernel32.lib``, ``windows.h``).  This helper walks the
-    tree and adds a lowercase symlink sibling for every entry whose basename differs
-    from its lowercased form -- mirroring what xwin's ``--symlinks`` flag and
-    msvc-wine's ``lowercase`` script do.
+    libraries/headers when the casing of the ``#include`` directive or link input
+    differs from the on-disk filename.  For example, ``#include <DriverSpecs.h>``
+    fails when the file is stored as ``driverspecs.h``, and linking against
+    ``kernel32.lib`` fails when the file is stored as ``Kernel32.Lib``.
 
-    Skipped on Windows (NTFS is case-insensitive, and ``ctx.symlink`` would collide).
-    Uses ctx.execute with a find-based shell snippet because Starlark does not
-    support while loops or recursive function calls.
+    This helper runs a Python script that scans headers for ``#include``
+    directives and creates symlinks for each reference whose casing differs from
+    the on-disk name, plus lowercase symlinks for all files.
+
+    Skipped on Windows (NTFS is case-insensitive, and symlinks would collide).
     """
     if normalize_repository_os(ctx.os.name) == "windows":
         return
 
-    # Use find to locate files/dirs whose basename differs from lowercase,
-    # then create a symlink next to them.  This avoids Starlark recursion limits.
+    script = ctx.path(Label("@toolchains_msvc//private:symlink_casemap.py"))
     result = ctx.execute([
-        "bash",
-        "-c",
-        "cd \"$1\" && find . -depth -print0 | while IFS= read -r -d '' entry; do " +
-        "base=$(basename \"$entry\"); lower=$(echo \"$base\" | tr 'A-Z' 'a-z'); " +
-        "if [ \"$base\" != \"$lower\" ]; then " +
-        "dir=$(dirname \"$entry\"); " +
-        "ln -s \"$base\" \"$dir/$lower\" 2>/dev/null || true; " +
-        "fi; done",
-        "_",
+        "python3",
+        str(script),
         str(root_path),
     ])
     if result.return_code != 0:
-        # Non-fatal: missing symlinks may cause compile errors later but shouldn't
-        # fail the repo fetch entirely.
         pass
 
 def _msvc_repo_impl(ctx):
