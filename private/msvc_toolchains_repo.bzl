@@ -78,9 +78,14 @@ def _llvm_hosts(hosts):
     # LLVM provides no x86 Windows host binaries.
     return [h for h in hosts if h != "x86"]
 
-def _emit_llvm_facades(ctx, llvm_versions, hosts, targets, exec_oses = ["windows"]):
-    """Generates //llvm/bin and //llvm/include facades (select over //llvm)."""
-    if not llvm_versions:
+def _emit_llvm_facades(ctx, llvm_versions, hosts, targets, exec_oses = ["windows"], external_llvm = {}):
+    """Generates //llvm/bin and //llvm/include facades (select over //llvm).
+
+    When ``external_llvm`` contains an entry for ``(exec_os, host)``, the facade
+    aliases point directly to the external labels instead of a ``select()`` over
+    downloaded LLVM version repos.
+    """
+    if not llvm_versions and not external_llvm:
         return
 
     llvm_hosts = _llvm_hosts(hosts)
@@ -99,26 +104,60 @@ def _emit_llvm_facades(ctx, llvm_versions, hosts, targets, exec_oses = ["windows
         "llvm_ml_exe_only": "llvm_ml_exe_only",
     }
 
+    # Mapping from internal tool name -> external_llvm attribute name
+    tool_to_ext_key = {
+        "clang-cl": "clang_cl",
+        "lld-link": "lld_link",
+        "llvm-lib": "llvm_lib",
+        "llvm-ml": "llvm_ml",
+        "clang": "clang_cl",  # clang also comes from the same binary
+    }
+
     for exec_os in exec_oses:
         linux_suffix = "_linux" if exec_os == "linux" else ""
         repo_suffix = "_linux" if exec_os == "linux" else ""
         for host in llvm_hosts:
+            ext_cfg = external_llvm.get((exec_os, host))
             for target in targets:
                 suffix = "host{}_target{}".format(host, target)
-                for tool in alias_tools:
-                    actual = _select_label(
-                        "llvm",
-                        llvm_versions,
-                        lambda v, host = host, suffix = suffix, tool = tool, repo_suffix = repo_suffix: "@llvm_{}_{}{}//:{}_{}".format(v, host, repo_suffix, tool, suffix),
-                    )
-                    bin_content.append("alias(\n    name = \"{}_{}{}\",\n    actual = {},\n)\n".format(tool, suffix, linux_suffix, actual))
-                for fg_name, repo_name in data_tools.items():
-                    srcs = _select_list(
-                        "llvm",
-                        llvm_versions,
-                        lambda v, host = host, suffix = suffix, repo_name = repo_name, repo_suffix = repo_suffix: "@llvm_{}_{}{}//:{}_{}".format(v, host, repo_suffix, repo_name, suffix),
-                    )
-                    bin_content.append("filegroup(\n    name = \"{}_{}{}\",\n    srcs = {},\n)\n".format(fg_name, suffix, linux_suffix, srcs))
+                if ext_cfg:
+                    # External LLVM: generate direct aliases to the provided labels.
+                    # For tool aliases, map each tool to the appropriate external label.
+                    for tool in alias_tools:
+                        ext_key = tool_to_ext_key[tool]
+                        actual_label = ext_cfg[ext_key]
+                        bin_content.append("alias(\n    name = \"{}_{}{}\",\n    actual = \"{}\",\n)\n".format(tool, suffix, linux_suffix, actual_label))
+                    # Data filegroups point to the same external labels.
+                    for fg_name, repo_name in data_tools.items():
+                        # Derive the external key from the filegroup name
+                        if fg_name == "clang_exe_only" or fg_name == "clang_cl_exe_only":
+                            ext_key = "clang_cl"
+                        elif fg_name == "lld_link_exe_only":
+                            ext_key = "lld_link"
+                        elif fg_name == "llvm_lib_exe_only":
+                            ext_key = "llvm_lib"
+                        elif fg_name == "llvm_ml_exe_only":
+                            ext_key = "llvm_ml"
+                        else:
+                            ext_key = "clang_cl"
+                        actual_label = ext_cfg[ext_key]
+                        bin_content.append("filegroup(\n    name = \"{}_{}{}\",\n    srcs = [\"{}\"],\n)\n".format(fg_name, suffix, linux_suffix, actual_label))
+                elif llvm_versions:
+                    # Downloaded LLVM: generate select() over version repos.
+                    for tool in alias_tools:
+                        actual = _select_label(
+                            "llvm",
+                            llvm_versions,
+                            lambda v, host = host, suffix = suffix, tool = tool, repo_suffix = repo_suffix: "@llvm_{}_{}{}//:{}_{}".format(v, host, repo_suffix, tool, suffix),
+                        )
+                        bin_content.append("alias(\n    name = \"{}_{}{}\",\n    actual = {},\n)\n".format(tool, suffix, linux_suffix, actual))
+                    for fg_name, repo_name in data_tools.items():
+                        srcs = _select_list(
+                            "llvm",
+                            llvm_versions,
+                            lambda v, host = host, suffix = suffix, repo_name = repo_name, repo_suffix = repo_suffix: "@llvm_{}_{}{}//:{}_{}".format(v, host, repo_suffix, repo_name, suffix),
+                        )
+                        bin_content.append("filegroup(\n    name = \"{}_{}{}\",\n    srcs = {},\n)\n".format(fg_name, suffix, linux_suffix, srcs))
 
     ctx.file("llvm/bin/BUILD.bazel", "\n".join(bin_content))
 
@@ -127,18 +166,25 @@ def _emit_llvm_facades(ctx, llvm_versions, hosts, targets, exec_oses = ["windows
         linux_suffix = "_linux" if exec_os == "linux" else ""
         repo_suffix = "_linux" if exec_os == "linux" else ""
         for host in llvm_hosts:
-            actual = _select_label(
-                "llvm",
-                llvm_versions,
-                lambda v, host = host, repo_suffix = repo_suffix: "@llvm_{}_{}{}//:clang_builtin_include".format(v, host, repo_suffix),
-            )
-            inc_content.append("alias(\n    name = \"clang_builtin_include_host{}{}\",\n    actual = {},\n)\n".format(host, linux_suffix, actual))
-            srcs = _select_list(
-                "llvm",
-                llvm_versions,
-                lambda v, host = host, repo_suffix = repo_suffix: "@llvm_{}_{}{}//:clang_builtin_include_files".format(v, host, repo_suffix),
-            )
-            inc_content.append("filegroup(\n    name = \"clang_builtin_include_files_host{}{}\",\n    srcs = {},\n)\n".format(host, linux_suffix, srcs))
+            ext_cfg = external_llvm.get((exec_os, host))
+            if ext_cfg:
+                # External LLVM: direct alias to the provided include directory label.
+                actual_label = ext_cfg["clang_builtin_include"]
+                inc_content.append("alias(\n    name = \"clang_builtin_include_host{}{}\",\n    actual = \"{}\",\n)\n".format(host, linux_suffix, actual_label))
+                inc_content.append("filegroup(\n    name = \"clang_builtin_include_files_host{}{}\",\n    srcs = [\"{}\"],\n)\n".format(host, linux_suffix, actual_label))
+            elif llvm_versions:
+                actual = _select_label(
+                    "llvm",
+                    llvm_versions,
+                    lambda v, host = host, repo_suffix = repo_suffix: "@llvm_{}_{}{}//:clang_builtin_include".format(v, host, repo_suffix),
+                )
+                inc_content.append("alias(\n    name = \"clang_builtin_include_host{}{}\",\n    actual = {},\n)\n".format(host, linux_suffix, actual))
+                srcs = _select_list(
+                    "llvm",
+                    llvm_versions,
+                    lambda v, host = host, repo_suffix = repo_suffix: "@llvm_{}_{}{}//:clang_builtin_include_files".format(v, host, repo_suffix),
+                )
+                inc_content.append("filegroup(\n    name = \"clang_builtin_include_files_host{}{}\",\n    srcs = {},\n)\n".format(host, linux_suffix, srcs))
 
     ctx.file("llvm/include/BUILD.bazel", "\n".join(inc_content))
 
@@ -365,6 +411,13 @@ def _msvc_toolchains_repo_impl(ctx):
     hosts = ctx.attr.hosts
     exec_oses = ctx.attr.exec_oses
 
+    # Parse external_llvm configs into a dict keyed by (exec_os, host)
+    external_llvm_entries = json.decode(ctx.attr.external_llvm)
+    external_llvm_map = {}
+    for ext in external_llvm_entries:
+        key = (ext["exec_os"], ext["host"])
+        external_llvm_map[key] = ext
+
     default_msvc_value = ctx.attr.default_msvc_version
     default_winsdk_value = ctx.attr.default_windows_sdk_version
     default_llvm_value = ctx.attr.default_clang_version if ctx.attr.default_clang_version else "unknown"
@@ -487,14 +540,13 @@ package(default_visibility = ["//visibility:public"])
 
                 # --- msvc-cl ---
                 if cl_with_lld_version:
-                    lld_link_llvm_repo = "llvm_{}_{}".format(cl_with_lld_version, host)
                     link_cc_tool = """cc_tool(
     name = "link",
-    src = "@{llvm_repo}//:lld-link_{suffix}",
+    src = "//llvm/bin:lld-link_{suffix}",
     data = [
-        "@{llvm_repo}//:lld_link_exe_only_{suffix}",
+        "//llvm/bin:lld_link_exe_only_{suffix}",
     ],
-)""".format(llvm_repo = lld_link_llvm_repo, suffix = suffix)
+)""".format(suffix = suffix)
                     base_link_flags = """base_link_flags = [
     "/lldignoreenv",
     "/NODEFAULTLIB",
@@ -561,10 +613,8 @@ package(default_visibility = ["//visibility:public"])
                     # For linux exec, append "_linux" to the toolchain name.
                     if exec_os == "linux":
                         exec_suffix = "_linux"
-                        llvm_repo_name = "llvm_{}_{}_linux".format(group_llvm_versions[0] if group_llvm_versions else "", host)
                     else:
                         exec_suffix = ""
-                        llvm_repo_name = "llvm_{}_{}".format(group_llvm_versions[0] if group_llvm_versions else "", host)
 
                     for compiler, src_attr in [("clang", ctx.attr.src_toolchain_clang), ("clang-cl", ctx.attr.src_toolchain_clang_cl)]:
                         tc_name = "{}_{}{}{}".format(group_name, compiler, suffix, exec_suffix)
@@ -653,7 +703,7 @@ string_enum_flag(
     ctx.file("compiler/BUILD.bazel", compiler_build_file)
 
     # Facade packages.
-    _emit_llvm_facades(ctx, llvm_versions, hosts, targets, exec_oses = exec_oses)
+    _emit_llvm_facades(ctx, llvm_versions, hosts, targets, exec_oses = exec_oses, external_llvm = external_llvm_map)
     _emit_msvc_facades(ctx, msvc_versions, hosts, targets)
     _emit_winsdk_facades(ctx, winsdk_versions, hosts)
     _emit_lib_packages(ctx, msvc_versions, winsdk_versions, targets)
@@ -737,6 +787,7 @@ msvc_toolchains_repo = repository_rule(
         "default_clang_version": attr.string(mandatory = False),
         "default_windows_sdk_version": attr.string(mandatory = True),
         "default_compiler": attr.string(mandatory = True),
+        "external_llvm": attr.string(default = "[]", doc = "JSON list of external LLVM configs, each with exec_os, host, clang_cl, lld_link, llvm_lib, llvm_ml, clang_builtin_include labels."),
         "src_features": attr.label(default = Label("//overlays/toolchain:BUILD.features.tpl"), allow_single_file = True),
         "src_artifacts": attr.label(default = Label("//overlays/toolchain:BUILD.artifacts.bazel"), allow_single_file = True),
         "src_args_msvc": attr.label(default = Label("//overlays/toolchain:BUILD.args-msvc.tpl"), allow_single_file = True),

@@ -276,6 +276,27 @@ def _extension_impl(module_ctx):
         for tag in mod.tags.default_compiler:
             global_default_compiler = tag.compiler
 
+    # Collect external_llvm tags: keyed by (toolchain_set_name, exec_os, host)
+    external_llvm_configs = {}
+    for mod in module_ctx.modules:
+        for tag in mod.tags.external_llvm:
+            key = (tag.toolchain_set, tag.exec_os, tag.host)
+            if key in external_llvm_configs:
+                fail("Duplicate external_llvm for toolchain_set='{}', exec_os='{}', host='{}'".format(
+                    tag.toolchain_set, tag.exec_os, tag.host,
+                ))
+            external_llvm_configs[key] = {
+                "name": tag.name,
+                "toolchain_set": tag.toolchain_set,
+                "exec_os": tag.exec_os,
+                "host": tag.host,
+                "clang_cl": tag.clang_cl,
+                "lld_link": tag.lld_link,
+                "llvm_lib": tag.llvm_lib,
+                "llvm_ml": tag.llvm_ml,
+                "clang_builtin_include": tag.clang_builtin_include,
+            }
+
     if not toolchain_sets:
         fail("At least one toolchain.toolchain_set(...) is required.")
 
@@ -466,7 +487,15 @@ def _extension_impl(module_ctx):
 
     repos = {}
 
+    # Determine which (host_os, host) combos are fully covered by external_llvm,
+    # so we can skip downloading LLVM for those combos.
+    external_llvm_os_hosts = {}
+    for ext_cfg in external_llvm_configs.values():
+        key = (ext_cfg["exec_os"], ext_cfg["host"])
+        external_llvm_os_hosts[key] = True
+
     # 2. Construct llvm repo definitions (only if llvm versions are defined)
+    # Skip repos for (host_os, host) combos that have external_llvm coverage.
     if all_llvm_versions:
         for llvm_version in all_llvm_versions:
             entry = clang_versions_dict[llvm_version]
@@ -474,33 +503,35 @@ def _extension_impl(module_ctx):
                 if host == "x86":
                     continue  # LLVM does not provide x86 Windows binaries
                 # Windows LLVM repo
-                digest = entry.get("x64_digest") if host == "x64" else entry.get("arm64_digest")
-                if digest:
-                    _register_repo_definition(repos, {
-                        "kind": "llvm",
-                        "name": "llvm_{}_{}".format(llvm_version, host),
-                        "version": llvm_version,
-                        "host": host,
-                        "host_os": "windows",
-                        "packages": _sort_packages([{
-                            "filename": _llvm_package_filename(llvm_version, host),
-                            "sha256": digest,
-                        }]),
-                    })
+                if ("windows", host) not in external_llvm_os_hosts:
+                    digest = entry.get("x64_digest") if host == "x64" else entry.get("arm64_digest")
+                    if digest:
+                        _register_repo_definition(repos, {
+                            "kind": "llvm",
+                            "name": "llvm_{}_{}".format(llvm_version, host),
+                            "version": llvm_version,
+                            "host": host,
+                            "host_os": "windows",
+                            "packages": _sort_packages([{
+                                "filename": _llvm_package_filename(llvm_version, host),
+                                "sha256": digest,
+                            }]),
+                        })
                 # Linux LLVM repo (for cross-compilation from Linux to Windows)
-                linux_digest = entry.get("linux_x64_digest") if host == "x64" else entry.get("linux_arm64_digest")
-                if linux_digest:
-                    _register_repo_definition(repos, {
-                        "kind": "llvm",
-                        "name": "llvm_{}_{}_linux".format(llvm_version, host),
-                        "version": llvm_version,
-                        "host": host,
-                        "host_os": "linux",
-                        "packages": _sort_packages([{
-                            "filename": _llvm_package_filename_linux(llvm_version, host),
-                            "sha256": linux_digest,
-                        }]),
-                    })
+                if ("linux", host) not in external_llvm_os_hosts:
+                    linux_digest = entry.get("linux_x64_digest") if host == "x64" else entry.get("linux_arm64_digest")
+                    if linux_digest:
+                        _register_repo_definition(repos, {
+                            "kind": "llvm",
+                            "name": "llvm_{}_{}_linux".format(llvm_version, host),
+                            "version": llvm_version,
+                            "host": host,
+                            "host_os": "linux",
+                            "packages": _sort_packages([{
+                                "filename": _llvm_package_filename_linux(llvm_version, host),
+                                "sha256": linux_digest,
+                            }]),
+                        })
 
     # 3. Construct all msvc repo definitions
     for msvc_version in all_msvc_versions:
@@ -629,6 +660,19 @@ def _extension_impl(module_ctx):
         fail("Unsupported repo kind '{}' for repo '{}'".format(kind, repo["name"]))
 
     # 5. Instantiate toolchains repo with resolved toolchain_set configs.
+    # Serialize external_llvm configs as a JSON list (tuple keys become "exec_os,host" strings).
+    external_llvm_list = []
+    for ext_cfg in external_llvm_configs.values():
+        external_llvm_list.append({
+            "exec_os": ext_cfg["exec_os"],
+            "host": ext_cfg["host"],
+            "clang_cl": ext_cfg["clang_cl"],
+            "lld_link": ext_cfg["lld_link"],
+            "llvm_lib": ext_cfg["llvm_lib"],
+            "llvm_ml": ext_cfg["llvm_ml"],
+            "clang_builtin_include": ext_cfg["clang_builtin_include"],
+        })
+
     msvc_toolchains_repo(
         name = repo_name_value,
         group_configs = json.encode(group_configs),
@@ -644,6 +688,7 @@ def _extension_impl(module_ctx):
         default_clang_version = default_llvm_for_repo,
         default_windows_sdk_version = default_winsdk_for_repo,
         default_compiler = default_compiler_for_repo,
+        external_llvm = json.encode(external_llvm_list),
     )
 
     direct_deps = [repo_name_value]
@@ -961,6 +1006,71 @@ default_compiler_tag = tag_class(
     },
 )
 
+external_llvm_tag = tag_class(
+    doc = """Provides external LLVM tool labels instead of downloading LLVM via the extension.
+
+When declared, the extension skips downloading/creating LLVM repository rules for the
+specified `exec_os` and `toolchain_set`. The `//llvm/bin` and `//llvm/include` facade
+packages will alias directly to the provided labels.
+
+This is useful when the workspace already has an LLVM toolchain (e.g. from
+`toolchains_llvm_bootstrapped`) and wants to avoid a duplicate ~1.5 GB download.
+
+Example:
+```
+msvc.external_llvm(
+    name = "default",
+    toolchain_set = "default",
+    exec_os = "linux",
+    host = "x64",
+    clang_cl = "@llvm_toolchains//:linux_x86_64/bin/clang-cl",
+    lld_link = "@llvm_toolchains//:linux_x86_64/bin/lld",
+    llvm_lib = "@llvm_toolchains//:linux_x86_64/bin/llvm-ar",
+    llvm_ml = "@llvm_toolchains//:linux_x86_64/bin/llvm-ml",
+    clang_builtin_include = "@llvm_toolchains//:linux_x86_64/clang_builtin_headers_include_directory",
+)
+```
+""",
+    attrs = {
+        "name": attr.string(
+            mandatory = True,
+            doc = "Unique name for this external LLVM configuration.",
+        ),
+        "toolchain_set": attr.string(
+            mandatory = True,
+            doc = "Name of the `toolchain_set` this external LLVM applies to.",
+        ),
+        "exec_os": attr.string(
+            default = "linux",
+            doc = "Execution OS this external LLVM provides tools for. Currently only `linux` is supported.",
+        ),
+        "host": attr.string(
+            default = "x64",
+            doc = "Host architecture this external LLVM provides tools for (`x64` or `arm64`).",
+        ),
+        "clang_cl": attr.string(
+            mandatory = True,
+            doc = "Label of the `clang-cl` (or `clang` with MSVC compatibility) executable.",
+        ),
+        "lld_link": attr.string(
+            mandatory = True,
+            doc = "Label of the `lld-link` (or `lld` with MSVC linker compatibility) executable.",
+        ),
+        "llvm_lib": attr.string(
+            mandatory = True,
+            doc = "Label of the `llvm-lib` (or `llvm-ar` with MSVC lib compatibility) executable.",
+        ),
+        "llvm_ml": attr.string(
+            mandatory = True,
+            doc = "Label of the `llvm-ml` assembler executable.",
+        ),
+        "clang_builtin_include": attr.string(
+            mandatory = True,
+            doc = "Label of the Clang built-in include directory (e.g. `clang_builtin_headers_include_directory` from `toolchains_llvm_bootstrapped`).",
+        ),
+    },
+)
+
 toolchain = module_extension(
     implementation = _extension_impl,
     doc = "Fetches MSVC, Windows SDK, and optional LLVM artifacts and registers matching C++ toolchains.",
@@ -972,6 +1082,7 @@ toolchain = module_extension(
         "default_llvm_version": default_llvm_version_tag,
         "default_winsdk_version": default_winsdk_version_tag,
         "default_compiler": default_compiler_tag,
+        "external_llvm": external_llvm_tag,
     },
     environ = [
         "BAZEL_TOOLCHAINS_MSVC_HOSTS",
