@@ -20,23 +20,22 @@ def _create_lowercase_symlinks(ctx, root_path):
     msvc-wine's ``lowercase`` script do.
 
     Skipped on Windows (NTFS is case-insensitive, and ``ctx.symlink`` would collide).
+    Uses recursion because Starlark does not support while loops.
     """
     if normalize_repository_os(ctx.os.name) == "windows":
         return
 
-    # Walk the tree breadth-first.  ``readdir`` on a ``path`` object returns
-    # direct children; we recurse into sub-directories.
-    queue = [root_path]
-    while queue:
-        current = queue.pop(0)
-        for child in current.readdir():
+    def _walk(path):
+        for child in path.readdir():
             basename = child.basename
             lowered = basename.lower()
             if basename != lowered:
                 # Create a lowercase symlink sibling.
                 ctx.symlink(child, str(child.dirname) + "/" + lowered)
             if child.is_dir:
-                queue.append(child)
+                _walk(child)
+
+    _walk(root_path)
 
 def _msvc_repo_impl(ctx):
     """Implementation of the msvc_repo rule."""
