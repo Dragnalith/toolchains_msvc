@@ -381,6 +381,25 @@ filegroup(
     srcs = glob(["Tools/bin/Hostarm64/arm64/**"], allow_empty = True),
 )
 
+# Lib Dirs
+subdirectory(
+    name = "lib_dir_x64",
+    parent = ":msvc_tree",
+    path = "Tools/lib/x64",
+)
+
+subdirectory(
+    name = "lib_dir_x86",
+    parent = ":msvc_tree",
+    path = "Tools/lib/x86",
+)
+
+subdirectory(
+    name = "lib_dir_arm64",
+    parent = ":msvc_tree",
+    path = "Tools/lib/arm64",
+)
+
 exports_files(
     glob(["**/*"]),  # or narrower patterns
     visibility = ["//visibility:public"],

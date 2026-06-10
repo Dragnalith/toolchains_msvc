@@ -131,6 +131,28 @@ cc_args(
 )
 
 cc_args(
+    name = "lib_paths",
+    actions = [
+        "@rules_cc//cc/toolchains/actions:link_actions",
+    ],
+    args = [
+        "/LIBPATH:{winsdk_um_lib}",
+        "/LIBPATH:{winsdk_ucrt_lib}",
+        "/LIBPATH:{msvc_lib}",
+    ],
+    data = [
+        "//winsdk/lib:um_lib_dir_{target}",
+        "//winsdk/lib:ucrt_lib_dir_{target}",
+        "//msvc/lib:lib_dir_{target}",
+    ],
+    format = {
+        "winsdk_um_lib": "//winsdk/lib:um_lib_dir_{target}",
+        "winsdk_ucrt_lib": "//winsdk/lib:ucrt_lib_dir_{target}",
+        "msvc_lib": "//msvc/lib:lib_dir_{target}",
+    },
+)
+
+cc_args(
     name = "release_dynamic_runtime_link",
     actions = [
         "@rules_cc//cc/toolchains/actions:link_actions",
@@ -242,6 +264,7 @@ cc_toolchain(
         ":base_compile_flags",
         ":base_link_flags",
         ":include_paths",
+        ":lib_paths",
         ":release_dynamic_runtime_link",
         ":release_static_runtime_link",
         ":debug_dynamic_runtime_link",

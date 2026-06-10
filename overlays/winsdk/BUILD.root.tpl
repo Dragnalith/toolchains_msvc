@@ -110,6 +110,42 @@ filegroup(
     ),
 )
 
+subdirectory(
+    name = "um_lib_x64",
+    parent = ":winsdk_tree",
+    path = "Lib/10.0.{winsdk_version}.0/um/x64",
+)
+
+subdirectory(
+    name = "ucrt_lib_x64",
+    parent = ":winsdk_tree",
+    path = "Lib/10.0.{winsdk_version}.0/ucrt/x64",
+)
+
+subdirectory(
+    name = "um_lib_x86",
+    parent = ":winsdk_tree",
+    path = "Lib/10.0.{winsdk_version}.0/um/x86",
+)
+
+subdirectory(
+    name = "ucrt_lib_x86",
+    parent = ":winsdk_tree",
+    path = "Lib/10.0.{winsdk_version}.0/ucrt/x86",
+)
+
+subdirectory(
+    name = "um_lib_arm64",
+    parent = ":winsdk_tree",
+    path = "Lib/10.0.{winsdk_version}.0/um/arm64",
+)
+
+subdirectory(
+    name = "ucrt_lib_arm64",
+    parent = ":winsdk_tree",
+    path = "Lib/10.0.{winsdk_version}.0/ucrt/arm64",
+)
+
 exports_files(
     glob(["**/*"]),  # or narrower patterns
     visibility = ["//visibility:public"],

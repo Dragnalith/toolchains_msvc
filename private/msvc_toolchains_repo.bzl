@@ -323,6 +323,18 @@ package(default_visibility = ["//visibility:public"])
 
 """ + winsdk_cfg + _cc_imports(winsdk_libs)
     winsdk_content = _rt_winsdk(winsdk_content)
+
+    # Add lib directory aliases for /LIBPATH support
+    for target in targets:
+        winsdk_content += "\nalias(\n    name = \"um_lib_dir_{target}\",\n    actual = select({{\n".format(target = target)
+        for v in winsdk_versions:
+            winsdk_content += "        \":winsdk{}_{}\": \"@winsdk_{}//:um_lib_{}\",\n".format(v, target, v, target)
+        winsdk_content += "    }),\n)\n"
+        winsdk_content += "\nalias(\n    name = \"ucrt_lib_dir_{target}\",\n    actual = select({{\n".format(target = target)
+        for v in winsdk_versions:
+            winsdk_content += "        \":winsdk{}_{}\": \"@winsdk_{}//:ucrt_lib_{}\",\n".format(v, target, v, target)
+        winsdk_content += "    }),\n)\n"
+
     ctx.file("winsdk/lib/BUILD.bazel", winsdk_content)
 
     msvc_content = """load("@rules_cc//cc:defs.bzl", "cc_import")
@@ -331,6 +343,14 @@ package(default_visibility = ["//visibility:public"])
 
 """ + msvc_cfg + _cc_imports(msvc_libs)
     msvc_content = _rt_msvc(msvc_content)
+
+    # Add lib directory aliases for /LIBPATH support
+    for target in targets:
+        msvc_content += "\nalias(\n    name = \"lib_dir_{target}\",\n    actual = select({{\n".format(target = target)
+        for v in msvc_versions:
+            msvc_content += "        \":msvc{}_{}\": \"@msvc_{}//:lib_dir_{}\",\n".format(v, target, v, target)
+        msvc_content += "    }),\n)\n"
+
     ctx.file("msvc/lib/BUILD.bazel", msvc_content)
 
 def _msvc_toolchains_repo_impl(ctx):
