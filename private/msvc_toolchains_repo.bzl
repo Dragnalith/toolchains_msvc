@@ -242,14 +242,14 @@ def _emit_lib_packages(ctx, msvc_versions, winsdk_versions, targets):
                     winsdk_libs,
                     lib_name,
                     config_name,
-                    "@winsdk_{}//:Lib/10.0.{}.0/ucrt/{}/{}".format(winsdk_version, winsdk_version, target, lib_name),
+                    "@winsdk_{}//:Lib/10.0.{}.0/ucrt/{}/{}".format(winsdk_version, winsdk_version, target, lib_name.lower()),
                 )
             for lib_name in um_lib:
                 _add_lib_variant(
                     winsdk_libs,
                     lib_name,
                     config_name,
-                    "@winsdk_{}//:Lib/10.0.{}.0/um/{}/{}".format(winsdk_version, winsdk_version, target, lib_name),
+                    "@winsdk_{}//:Lib/10.0.{}.0/um/{}/{}".format(winsdk_version, winsdk_version, target, lib_name.lower()),
                 )
 
     for msvc_version in msvc_versions:
