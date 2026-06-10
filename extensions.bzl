@@ -17,8 +17,8 @@ register_toolchains("@msvc_toolchains//:all")
 
 Environment:
 
-* ``BAZEL_TOOLCHAINS_MSVC_HOSTS`` — comma-separated list of hosts, used if ``hosts`` is omitted on a set.
-* ``BAZEL_TOOLCHAINS_MSVC_TARGETS`` — comma-separated list of targets, used if ``targets`` is omitted.
+* ``BAZEL_TOOLCHAINS_MSVC_HOSTS`` -- comma-separated list of hosts, used if ``hosts`` is omitted on a set.
+* ``BAZEL_TOOLCHAINS_MSVC_TARGETS`` -- comma-separated list of targets, used if ``targets`` is omitted.
 """
 
 load(

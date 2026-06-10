@@ -43,7 +43,7 @@ filegroup(
 )
 
 # libclang (DLL + import library) for consumers that link against the Clang
-# C API — e.g. Rust bindgen and other FFI binding generators.
+# C API -- e.g. Rust bindgen and other FFI binding generators.
 filegroup(
     name = "libclang",
     srcs = [

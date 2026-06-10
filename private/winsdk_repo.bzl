@@ -133,8 +133,8 @@ def _winsdk_repo_impl(ctx):
     ctx.delete("tmp")
 
     # On case-sensitive filesystems, create lowercase symlinks for WinSDK
-    # headers and libraries (e.g. Include/10.0.xxxxx.0/um/Windows.h → windows.h,
-    # Lib/10.0.xxxxx.0/um/x64/Kernel32.Lib → kernel32.lib).
+    # headers and libraries (e.g. Include/10.0.xxxxx.0/um/Windows.h -> windows.h,
+    # Lib/10.0.xxxxx.0/um/x64/Kernel32.Lib -> kernel32.lib).
     for subdir in ["Include", "Lib"]:
         p = ctx.path(subdir)
         if p.exists:

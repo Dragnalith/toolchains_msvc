@@ -16,7 +16,7 @@ def _create_lowercase_symlinks(ctx, root_path):
     libraries/headers like ``Kernel32.Lib`` or ``Windows.h`` when referenced with
     different casing (e.g. ``kernel32.lib``, ``windows.h``).  This helper walks the
     tree and adds a lowercase symlink sibling for every entry whose basename differs
-    from its lowercased form — mirroring what xwin's ``--symlinks`` flag and
+    from its lowercased form -- mirroring what xwin's ``--symlinks`` flag and
     msvc-wine's ``lowercase`` script do.
 
     Skipped on Windows (NTFS is case-insensitive, and ``ctx.symlink`` would collide).
@@ -75,7 +75,7 @@ def _msvc_repo_impl(ctx):
     ctx.delete("tmp")
 
     # On case-sensitive filesystems, create lowercase symlinks for MSVC
-    # headers and libraries (e.g. Tools/lib/x64/Kernel32.Lib → kernel32.lib).
+    # headers and libraries (e.g. Tools/lib/x64/Kernel32.Lib -> kernel32.lib).
     _create_lowercase_symlinks(ctx, ctx.path("Tools/lib"))
     _create_lowercase_symlinks(ctx, ctx.path("Tools/include"))
 
