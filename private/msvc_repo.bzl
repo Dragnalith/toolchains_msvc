@@ -20,22 +20,30 @@ def _create_lowercase_symlinks(ctx, root_path):
     msvc-wine's ``lowercase`` script do.
 
     Skipped on Windows (NTFS is case-insensitive, and ``ctx.symlink`` would collide).
-    Uses recursion because Starlark does not support while loops.
+    Uses ctx.execute with a find-based shell snippet because Starlark does not
+    support while loops or recursive function calls.
     """
     if normalize_repository_os(ctx.os.name) == "windows":
         return
 
-    def _walk(path):
-        for child in path.readdir():
-            basename = child.basename
-            lowered = basename.lower()
-            if basename != lowered:
-                # Create a lowercase symlink sibling.
-                ctx.symlink(child, str(child.dirname) + "/" + lowered)
-            if child.is_dir:
-                _walk(child)
-
-    _walk(root_path)
+    # Use find to locate files/dirs whose basename differs from lowercase,
+    # then create a symlink next to them.  This avoids Starlark recursion limits.
+    result = ctx.execute([
+        "bash",
+        "-c",
+        "cd \"$1\" && find . -depth -print0 | while IFS= read -r -d '' entry; do " +
+        "base=$(basename \"$entry\"); lower=$(echo \"$base\" | tr 'A-Z' 'a-z'); " +
+        "if [ \"$base\" != \"$lower\" ]; then " +
+        "dir=$(dirname \"$entry\"); " +
+        "ln -s \"$base\" \"$dir/$lower\" 2>/dev/null || true; " +
+        "fi; done",
+        "_",
+        str(root_path),
+    ])
+    if result.return_code != 0:
+        # Non-fatal: missing symlinks may cause compile errors later but shouldn't
+        # fail the repo fetch entirely.
+        pass
 
 def _msvc_repo_impl(ctx):
     """Implementation of the msvc_repo rule."""

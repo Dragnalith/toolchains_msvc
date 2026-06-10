@@ -18,21 +18,26 @@ def _create_lowercase_symlinks(ctx, root_path):
     sibling for every entry whose basename differs from its lowercased form.
 
     Skipped on Windows (NTFS is case-insensitive, and ``ctx.symlink`` would collide).
-    Uses recursion because Starlark does not support while loops.
+    Uses ctx.execute with a find-based shell snippet because Starlark does not
+    support while loops or recursive function calls.
     """
     if normalize_repository_os(ctx.os.name) == "windows":
         return
 
-    def _walk(path):
-        for child in path.readdir():
-            basename = child.basename
-            lowered = basename.lower()
-            if basename != lowered:
-                ctx.symlink(child, str(child.dirname) + "/" + lowered)
-            if child.is_dir:
-                _walk(child)
-
-    _walk(root_path)
+    result = ctx.execute([
+        "bash",
+        "-c",
+        "cd \"$1\" && find . -depth -print0 | while IFS= read -r -d '' entry; do " +
+        "base=$(basename \"$entry\"); lower=$(echo \"$base\" | tr 'A-Z' 'a-z'); " +
+        "if [ \"$base\" != \"$lower\" ]; then " +
+        "dir=$(dirname \"$entry\"); " +
+        "ln -s \"$base\" \"$dir/$lower\" 2>/dev/null || true; " +
+        "fi; done",
+        "_",
+        str(root_path),
+    ])
+    if result.return_code != 0:
+        pass
 
 def _get_cabs_from_msi(msi_util_path, ctx, local_msi_path):
     """Returns cabinet file names referenced by an MSI (via msi-util list-cab)."""
