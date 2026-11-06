@@ -7,6 +7,7 @@ and `//llvm` flags:
 * `//llvm/bin`, `//llvm/include`
 * `//msvc/bin`, `//msvc/include`, `//msvc/lib`
 * `//winsdk/include`, `//winsdk/bin` (rc.exe), `//winsdk/lib`
+* `//msbuild`, MSBuild driving the selected MSVC and Windows SDK
 
 Architecture (host/target) is NOT selected: one `cc_toolchain` is generated per
 `(toolchain_set, compiler, host, target)` and registered with
@@ -197,6 +198,26 @@ def _emit_winsdk_facades(ctx, winsdk_versions, hosts):
             _select_list("winsdk", winsdk_versions, lambda v, host = host: "@winsdk_{}//:rc_files_{}".format(v, host)),
         ))
     ctx.file("winsdk/bin/BUILD.bazel", "\n".join(bin_content))
+
+def _emit_msbuild_package(ctx, msvc_versions, winsdk_versions):
+    """Generates //msbuild, MSBuild driving the selected MSVC and Windows SDK."""
+    ctx.template("msbuild.bzl", ctx.attr.src_msbuild, {})
+    ctx.file("msbuild/BUILD.bazel", """load("//:msbuild.bzl", "msbuild")
+
+msbuild(
+    name = "msbuild",
+    msvc = {msvc},
+    vc_targets = {vc_targets},
+    winsdk = {winsdk},
+    winsdk_version = {winsdk_version},
+    visibility = ["//visibility:public"],
+)
+""".format(
+        msvc = _select_label("msvc", msvc_versions, lambda v: "@msvc_{}//:msvc_all_files".format(v)),
+        vc_targets = _select_label("msvc", msvc_versions, lambda v: "@msvc_{}//:msbuild_vc_targets".format(v)),
+        winsdk = _select_label("winsdk", winsdk_versions, lambda v: "@winsdk_{}//:all_files".format(v)),
+        winsdk_version = _select_label("winsdk", winsdk_versions, lambda v: v),
+    ))
 
 def _emit_lib_packages(ctx, msvc_versions, winsdk_versions, targets):
     """Generates //msvc/lib and //winsdk/lib (cc_import system libs + runtime-link file targets)."""
@@ -613,6 +634,7 @@ string_enum_flag(
     _emit_msvc_facades(ctx, msvc_versions, hosts, targets)
     _emit_winsdk_facades(ctx, winsdk_versions, hosts)
     _emit_lib_packages(ctx, msvc_versions, winsdk_versions, targets)
+    _emit_msbuild_package(ctx, msvc_versions, winsdk_versions)
 
     return ctx.repo_metadata(reproducible = True)
 
@@ -695,5 +717,6 @@ msvc_toolchains_repo = repository_rule(
         "src_toolchain_clang": attr.label(default = Label("//overlays/toolchain/clang:BUILD.toolchain.tpl"), allow_single_file = True),
         "src_toolchain_clang_cl": attr.label(default = Label("//overlays/toolchain/clang-cl:BUILD.toolchain.tpl"), allow_single_file = True),
         "src_common": attr.label(default = Label("//overlays:common.bzl"), allow_single_file = True),
+        "src_msbuild": attr.label(default = Label("//overlays:msbuild.bzl"), allow_single_file = True),
     },
 )

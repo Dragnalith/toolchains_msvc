@@ -41,6 +41,22 @@ def _msvc_repo_impl(ctx):
 
     ctx.execute(["cmd", "/c", "move", str(tools_dir).replace("/", "\\"), "Tools"])
     ctx.execute(["cmd", "/c", "move", str(redist_dir).replace("/", "\\"), "Redist"])
+
+    msbuild_dir = ctx.path("tmp/Contents/MSBuild")
+    if msbuild_dir.exists:
+        # Moving also settles the casing payloads disagree on ("MSBuild" vs "Msbuild").
+        ctx.execute(["cmd", "/c", "move", str(msbuild_dir).replace("/", "\\"), "MSBuild"])
+
+        # Visual Studio 2026 setup creates MSBuild.exe.config, holding the binding redirects, from
+        # this template.
+        config = "MSBuild/Current/Bin/amd64/MSBuild.exe.config"
+        if not ctx.path(config).exists:
+            ctx.file(config, ctx.read(config + ".template"))
+
+        # Flattening Tools/MSVC/<version> to Tools/ loses the version, which a Visual Studio
+        # installation also records in this file.
+        ctx.file("Auxiliary/Build/Microsoft.VCToolsVersion.default.txt", tools_dir.basename + "\n")
+
     ctx.delete("tmp")
 
     # Add cl_wrapper.bat next to cl.exe in every host/target config so EXECROOT can be

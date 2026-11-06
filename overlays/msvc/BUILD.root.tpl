@@ -386,3 +386,14 @@ exports_files(
     visibility = ["//visibility:public"],
 )
 
+# For msbuild.bzl, empty for MSVC versions MSBuild is not staged for.
+filegroup(
+    name = "msbuild_vc_targets",
+    srcs = glob(["MSBuild/Microsoft/VC/*/Microsoft.Cpp.Default.props"], allow_empty = True),
+)
+
+filegroup(
+    name = "msvc_all_files",
+    srcs = glob(["**"], exclude = ["BUILD.bazel"]),
+)
+

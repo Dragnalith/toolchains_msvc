@@ -73,6 +73,7 @@ The extension creates the aggregate `@msvc_toolchains` repository (name customiz
 
 * `//msvc`, `//winsdk`, `//llvm`, `//compiler`, `//toolchain_set` — build setting flags for toolchain selection
 * `//winsdk/lib`, `//msvc/lib` — on-demand system library imports (e.g. `@msvc_toolchains//winsdk/lib:kernel32`)
+* `//msbuild` — MSBuild driving the selected MSVC (14.30 or later) and Windows SDK, for an x64 host
 * `//:all` — registers every generated toolchain
 * `//toolchain_set/<name>/...` — per-toolchain-set generated toolchain definitions
 
@@ -216,6 +217,23 @@ Notes:
 * `cl_with_lld_version` is validated against the same allowed LLVM release list as `llvm_versions`
 * it is legal to specify it without any `llvm_versions`
 * `clang` and `clang-cl` toolchains are generated only from `llvm_versions`, not from `cl_with_lld_version`
+
+## MSBuild
+
+`@msvc_toolchains//msbuild` builds `.vcxproj` and `.sln` files with the selected MSVC and Windows SDK, and no Visual Studio installation:
+
+```starlark
+genrule(
+    name = "my_dll",
+    srcs = ["my_dll.vcxproj"] + glob(["*.cpp", "*.h"]),
+    outs = ["my_dll.dll"],
+    # MSBuild resolves relative output directories against the project.
+    cmd_bat = "$(execpath @msvc_toolchains//msbuild) $(execpath my_dll.vcxproj) -p:Configuration=Release -p:Platform=x64 -p:OutDir=%CD%\\$(RULEDIR)\\ -p:IntDir=%CD%\\$(RULEDIR)\\obj\\",
+    tools = ["@msvc_toolchains//msbuild"],
+)
+```
+
+The target is a batch file, which other batch files must run with `call` to get control back.
 
 ## Custom Repo Name
 

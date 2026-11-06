@@ -57,7 +57,7 @@ def download_and_map(ctx, channel_url):
             fail("Every package must have an id")
 
         lang = pkg.get("language")
-        if lang and lang.lower() != "en-us":
+        if lang and lang.lower() not in ("en-us", "neutral"):  # Microsoft.Build is language-neutral
             continue
 
         pkg_id = pkg["id"].lower()
@@ -93,6 +93,38 @@ def get_winsdk_package_id(version):
         return "Win10SDK_10.0.19041".lower()
     else:
         return "Win11SDK_10.0.{version}".format(version = version).lower()
+
+def get_msbuild_package_ids(packages_map, msvc_version, targets):
+    """Returns the package IDs of MSBuild and of the C++ project system driving an MSVC version.
+
+    Args:
+        packages_map: The map of package IDs to package data.
+        msvc_version: The MSVC version string (e.g., "14.44").
+        targets: List of target architectures to include.
+
+    Returns:
+        A list of package IDs, empty for MSVC versions older than 14.30.
+    """
+
+    # VCTargetsPath directory and PlatformToolset per MSVC toolset family, see
+    # https://learn.microsoft.com/en-us/cpp/overview/compiler-versions
+    minor = int(msvc_version.split(".")[1])
+    if minor >= 30 and minor < 50:
+        vc_targets, platform_toolset = "v170", "v143"
+    elif minor >= 50 and minor < 60:
+        vc_targets, platform_toolset = "v180", "v145"
+    else:
+        return []
+
+    prefix = "Microsoft.VisualStudio.VC.MSBuild.{}.".format(vc_targets)
+    ids = ["Microsoft.Build", "Microsoft.Build.Dependencies", prefix + "Base"]
+    for target in targets:
+        ids += [prefix + target, "{}{}.{}".format(prefix, target, platform_toolset)]
+    ids = [pkg_id.lower() for pkg_id in ids]
+    missing = [pkg_id for pkg_id in ids if pkg_id not in packages_map]
+    if missing:
+        fail("Visual Studio manifest has no MSBuild packages: {}".format(missing))
+    return ids
 
 # Valid values for hosts: x86, x64, arm64
 VALID_MSVC_HOSTS = ["x86", "x64", "arm64"]

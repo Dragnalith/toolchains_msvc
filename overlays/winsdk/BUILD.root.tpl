@@ -115,3 +115,8 @@ exports_files(
     visibility = ["//visibility:public"],
 )
 
+filegroup(
+    name = "all_files",
+    srcs = glob(["**"], exclude = ["BUILD.bazel"]),
+)
+

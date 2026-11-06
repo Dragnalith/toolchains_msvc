@@ -57,6 +57,7 @@ load(
     "VALID_MSVC_HOSTS",
     "VALID_MSVC_TARGETS",
     "download_and_map",
+    "get_msbuild_package_ids",
     "get_msvc_package_ids",
     "get_msvc_redist_package_ids",
     "get_winsdk_msi_list",
@@ -476,6 +477,7 @@ def _extension_impl(module_ctx):
         redist_packages_map = packages_maps[redist_package_map_key]
         redist_deps = get_msvc_redist_package_ids(redist_packages_map, closest_redist, targets = all_targets)
         deps.extend(redist_deps)
+        deps.extend(get_msbuild_package_ids(msvc_packages_map, msvc_version, all_targets))
 
         deps = sorted(deps)
 
