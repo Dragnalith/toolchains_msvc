@@ -1,0 +1,18 @@
+load("@bazel_skylib//rules:native_binary.bzl", "native_binary")
+
+genrule(
+    name = "main",
+    srcs = [
+        "main.cpp",
+        "main.vcxproj",
+    ],
+    outs = ["main.exe"],
+    cmd_bat = "$(execpath @msvc_toolchains//msbuild) $(execpath main.vcxproj) -p:Configuration=Release -p:Platform=x64 -p:OutDir=%CD%\\$(RULEDIR)\\ -p:IntDir=%CD%\\$(RULEDIR)\\obj\\ 1>&2",
+    tools = ["@msvc_toolchains//msbuild"],
+)
+
+native_binary(
+    name = "hello_world",
+    src = ":main.exe",
+    out = "hello_world.exe",
+)

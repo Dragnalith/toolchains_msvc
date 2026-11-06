@@ -551,6 +551,31 @@ def run_one_host_one_target(
         run_test(workspace_dir, "one_host_one_target", current, total, show_progress=show_progress, no_stderr_flush=no_stderr_flush, **kwargs)
 
 
+def run_msbuild(
+    script_dir: Path,
+    show_progress: bool = False,
+    no_stderr_flush: bool = False,
+) -> None:
+    """Run msbuild tests (x64 host and target, fixed 26100)."""
+    msvc_versions = ["14.50", "14.44"]
+    print("DESCRIPTION: Test an MSBuild project built with @msvc_toolchains//msbuild.")
+    print(f"msvc-versions: {', '.join(msvc_versions)}")
+    print("winsdk-versions: 26100")
+
+    workspace_dir = script_dir / "msbuild"
+    check(workspace_dir.is_dir(), f"Workspace not found: {workspace_dir}")
+
+    total = len(msvc_versions)
+    for current, msvc_version in enumerate(msvc_versions, 1):
+        run_test(
+            workspace_dir, "msbuild", current, total, show_progress=show_progress, no_stderr_flush=no_stderr_flush,
+            toolchain_flags=[f"--@msvc_toolchains//msvc:msvc={msvc_version}"],
+            expected_target="x64", expected_compiler="cl.exe",
+            expected_compiler_version=msvc_version, expected_msvc_version=msvc_version,
+            expected_winsdk_version="26100",
+        )
+
+
 def run_test_default(
     script_dir: Path,
     hosts: list[str],
@@ -766,6 +791,11 @@ def main() -> None:
     one_host_parser.add_argument("--show-progress", action="store_true", dest="show_progress", help=show_progress_help)
     one_host_parser.add_argument("--no-stderr-flush", action="store_true", dest="no_stderr_flush", help="Do not capture or flush stderr; let it go to the terminal")
 
+    # msbuild command
+    msbuild_parser = subparsers.add_parser("msbuild", help="Test an MSBuild project (x64 host and target, 14.50/14.44, fixed 26100)")
+    msbuild_parser.add_argument("--show-progress", action="store_true", dest="show_progress", help=show_progress_help)
+    msbuild_parser.add_argument("--no-stderr-flush", action="store_true", dest="no_stderr_flush", help="Do not capture or flush stderr; let it go to the terminal")
+
     # test_default command
     test_default_parser = subparsers.add_parser("test_default", help="Test default toolchain configuration")
     test_default_parser.add_argument("--hosts", type=parse_comma_list, default=None, help="Comma-separated host architectures (default: x86, x64 on AMD64, arm64 on ARM64)")
@@ -804,6 +834,8 @@ def main() -> None:
         run_reproducible_test(script_dir, hosts, targets, args.msvc_versions, args.winsdk_versions, args.clang_versions, compilers=getattr(args, "compilers", None), show_progress=args.show_progress, no_stderr_flush=args.no_stderr_flush)
     elif args.command == "one_host_one_target":
         run_one_host_one_target(script_dir, hosts, targets, show_progress=args.show_progress, no_stderr_flush=args.no_stderr_flush)
+    elif args.command == "msbuild":
+        run_msbuild(script_dir, show_progress=args.show_progress, no_stderr_flush=args.no_stderr_flush)
     elif args.command == "test_default":
         run_test_default(script_dir, hosts, targets, args.clang_versions, show_progress=args.show_progress, no_stderr_flush=args.no_stderr_flush)
     elif args.command == "test_features":

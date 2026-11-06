@@ -1,1 +1,4 @@
-exports_files(["common.bzl"])
+exports_files([
+    "common.bzl",
+    "msbuild.bzl",
+])

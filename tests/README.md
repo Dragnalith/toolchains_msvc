@@ -3,3 +3,5 @@
 *one_host_one_target* is a project that declares a single host and target (set via env vars). Use it to verify that only the chosen host and target packages are used and that others are not downloaded.
 
 *reproducible_project* is a copy of all_hosts_all_targets. Use it to verify that the same project produces identical output.
+
+*msbuild* is a project built by `@msvc_toolchains//msbuild` from a `.vcxproj`. Use it to verify that MSBuild drives the selected MSVC and Windows SDK, for each platform toolset.

@@ -1,0 +1,19 @@
+module(
+    name = "test_module",
+    version = "0.0.1",
+)
+
+bazel_dep(name = "bazel_skylib", version = "1.8.2")
+bazel_dep(name = "toolchains_msvc", version = "0.1.0")
+local_path_override(
+    module_name = "toolchains_msvc",
+    path = "../..",
+)
+
+toolchain = use_extension("@toolchains_msvc//:extensions.bzl", "toolchain")
+toolchain.toolchain_set(
+    name = "default",
+    msvc_versions = ["14.50", "14.44"],
+    winsdk_versions = ["26100"],
+)
+use_repo(toolchain, "msvc_toolchains")
