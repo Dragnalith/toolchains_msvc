@@ -229,10 +229,11 @@ def _extension_impl(module_ctx):
     """
     # 1. Download manifest and map for each channel
     packages_maps = {}
+    facts = {}
     accept_eula = module_ctx.os.environ.get("BAZEL_TOOLCHAINS_MSVC_ACCEPT_MICROSOFT_VISUAL_STUDIO_BUILDTOOLS_EULA", "").lower()
     accept_eula_error = ""
     for package_map_key, channel_url in CHANNEL_URL.items():
-        package_map, license_url = download_and_map(module_ctx, channel_url)
+        package_map, license_url, facts[channel_url] = download_and_map(module_ctx, channel_url)
         packages_maps[package_map_key] = package_map
 
         if not accept_eula_error and accept_eula not in ["1", "true"]:
@@ -611,7 +612,8 @@ def _extension_impl(module_ctx):
     direct_deps = [repo_name_value]
 
     return module_ctx.extension_metadata(
-        reproducible = False,
+        facts = facts,
+        reproducible = clang_versions_dict == None,  # requested LLVM versions come from an unpinned releases list
         root_module_direct_deps = direct_deps,
         root_module_direct_dev_deps = [],
     )

@@ -1,14 +1,14 @@
 """Module for downloading and parsing Visual Studio channel manifests."""
 
-def download_and_map(ctx, channel_url):
-    """Downloads the VS manifest from the given channel and returns a mapping of package IDs to package data and the license URL.
+def _resolve_channel(ctx, channel_url):
+    """Downloads the VS root manifest from the given channel and returns the package manifest URL and the license URL.
 
     Args:
         ctx: The module_context or repository_ctx.
         channel_url: The channel URL to download from (e.g., "https://aka.ms/vs/17/release/channel").
 
     Returns:
-        A tuple (packages_map, license_url).
+        A tuple (package_manifest_url, license_url).
     """
 
     # 1. Download the root manifest
@@ -41,11 +41,31 @@ def download_and_map(ctx, channel_url):
     if not package_manifest_url:
         fail("Could not find Microsoft.VisualStudio.Manifests.VisualStudio in root manifest")
 
+    return package_manifest_url, license_url
+
+def download_and_map(ctx, channel_url):
+    """Downloads the VS manifest from the given channel and returns a mapping of package IDs to package data, the license URL and the channel fact.
+
+    Args:
+        ctx: The module_context, whose facts may pin the channel.
+        channel_url: The channel URL to download from (e.g., "https://aka.ms/vs/17/release/channel").
+
+    Returns:
+        A tuple (packages_map, license_url, fact).
+    """
+    fact = ctx.facts.get(channel_url)
+    if fact and all([key in fact for key in ("manifest_url", "manifest_sha256", "license_url")]):
+        package_manifest_url, package_manifest_sha256, license_url = fact["manifest_url"], fact["manifest_sha256"], fact["license_url"]
+    else:
+        package_manifest_url, license_url = _resolve_channel(ctx, channel_url)
+        package_manifest_sha256 = ""  # unknown until first downloaded
+
     # 3. Download the package manifest
     ctx.report_progress("Downloading Visual Studio package manifest...")
-    ctx.download(
+    download_info = ctx.download(
         url = package_manifest_url,
         output = "visual_studio_package_manifest.json",
+        sha256 = package_manifest_sha256,
     )
 
     package_manifest_content = ctx.read("visual_studio_package_manifest.json")
@@ -65,7 +85,11 @@ def download_and_map(ctx, channel_url):
         if pkg_id not in packages_map:
             fail("Package not found: {pkg_id}".format(pkg_id = pkg_id))
 
-    return packages_map, license_url
+    return packages_map, license_url, {
+        "manifest_url": package_manifest_url,
+        "manifest_sha256": download_info.sha256,
+        "license_url": license_url,
+    }
 
 def get_winsdk_msi_list(targets):
     msi_list = [
